@@ -1,0 +1,13 @@
+node_modules/
+.worktrees/
+archive/
+demo/home/
+*.log
+*.tgz
+.DS_Store
+# Scratch directories the tests make in the repository root and remove again
+.pk-project-folder-test-*/
+.aw-qc-folder-*/
+.codemap-test-*/
+.plan-use-test-*/
+.qc-ax-*/

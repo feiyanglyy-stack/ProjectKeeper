@@ -1,0 +1,24 @@
+name: Question or idea
+description: Something you could not find out, or something you wish ProjectKeeper told you about your project.
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The FAQ (docs/faq.md) may already answer a question. For an idea, the most useful thing is what you were trying to find out about your project and could not.
+  - type: textarea
+    id: what
+    attributes:
+      label: Your question, or what you were trying to find out
+    validations:
+      required: true
+  - type: textarea
+    id: now
+    attributes:
+      label: What ProjectKeeper shows or does today
+      description: What you looked at, and where it fell short.
+  - type: textarea
+    id: project
+    attributes:
+      label: About your project, if it helps
+      description: How it is built (which agent tools, how plans and decisions are written down), roughly how large. No names needed.

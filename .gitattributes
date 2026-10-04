@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Frozen WorkflowKeeper theme files are byte-for-byte copies (ui/themes/README.md): never normalize them.
+ui/themes/*/board.css -text

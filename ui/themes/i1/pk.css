@@ -1,0 +1,223 @@
+/* ───────────────────────────────────────────────────────────────────
+ * i1 · Task Console — ProjectKeeper's layer (Spec §6.16; CKC-09 AC-41; the UI line's V3)
+ *
+ * board.css beside this file is the owner's, frozen: not a byte of it changes. This file is loaded after it and gives
+ * every `--pk-*` token of ui/styles.css (the contract in ../TOKENS.md) a value the board already has — its tokens where
+ * they exist, its own literals where they do not — and then the parts the board never had (a segmented control, a
+ * conversation, a graph). No colour, shadow or radius that is not in board.css. The whole file can be taken away and
+ * the factory look is back.
+ *
+ * The master (WorkflowKeeper's D87): everything is made after i1's card — the machined panel: chamfer + brushed
+ * hairlines on a --card face, a --line frame, --bezel-chunk's hard lip and deep drop. The popover, the docked Keeper,
+ * the dialog, a note card, the open row of the bottom strip and the tooltip are that card. Section heads and strip
+ * column heads are its bin header (.rootHead: brushed shelf, amber top edge). Segmented controls are its tray tiles in
+ * a groove. The four layers: ground (--bg with the blueprint grid) < section (--panel) < card (--card) < control
+ * (--raise, lit amber when on).
+ * ─────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surfaces and lines: the chassis ladder, page < panel < card < raised part; the well sinks below the page ── */
+  --pk-ground:        var(--bg);
+  --pk-rail:          var(--panel);
+  --pk-surface:       var(--card);
+  --pk-raised:        var(--raise);
+  --pk-line:          var(--line-hi);
+  --pk-line-soft:     var(--line);
+  --pk-line-strong:   #4a4032;
+  --pk-scrim:         rgba(0,0,0,.6);
+
+  /* ── Text, four steps: readings and titles, body, secondary, faint ── */
+  --pk-text-strong:   var(--tx0);
+  --pk-text:          var(--tx1);
+  --pk-text-muted:    #a89a83;
+  --pk-text-faint:    var(--tx2);
+
+  /* ── The signal: fluorescent amber, only on what is lit ── */
+  --pk-accent:        var(--amber);
+  --pk-accent-bg:     #443414;
+  --pk-accent-hi:     var(--amber-mid);
+  --pk-on-accent:     var(--bg);
+  --pk-accent-soft:   #241c10;
+  --pk-flash:         #57481f;
+  --pk-star:          var(--amber);
+
+  /* ── The other families ── */
+  --pk-green:         var(--green);   --pk-green-bg:  #1d3a29;   --pk-green-ln: var(--green-dim);
+  --pk-blue:          var(--blue);    --pk-blue-bg:   #1e3a4a;
+  --pk-red:           var(--red);     --pk-red-bg:    #3a1a16;   --pk-red-ln:   var(--red-dim);
+  --pk-purple:        var(--plum);    --pk-purple-bg: #2a2033;
+
+  /* ── Selection ── */
+  --pk-sel-bg:        var(--raise);
+
+  /* ── Fonts: the board's own; the π mark in the console's monospace ── */
+  --pk-font-body:     12.5px/1.55 "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  --pk-font-ui:       "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  --pk-font-mono:     ui-monospace, Consolas, monospace;
+  --pk-font-display:  ui-monospace, Consolas, monospace;
+
+  /* ── Radii: machined, tight ── */
+  --pk-radius:        6px;
+  --pk-radius-sm:     4px;
+  --pk-radius-xs:     2px;
+  --pk-radius-panel:  4px;
+  --pk-radius-pill:   999px;
+
+  /* ── Shadows ── */
+  --pk-shadow-float:  0 10px 28px rgba(0,0,0,.55);
+  --pk-shadow-window: var(--bezel-chunk), 0 10px 28px rgba(0,0,0,.55);
+  --pk-shadow-raised: var(--bezel-raise);
+
+  /* ── The card (the master): the machined panel ── */
+  --pk-card-bg:           var(--card);
+  --pk-card-texture:      var(--card-chamfer), var(--card-brush);
+  --pk-card-border:       var(--line);
+  --pk-card-shadow:       var(--bezel-chunk);
+  --pk-card-radius:       4px;
+  --pk-card-text:         var(--tx1);
+  --pk-card-line:         var(--line-hi);
+  --pk-card-hover-border: var(--amber-dim);
+  --pk-card-foot-bg:      var(--well);
+  --pk-card-head-bg:      var(--raise);
+
+  /* ── A section (a panel), and its head (the bin header: brushed shelf, amber top edge, cool highlight) ── */
+  --pk-section-bg:      var(--panel);
+  --pk-section-border:  var(--line);
+  --pk-section-radius:  8px;
+  --pk-section-shadow:  var(--bezel), 0 2px 8px rgba(0,0,0,.35);
+  --pk-head-bg:         #1a1713;
+  --pk-head-texture:    repeating-linear-gradient(90deg, rgba(255,240,214,.02) 0 1px, transparent 1px 3px), linear-gradient(180deg, rgba(212,226,244,.05), rgba(212,226,244,0) 3px);
+  --pk-head-border:     var(--line-hi);
+  --pk-head-shadow:     inset 0 2px 0 var(--amber-dim), var(--bezel);
+  --pk-head-text:       var(--tx0);
+
+  /* ── Controls: the toolbar's raised parts; pressed and lit when on ── */
+  --pk-control-bg:           var(--raise);
+  --pk-control-texture:      linear-gradient(180deg, var(--raise), var(--panel));
+  --pk-control-border:       var(--line-hi);
+  --pk-control-shadow:       var(--bezel-raise);
+  --pk-control-radius:       4px;
+  --pk-control-hover-bg:     var(--raise);
+  --pk-control-hover-border: var(--amber-dim);
+  --pk-control-on:           var(--panel);
+  --pk-control-on-text:      var(--amber);
+  --pk-control-on-shadow:    var(--bezel-press);
+
+  /* ── The sunken well: inputs, the composer, quoted sources, code ── */
+  --pk-well-bg:      var(--well);
+  --pk-well-border:  var(--line);
+  --pk-well-shadow:  var(--bezel-groove);
+  --pk-code-bg:      var(--well);
+
+  /* ── The conversation: the owner's words on the amber-tinted panel (WorkflowKeeper's D87) ── */
+  --pk-msg-user-bg:     #241c10;
+  --pk-msg-user-border: #4a4029;
+
+  /* ── The graph (Spec §6.3; D53): i1's own four, checked — Plan / Work item 42.0 normal, 38.7 protan, 32.1 deutan ── */
+  --pk-graph-bg:         transparent;          /* the blueprint grid of the ground shows through */
+  --pk-graph-intent:     var(--blue);
+  --pk-graph-plan:       var(--plum);
+  --pk-graph-work:       var(--green);
+  --pk-graph-reality:    var(--amber);
+  --pk-graph-node-bg:    var(--card);
+  --pk-graph-node-text:  var(--tx0);
+  --pk-graph-node-kind:  var(--tx1);           /* the kind in the body colour; the object's colour stays on its edges */
+  --pk-graph-node-muted: #a89a83;
+  --pk-graph-node-faint: var(--tx2);
+  /* the card's material, lent to the objects: the parts of --bezel-chunk, --card-brush and its hard lip */
+  --pk-graph-node-chamfer: rgba(212,226,244,.12);
+  --pk-graph-node-shade:   rgba(0,0,0,.58);
+  --pk-graph-node-brush:   rgba(255,240,214,.013);
+  --pk-graph-node-lip:     #080706;
+  --pk-graph-node-shadow:  rgba(0,0,0,.42);
+  --pk-graph-edge:          var(--tx3);
+  --pk-graph-edge-other:    var(--tx2);
+  --pk-graph-edge-related:  var(--tx1);
+  --pk-graph-edge-lit:      var(--tx0);
+  --pk-graph-edge-selected: var(--blue);
+  --pk-graph-questioned:    var(--amber);
+  --pk-graph-label-bg:      var(--well);
+  --pk-graph-chip-bg:       var(--well);
+  --pk-graph-chip-border:   var(--line-hi);
+  --pk-graph-selection:     var(--tx0);
+  --pk-graph-focus:         var(--amber);
+  --pk-graph-diff-added:    var(--green);
+  --pk-graph-diff-changed:  var(--amber);
+  --pk-graph-diff-removed:  var(--red);
+  --pk-graph-replaced:      var(--tx4);
+  --pk-graph-danger:        var(--red);
+  --pk-graph-group-bg:      var(--raise);
+  --pk-graph-group-border:  var(--line-hi);
+  --pk-graph-group-back:    var(--card);
+  --pk-graph-group-back-border: var(--line);
+  --pk-graph-group-chip:    var(--well);
+  --pk-graph-mark-star:     var(--tx0);
+  --pk-graph-mark-flag:     var(--amber);
+  --pk-graph-mark-note:     var(--tx0);
+  --pk-graph-mark-ask:      var(--amber);
+  --pk-graph-mark-pending:  var(--blue);
+}
+
+/* ── The ground: the board's body, restated from the tokens so this file is the one source ── */
+body {
+  color: var(--pk-text);
+  font: var(--pk-font-body);
+  background:
+    radial-gradient(1400px 500px at 50% -240px, rgba(255,180,100,.045), transparent 70%),
+    repeating-linear-gradient(0deg,  transparent 0 31px, rgba(255,200,120,.022) 31px 32px),
+    repeating-linear-gradient(90deg, transparent 0 31px, rgba(255,200,120,.022) 31px 32px),
+    var(--pk-ground);
+}
+input[type="checkbox"] { accent-color: var(--amber); }
+
+/* ── Classes board.css and the workbench both use: the guard put the metrics back; the colours are set here ── */
+.empty { color: var(--pk-text-muted); }
+.empty h2 { color: var(--pk-text-strong); }
+
+/* ── The chassis top plate: the top bar, as the board's page head ── */
+.topbar { background: var(--panel); box-shadow: 0 1px 0 rgba(255,240,214,.03) inset, 0 3px 10px rgba(0,0,0,.4); }
+
+/* ── Titles: readings in --tx0 with the board's engraved shadow ── */
+.page-head h1, .dialog-head h2, .popover-title, .more-title, .keeper-head .title, .brand, .walk-title, .full-head h2 { color: var(--pk-text-strong); text-shadow: 0 1px 0 rgba(0,0,0,.5); }
+.crumb strong { color: var(--pk-text-strong); }
+
+/* ── Segmented controls after the tray tiles: a groove (.slotRow) holding raised tiles (.slot); the one that is on is
+      pressed in and lit amber. Only paint changes: the tiles keep their size and the row its height. ── */
+.segmented { background: #0a0908; background-image: none; box-shadow: var(--bezel-well); border-color: var(--line); }
+.segmented button { background: var(--card); color: var(--tx2); box-shadow: var(--bezel), 0 0 0 1px var(--line); background-image: var(--card-brush); }
+.segmented button:hover:not(:disabled) { color: var(--tx1); }
+.segmented button.active { background: var(--panel); background-image: none; color: var(--amber); text-shadow: var(--led-glow); box-shadow: var(--bezel-press); }
+.segmented button:disabled { color: var(--tx4); }
+.graph-float .segmented { background: #0a0908; }
+
+/* ── The card's port strip at the foot of the popover (.box:has(.attach) .attach), and the row that opens in the strip ── */
+.popover-foot { box-shadow: var(--bezel-well); }
+.strip-row.open > .item { background-image: var(--card-chamfer); box-shadow: inset 0 -1px 0 var(--hair); }
+
+/* ── Buttons: the toolbar labels; lit on hover ── */
+.btn:hover:not(:disabled), .search-trigger:hover, .coverage-pill:hover { color: var(--tx0); }
+.btn.active { text-shadow: var(--led-glow); }
+.read-mark.alert { text-shadow: var(--led-glow); }
+.btn.primary { background-image: none; text-shadow: none; }
+
+/* ── The rail: the view list and the outline, on the panel ── */
+.nav-item.active { box-shadow: inset 2px 0 0 var(--amber); }
+.outline .ol-area.sel, .outline .ol-work.sel { text-shadow: var(--led-glow); }
+
+/* ── Tags and marks: the board's badges (a bezel on a tinted face) ── */
+.tag { box-shadow: var(--bezel); }
+.mk { box-shadow: var(--bezel); }
+
+/* ── The Keeper's pill: the dock's raised part with an amber edge ── */
+.dock-pill { background-image: var(--card-chamfer), var(--card-brush); }
+.dock-robot.on { text-shadow: var(--led-glow); }
+
+/* ── The bottom strip's column heads carry the bin header's amber edge like the section heads; its rows stay flat ── */
+.strip { border-top-color: var(--line-hi); }
+
+/* ── Fold boxes and the walkthrough spine take the panel; the timeline's dots the raised part ── */
+.tl-event:before { background: var(--tx3); }
+.tl-event.sel:before { background: var(--amber); box-shadow: var(--led-glow); }
+
+/* ── Scrollbars: thin, the raised part's tone ── */
+main, .rail, .keeper-stream, .popover-body, .flyout, .strip .items, .dialog-body { scrollbar-color: var(--line-hi) transparent; }

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck and tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # ProjectKeeper has been developed and run on Windows only. The Linux and macOS jobs are here to show where it
+    # stands on them: they are untested, so a failure there does not fail the run. Remove the line below for a platform
+    # once its job passes.
+    continue-on-error: ${{ matrix.os != 'windows-latest' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # `npm ci` also applies the patch to the installed model library (bin/postinstall.mjs).
+      - run: npm ci
+      - run: npm run typecheck
+      # The tests need no network and no key. They run git, which the runners have.
+      - run: npm test

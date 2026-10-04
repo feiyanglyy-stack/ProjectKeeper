@@ -1,0 +1,243 @@
+/* ───────────────────────────────────────────────────────────────────
+ * d2 · Warm Clay — ProjectKeeper's layer (Spec §6.16; CKC-09 AC-41; the UI line's V3)
+ *
+ * board.css beside this file is the owner's, frozen: not a byte of it changes. This file is loaded after it and gives
+ * every `--pk-*` token of ui/styles.css (the contract in ../TOKENS.md) a value the board already has — its tokens where
+ * they exist, its own literals where they do not — and then the parts the board never had (a segmented control, a
+ * conversation, a graph). No colour, shadow or radius that is not in board.css. It is the one light theme: board.css
+ * writes its colours light-dark() and pins `color-scheme: light` on :root, so the light values are in force here and
+ * the native controls (selects, checkboxes, scrollbars) follow.
+ *
+ * The master (WorkflowKeeper's D87): everything is made after d2's card — the full clay brick: a --surface face, a
+ * --line frame, the --r-card radius and --elev-card (a top light, a stepped side wall, a warm drop). The popover, the
+ * docked and floating Keeper, the dialog, a note card, the open row of the bottom strip and the graph tooltip are
+ * that card. Section heads and strip column heads are the board's column plaque (.rootHead: a raised shelf, --raise
+ * with --elev-raise). Controls are its raised tiles; the one that is on is solid clay pressed in (.dispTab.on). The
+ * radius ladder is the hierarchy: 18 panel > 14 well > 11 card > 8 tile > 5 micro; the four layers one reads are
+ * page (--bg) < sunken tray (--well) < card (--surface) < raised part (--raise).
+ *
+ * Two calls this light theme asked for (measured, and said in the report):
+ *  - The terracotta --accent (#b46a46) reads at most 3.97:1 on the lightest face, so as a text colour it cannot reach
+ *    4.5 — the board itself uses it as words only that way (its tray titles). Where accent-coloured words carry
+ *    meaning (active states, the amber decision tags) this layer writes them in the board's own deep clay #8a5a3d
+ *    (the dark value of its --accent-line, 4.5–5.6:1 on the faces); the terracotta itself stays on edges and faces.
+ *  - --amber (#9a6a10) reads 4.36 on the card, so it is only ever an edge, a fill or a mark, never body text.
+ * ─────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surfaces and lines: the paper ladder — page < sunken well < card < raised part; the bands are sunken trays ── */
+  --pk-ground:        var(--bg);
+  --pk-rail:          var(--well);
+  --pk-surface:       var(--surface);
+  --pk-raised:        var(--raise);
+  --pk-line:          var(--line);
+  --pk-line-soft:     var(--line-soft);
+  --pk-line-strong:   var(--accent-line);
+  --pk-scrim:         rgba(110,80,60,.33);        /* the warm dim of the board's own press shadow */
+
+  /* ── Text, four steps: readings and titles, body, secondary, faint ──
+     The board's fg3/meta do not reach 4.5:1 on the well and the page, so the faint step is the board's deepened chip
+     ink --neutral-seg-fg (4.6 on the well, 6.0 on the page); muted and faint stand a size and a case apart instead
+     of a shade apart. */
+  --pk-text-strong:   var(--fg);
+  --pk-text:          var(--fg);
+  --pk-text-muted:    var(--fg2);
+  --pk-text-faint:    var(--neutral-seg-fg);
+
+  /* ── The signal: clay terracotta on edges and lit faces; the primary button presses deeper into the clay ── */
+  --pk-accent:        var(--accent);
+  --pk-accent-bg:     var(--amber-bg);
+  --pk-accent-hi:     #8a5a3d;
+  --pk-on-accent:     var(--raise);
+  --pk-accent-soft:   var(--surface);             /* a selected row lifts a paper face out of the tray */
+  --pk-flash:         var(--amber-line);
+  --pk-star:          var(--amber);
+
+  /* ── The other families ── */
+  --pk-green:         var(--green);   --pk-green-bg:  var(--green-bg);  --pk-green-ln: var(--green-line);
+  --pk-blue:          var(--link);    --pk-blue-bg:   var(--blue-bg);
+  --pk-red:           var(--red);     --pk-red-bg:    var(--red-bg);    --pk-red-ln:   var(--red);
+  --pk-purple:        var(--plum);    --pk-purple-bg: var(--plum-bg);
+
+  /* ── Selection: the segment that is on is solid clay with paper words, pressed in (the board's .dispTab.on) ── */
+  --pk-sel-bg:            var(--neutral-seg);
+  --pk-control-on:        var(--accent);
+  --pk-control-on-text:   var(--raise);
+  --pk-control-on-shadow: var(--elev-press);
+
+  /* ── Fonts: the board's own (its body keeps the board's tabular numbers) ── */
+  --pk-font-body:     12.5px/1.55 "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  --pk-font-ui:       "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  --pk-font-mono:     ui-monospace, Consolas, monospace;
+  --pk-font-display:  "Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+
+  /* ── Radii: the ladder is the hierarchy — 18 panel > 14 well > 11 card > 8 tile > 5 micro; pills are 999 ── */
+  --pk-radius:        var(--r-card);
+  --pk-radius-sm:     var(--r-tile);
+  --pk-radius-xs:     var(--r-micro);
+  --pk-radius-panel:  var(--r-panel);
+  --pk-radius-pill:   999px;
+
+  /* ── Shadows ── */
+  --pk-shadow-float:  var(--elev-card);
+  --pk-shadow-window: var(--elev-panel);
+  --pk-shadow-raised: var(--elev-raise);
+
+  /* ── The card (the master): the full clay brick — paper face, hairline frame, the card radius, the stepped
+     side wall and warm drop of --elev-card. The clay is matte: no texture, its light comes from the shadows. ── */
+  --pk-card-bg:           var(--surface);
+  --pk-card-texture:      none;
+  --pk-card-border:       var(--line);
+  --pk-card-shadow:       var(--elev-card);
+  --pk-card-radius:       var(--r-card);
+  --pk-card-text:         var(--fg);
+  --pk-card-line:         var(--line-soft);
+  --pk-card-hover-border: var(--accent-line);
+  --pk-card-foot-bg:      var(--well);      /* the popover's foot: a sunken strip */
+  --pk-card-head-bg:      var(--raise);
+
+  /* ── A section is a flat drawer lying on the page (the board's tray); its head is the column plaque — a raised
+     shelf on --raise with --elev-raise, like the board's .rootHead ── */
+  --pk-section-bg:      var(--surface);
+  --pk-section-border:  var(--line);
+  --pk-section-radius:  var(--r-panel);
+  --pk-section-shadow:  var(--elev-drawer);
+  --pk-head-bg:         var(--raise);
+  --pk-head-texture:    none;
+  --pk-head-border:     var(--line);
+  --pk-head-shadow:     var(--elev-raise);
+  --pk-head-text:       var(--fg);
+
+  /* ── Controls: the raised tiles of the board's toolbar (raise, hairline, --elev-raise, the tile radius) ── */
+  --pk-control-bg:           var(--raise);
+  --pk-control-texture:      none;
+  --pk-control-border:       var(--line);
+  --pk-control-shadow:       var(--elev-raise);
+  --pk-control-radius:       var(--r-tile);
+  --pk-control-hover-bg:     var(--raise);
+  --pk-control-hover-border: var(--accent-line);
+
+  /* ── The sunken well: inputs, the composer, quoted sources, code — the board's groove ── */
+  --pk-well-bg:      var(--well);
+  --pk-well-border:  var(--line);
+  --pk-well-shadow:  var(--elev-groove);
+  --pk-code-bg:      var(--well);
+
+  /* ── The conversation: the owner's words on the amber-tinted face (WorkflowKeeper's D87) ── */
+  --pk-msg-user-bg:     var(--amber-bg);
+  --pk-msg-user-border: var(--amber-line);
+
+  /* ── The graph (Spec §6.3; D53): the light values of theme-palette-numbers.md — Plan / Work item ΔE 49.8 normal,
+     30.5 protan, 23.8 deutan (factory floor 25.2 / 21.1), L* spread 2.5. The words on an object are the body
+     colours; a kind's colour stays on its border and top band. --amber reads 4.36 on the card: edge and band only.
+     Every value here is the board's own light literal, not its var(): the graph reads its palette with
+     getComputedStyle(:root).getPropertyValue (graph-palette.js), where a var() chain into the board's light-dark()
+     tokens comes back unresolved — so the light values are written out. The DOM parts still use the vars. ── */
+  --pk-graph-bg:         #efe3d0;
+  --pk-graph-intent:     #42719a;
+  --pk-graph-plan:       #8f6288;
+  --pk-graph-work:       #437a4c;
+  --pk-graph-reality:    #9a6a10;
+  --pk-graph-node-bg:    #fbf5ec;
+  --pk-graph-node-text:  #2f241d;
+  --pk-graph-node-kind:  #5f5045;
+  --pk-graph-node-muted: #5f5045;
+  --pk-graph-node-faint: #7c6a5a;      /* 4.76 on the node face */
+  /* the card's material lent to the objects: the top light, the deepest step of the side wall 3px below, the warm drop */
+  --pk-graph-node-chamfer: rgba(255,255,255,.72);
+  --pk-graph-node-shade:   none;
+  --pk-graph-node-brush:   none;
+  --pk-graph-node-lip:     #c4a575;
+  --pk-graph-node-shadow:  rgba(127,92,70,.32);
+  /* the lines, quiet to loud on the paper: structure; other links and the dotted inferred; the focused path;
+     pointed at; selected (the deep clay, 4.6 on the ground) */
+  --pk-graph-edge:          #8d7358;
+  --pk-graph-edge-other:    #7c6a5a;
+  --pk-graph-edge-related:  #5f5045;
+  --pk-graph-edge-lit:      #2f241d;
+  --pk-graph-edge-selected: #8a5a3d;
+  --pk-graph-questioned:    #9a6a10;
+  --pk-graph-label-bg:      #fffaf1;
+  --pk-graph-chip-bg:       #fffaf1;
+  --pk-graph-chip-border:   #d8c3aa;
+  --pk-graph-selection:     #2f241d;   /* never one of the kinds */
+  --pk-graph-focus:         #9a6a10;
+  --pk-graph-diff-added:    #437a4c;
+  --pk-graph-diff-changed:  #9a6a10;
+  --pk-graph-diff-removed:  #b04a44;
+  --pk-graph-replaced:      #c98a64;
+  --pk-graph-danger:        #b04a44;
+  --pk-graph-group-bg:      #fffaf1;
+  --pk-graph-group-border:  #d8c3aa;
+  --pk-graph-group-back:    #fbf5ec;
+  --pk-graph-group-back-border: #e9dbc7;
+  --pk-graph-group-chip:    #dbc6a6;
+  /* the corner marks: attention in amber, the note in ink, pending in link blue */
+  --pk-graph-mark-star:     #9a6a10;
+  --pk-graph-mark-flag:     #9a6a10;
+  --pk-graph-mark-note:     #2f241d;
+  --pk-graph-mark-ask:      #9a6a10;
+  --pk-graph-mark-pending:  #42719a;
+}
+
+/* ── The ground: the board's body, restated from the tokens so this file is the one source ── */
+body { color: var(--pk-text); font: var(--pk-font-body); background: var(--pk-ground); }
+input[type="checkbox"] { accent-color: var(--accent); }
+
+/* ── Classes board.css and the workbench both use: the guard put the metrics back; the colours are set here ── */
+.empty { color: var(--pk-text-muted); }
+
+/* ── The top bar is the board's own page head: a paper shelf on the panel shadow ── */
+.topbar { background: var(--surface); border-bottom-color: var(--line); box-shadow: var(--elev-panel); }
+
+/* ── The legend band sits with the other sunken trays (the board's own .legend would leave it on the card face) ── */
+.legend { background: var(--pk-rail); }
+
+/* ── Tags: a plain tag is a classification, not a signal (the author's rule) — the board's one matte clay pill
+   (.kid/.org/.attKind): the well face, the deepened chip ink, the pill radius, no border. The decision tag
+   (.tag.amber) stays loud: the amber tint with a deep clay word; the other signal tints keep the board's pairs. ── */
+.tag { background: var(--well); color: var(--neutral-seg-fg); border-radius: 999px; box-shadow: inset 0 1px 0 rgba(255,255,255,.5); }
+.tag.amber { color: #8a5a3d; }
+
+/* ── The process view's signal words (increment K, CKC-24) on the one light theme: on the sunken list face the
+   board's red/green words on their own tints read 4.0–4.2:1. The chips lift onto the paper face — as the segmented
+   plates lift out of their groove — keeping hue and mark; amber words take the deep clay, as everywhere (D46 ≥ 4.5).
+   The classes are the process view's own (k-process.css), wherever they stand: the work cell, the intent cell, the
+   generation bands, the popover's open items. ── */
+:is(td.proc, .genrow, .kp-open) .tag.red { background: var(--raise); color: var(--red); box-shadow: 0 0 0 1px var(--red-line); }
+:is(td.proc, .genrow, .kp-open) .tag.green { background: var(--raise); color: var(--green); box-shadow: 0 0 0 1px var(--green-line); }
+:is(td.proc, .genrow, .kp-open) .tag.amber { background: var(--raise); }
+.route { padding: 0 4px; border-radius: var(--r-micro); }
+.route.closed { background: var(--raise); color: var(--green); box-shadow: 0 0 0 1px var(--green-line); }
+.route.back { background: var(--raise); color: var(--red); box-shadow: 0 0 0 1px var(--red-line); }
+.route.hand { background: var(--raise); color: var(--link); box-shadow: 0 0 0 1px var(--line); }
+.flag { padding-left: 4px; }
+.flag.back { background: var(--raise); color: var(--red); box-shadow: 0 0 0 1px var(--red-line); border-radius: var(--r-micro); }
+.flag.up, .intent-flag, .text-btn.copy { color: #8a5a3d; }
+.order .moved { color: #8a5a3d; }
+
+/* ── The strip's marks: tiny grooved chips, like the board's legend swatches ── */
+.mk { border-radius: var(--r-micro); box-shadow: var(--elev-groove); }
+
+/* ── Segmented controls after the declaration tiles: a sunken groove holding raised label plates; the one that is
+   on is solid clay pressed in with paper words. Only paint changes: the tiles keep their size, the row its height. ── */
+.segmented { background: var(--well); border-color: var(--line); border-radius: var(--r-card); box-shadow: var(--elev-well); }
+.segmented button { background: var(--raise); color: var(--fg2); border-radius: var(--r-tile); box-shadow: inset 0 1px 0 rgba(255,255,255,.80), 0 0 0 1px var(--line); }
+.segmented button:hover:not(:disabled) { color: var(--fg); }
+.segmented button.active { background: var(--accent); color: var(--raise); box-shadow: var(--elev-press); }
+
+/* ── The popover's foot: the sunken strip is grooved into the card ── */
+.popover-foot { box-shadow: var(--elev-well); }
+
+/* ── Accent-coloured words are written in the board's deep clay (4.5–5.6:1 on these faces); the terracotta itself
+   stays on edges, rings and faces. The selected view is a paper face lifted out of the tray with a clay spine. ── */
+.btn.active, .read-mark.alert, .read-flag.alert, .outline-modes button.active, .mobile-nav button.active,
+.dock-robot.on, .graph-float .btn.small.active, .text-btn.sel, .note-body h4 { color: #8a5a3d; }
+.nav-item.active, .outline .ol-area.sel, .outline .ol-work.sel { color: #8a5a3d; }
+.nav-item.active, .outline .ol-area.sel, .outline .ol-work.sel { background: var(--pk-accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+
+/* ── Buttons: the word turns clay on hover, as the board's own buttons do ── */
+.btn:hover:not(:disabled), .search-trigger:hover, .coverage-pill:hover { color: var(--accent); }
+
+/* ── Scrollbars: thin, the clay line's tone ── */
+main, .rail, .keeper-stream, .popover-body, .flyout, .strip .items, .dialog-body { scrollbar-color: var(--accent-line) transparent; }

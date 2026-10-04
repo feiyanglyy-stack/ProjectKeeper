@@ -1,0 +1,73 @@
+/* ───────────────────────────────────────────────────────────────────
+ * The theme guard — always the last stylesheet (Spec §6.16; after WorkflowKeeper's skin-guard.css).
+ *
+ * The four frozen board.css files were written for WorkflowKeeper's static Board page: one long document that scrolls
+ * as a whole, with a sticky `header`, a 14–18px `h1` and a `body` of its own. ProjectKeeper's shell is a grid whose
+ * main view scrolls by itself, and its markup has `header` elements inside every section and strip column. Loaded
+ * after styles.css, a theme's element-level rules would land on that markup and turn the shell into a long page.
+ *
+ * So this file restates the shell's LAYOUT invariants and puts back ProjectKeeper's own sizes where a theme's element
+ * or class rule hits them. It says no colour, no shadow, no font family: the look belongs to the theme (board.css and
+ * its pk.css), the skeleton to the workbench. What each theme leaks and what happens to it is tabled in TOKENS.md.
+ * ─────────────────────────────────────────────────────────────────── */
+
+/* The shell: full height, the main view scrolls, the rest does not. */
+html,body{height:100%}
+body{margin:0}
+/* The panels (D100): the top bar, the rail, the main panel and the drawer are grid areas; the main panel is a column
+   whose view scrolls inside it; filling the window lays it over the rest. */
+.shell{display:grid;height:100dvh;min-height:480px}
+.rail{flex-direction:column;min-height:0;overflow:auto}
+.main-panel{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.drawer{display:flex;flex-direction:column}
+body.maximised .main-panel{position:fixed}
+.topbar{position:static;min-height:48px;height:auto;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.body{display:flex;flex-direction:column;min-height:0;min-width:0;flex:1;position:relative}
+main{flex:1;min-height:0;overflow:auto;min-width:0;display:flex;flex-direction:column}
+
+/* Board.css makes every `header` a sticky page head (z-index 30–40, its own padding and margins). ProjectKeeper's
+   headers are the heads of sections, strip columns and cards: in the flow, at the workbench's sizes. */
+header{position:static;top:auto;z-index:auto;margin:0}
+.section>header{padding:9px 12px}
+.strip header{display:block;padding:6px 12px}
+.keeper-head{padding:12px 14px}
+.dialog-head{padding:14px 18px}
+.popover-head{padding:10px 10px 8px 14px}
+
+/* The heading scale is the workbench's (Spec §6.16: titles and labels set apart by size); a theme's `h1` is 14–18px. */
+h1,h2,h3,h4{margin:0}
+h1{font-size:22px;font-weight:600;letter-spacing:-.4px}
+h2{font-size:16px;font-weight:600}
+h3{font-size:13px;font-weight:600}
+h4{font-size:12px;font-weight:600}
+.dialog-head h2{font-size:15px}
+.empty h2{font-size:17px}
+.walk-step h3{font-size:14px}
+.md h1{font-size:15px}.md h2{font-size:14px}.md h3{font-size:13px}
+.md h1,.md h2,.md h3,.md h4,.md h5,.md h6{margin:10px 0 4px;font-weight:700;letter-spacing:0}
+
+/* Class names both sides use. Board.css's `.legend` wraps and pads for a page, `.mk` is a 12–13px glyph, `.empty` a
+   padded page area, `.fold > summary` pulls itself 8px out of its box. Only the metrics come back; colours stay theirs. */
+.legend{display:flex;flex-wrap:nowrap;align-items:center;gap:10px;white-space:nowrap;padding:6px 12px;border-bottom:0}
+.mk{font-size:10.5px;line-height:1;width:16px;height:16px}
+.empty{padding:44px 20px;text-align:center;max-width:64ch;margin:0 auto}
+details.fold>summary{margin:0}
+details.fold>summary::before{margin-right:0;font-size:10px}
+.toolbar{margin-top:0;font-size:inherit}
+
+/* Floating layers keep their positions: the docked and popped-out Keeper, the popover and its scrim, the control-row
+   flyouts, the graph tooltip, the pill and the dialog are never part of the document flow. */
+.keeper-panel{position:fixed;overflow:hidden}
+.keeper-panel.docked{top:calc(var(--pk-top) + var(--pk-gap));right:var(--pk-gap);bottom:var(--pk-gap);z-index:32}
+body.maximised .keeper-panel.docked{top:var(--pk-gap)}
+.keeper-panel.floating{z-index:45}
+.keeper-panel:not(.open){display:none}
+.popover{position:fixed;z-index:40}
+.popover-scrim{position:fixed;inset:0;z-index:39}
+.flyout{position:fixed;z-index:36}
+.graph-tip{position:fixed;z-index:40}
+.graph-float{position:absolute;z-index:5}
+.keeper-dock{position:fixed;z-index:30}
+#toast{position:fixed;z-index:20}
+dialog{position:fixed;padding:0;margin:auto}
+[hidden]{display:none!important}

@@ -1,0 +1,392 @@
+/* ───────────────────────────────────────────────────────────────────
+ * a1 · Walnut Workshop — ProjectKeeper's layer (Spec §6.16; CKC-09 AC-41; the UI line's V3)
+ *
+ * board.css beside this file is the owner's, frozen: not a byte of it changes. This file is loaded after it and gives
+ * every `--pk-*` token of ui/styles.css (the contract in ../TOKENS.md) a value the board already has — its tokens where
+ * they exist, its own literals where they do not — and then the parts the board never had (a segmented control, a
+ * conversation, a graph). No colour, shadow or radius that is not in board.css. The whole file can be taken away and
+ * the factory look is back.
+ *
+ * Two surfaces (the theme's own nature): the table, the panels and the Keeper's panel are dark walnut with light text;
+ * the cards are parchment with dark ink. The tokens are set for the walnut on :root and set again on the parchment
+ * cards, so everything standing on a card takes the ink (custom properties inherit — WorkflowKeeper's .detail does the
+ * same). A third, small surface is the cast brass plate of the bin header, which gets its own dark text.
+ *
+ * The master (WorkflowKeeper's D87), part by part after the board:
+ *   ground    the walnut table (body): the board's grain and gradient.
+ *   panel     the rail and the Keeper's panel: the board's dashboard wood with brass pinstripes (.dash r2, WFK's .pool).
+ *   section   the enamel dial in a wood case (.dc r2): a wood gradient, an oxidised brass frame, a brass inset edge.
+ *   head      the cast brass plate (.rootHead r2): the brass gradient, dark engraved text with a white lift.
+ *   card      the parchment tray / module (.tray, .module r5): cream face, brass frame, the .box's brass line, hard lip
+ *             and deep drop; the popover, flyout, dialog, note cards, the open strip row, the tooltip, the toast, the
+ *             Keeper's tile in the rail are that card. Big cards (dialog, Keeper window) carry the module's brass
+ *             corners; small floating ones the .box's brass pin.
+ *   control   the dark key (.dc / .bCode): wood gradient, brass edge and inset highlight, brass letters; the one that
+ *             is on is a brass plate (WFK's .dispTab.on). On a card a control is the board's light brass-edged toolbar
+ *             label. Segmented controls sit in a groove (the .cell / .eqBar well).
+ *   well      the sunken drawer (.cell, --shadow-well); on a card, the paper well of `code` / .kid.
+ * ─────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surfaces and lines: table < panel < card; the well sinks; brass hairlines separate the wood areas ── */
+  --pk-ground:        var(--wood-table);
+  --pk-rail:          #201710;
+  --pk-surface:       var(--wood-header);
+  --pk-raised:        #3d2a1c;
+  --pk-line:          var(--brass-dark);
+  --pk-line-soft:     rgba(201, 154, 50, 0.35);
+  --pk-line-strong:   #a87e2a;
+  --pk-scrim:         rgba(10, 5, 2, 0.55);
+
+  /* ── Text on wood, four steps: the board's light parchment whites and warm greys ── */
+  --pk-text-strong:   #f7eed8;
+  --pk-text:          #f3e2c4;
+  --pk-text-muted:    #d6c4aa;
+  --pk-text-faint:    #b8a287;
+
+  /* ── The signal on wood: lit brass (WFK's a1 rule — what can be pressed is brass) ── */
+  --pk-accent:        var(--brass-light);
+  --pk-accent-bg:     #2a1b10;
+  --pk-accent-hi:     #f0d78a;
+  --pk-on-accent:     #2b1805;
+  --pk-accent-soft:   #3a2410;
+  --pk-flash:         #8a5a12;
+  --pk-star:          var(--brass-light);
+
+  /* ── The other families on wood: the board's mercury highlights, each on its dark mercury face ── */
+  --pk-green:         #b8e0c8;   --pk-green-bg:  #164828;   --pk-green-ln: #1e6a3c;
+  --pk-blue:          #c0d4f0;   --pk-blue-bg:   #1a3260;
+  --pk-red:           #f87171;   --pk-red-bg:    #3a1414;   --pk-red-ln:   #fecaca;
+  --pk-purple:        #d4c0f0;   --pk-purple-bg: #3a1860;
+
+  /* ── Selection ── */
+  --pk-sel-bg:        #3a2410;
+
+  /* ── Fonts: the board's own; the π mark in its serif ── */
+  --pk-font-body:     12.5px/1.55 var(--font-ui);
+  --pk-font-ui:       var(--font-ui);
+  --pk-font-mono:     var(--font-mono);
+  --pk-font-display:  var(--font-serif);
+
+  /* ── Radii: cabinetry, tight (cards 2–4px, trays 5px; the one pill the board has is 14px) ── */
+  --pk-radius:        4px;
+  --pk-radius-sm:     3px;
+  --pk-radius-xs:     2px;
+  --pk-radius-panel:  5px;
+  --pk-radius-pill:   14px;
+
+  /* ── Shadows: the parts of --shadow-hover; the picked-up card (.box:hover) for a window; the lane label's drop ── */
+  --pk-shadow-float:  0 6px 18px rgba(10, 5, 2, 0.55), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --pk-shadow-window: inset 0 1px 0 #ffffff, 0 0 0 1.5px #dcb04d, 0 2px 0 rgba(201, 154, 50, 0.55), 0 7px 0 #1a1008, 0 14px 24px rgba(10, 5, 2, 0.55), 0 26px 48px rgba(10, 5, 2, 0.5);
+  --pk-shadow-raised: 0 3px 8px rgba(0, 0, 0, 0.45);
+
+  /* ── The card (the master): the parchment tray — cream face, brass frame, the .box's white lift, brass line, hard
+        lip and deep drop. Its text is set on the cards themselves, below. ── */
+  --pk-card-bg:           #f4ead6;
+  --pk-card-texture:      none;
+  --pk-card-border:       var(--brass-gold);
+  --pk-card-shadow:       inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(80, 50, 10, 0.2), 0 2px 0 rgba(201, 154, 50, 0.45), 0 6px 0 #1a1008, 0 10px 16px rgba(10, 5, 2, 0.5), 0 22px 40px rgba(10, 5, 2, 0.55);
+  --pk-card-radius:       3px;
+  --pk-card-text:         var(--ink-black);
+  --pk-card-line:         #c9a56a;
+  --pk-card-hover-border: #dcb04d;
+  --pk-card-foot-bg:      #e8dcc4;
+  --pk-card-head-bg:      #e8dcc4;
+
+  /* ── A section: the enamel dial's wood case (.dc r2); its head: the cast brass plate (.rootHead r2) ── */
+  --pk-section-bg:      var(--wood-header);
+  --pk-section-border:  #5a3d12;
+  --pk-section-radius:  3px;
+  --pk-section-shadow:  inset 0 1px 0 rgba(232, 200, 109, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.4);
+  --pk-head-bg:         var(--brass-gold);
+  --pk-head-texture:    linear-gradient(135deg, #e6c875 0%, #aa7c11 48%, #d4af37 100%);
+  --pk-head-border:     #6b4d13;
+  --pk-head-shadow:     inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 6px rgba(0, 0, 0, 0.45);
+  --pk-head-text:       #2b1805;
+
+  /* ── Controls: the dark key with a brass edge and inset highlight (.dc); on, a brass plate ── */
+  --pk-control-bg:           #322216;
+  --pk-control-texture:      linear-gradient(180deg, #322216 0%, #1a110c 100%);
+  --pk-control-border:       #8a6a2a;
+  --pk-control-shadow:       inset 0 1px 0 rgba(232, 200, 109, 0.35), inset 0 -1px 0 rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.4);
+  --pk-control-radius:       3px;
+  --pk-control-hover-bg:     #3d2a1c;
+  --pk-control-hover-border: var(--brass-gold);
+  --pk-control-on:           var(--brass-gold);
+  --pk-control-on-text:      #2b1805;
+  --pk-control-on-shadow:    inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 3px rgba(0, 0, 0, 0.4);
+
+  /* ── The sunken well: the drawer's bottom (.cell) ── */
+  --pk-well-bg:      var(--wood-well);
+  --pk-well-border:  #332115;
+  --pk-well-shadow:  var(--shadow-well);
+  --pk-code-bg:      var(--wood-well);
+
+  /* ── The conversation: the owner's words on the amber wood of .dc.amber, with a brass-dark frame (WFK's D87) ── */
+  --pk-msg-user-bg:     #3a2410;
+  --pk-msg-user-border: var(--brass-dark);
+
+  /* ── The graph (Spec §6.3; D53): parchment objects on the walnut table, the board's own picture. The four kinds are
+        the inks on paper (theme-palette-numbers.md; checked on this face: Plan / Work item 52.7 normal, 55.4 protan,
+        49.3 deutan; L* spread 9.0). Words on the objects in ink, the kind in the secondary ink; the object's colour
+        stays on its edge and top band. The lines are brass wire (.edges path.flow); what is written on a line, the
+        link-count chip and the corner marks' discs are paper, so the ink on them reads on the dark table. ── */
+  --pk-graph-bg:         transparent;          /* the table's grain shows through */
+  --pk-graph-intent:     var(--blue-cobalt);
+  --pk-graph-plan:       var(--purple-damask);
+  --pk-graph-work:       var(--green-emerald);
+  --pk-graph-reality:    var(--amber-cognac);
+  --pk-graph-node-bg:    #f4ead6;
+  --pk-graph-node-text:  var(--ink-black);
+  --pk-graph-node-kind:  var(--ink-brown);      /* the kind in the body's ink; the object's colour stays on its edges */
+  --pk-graph-node-muted: var(--ink-brown);
+  --pk-graph-node-faint: var(--ink-sepia);
+  /* the card's material, lent to the objects: the .box's white lift, its bottom shade, the brass line as the hard lip
+     under the card, its deep drop on the table */
+  --pk-graph-node-chamfer: rgba(255, 255, 255, 0.9);
+  --pk-graph-node-shade:   rgba(80, 50, 10, 0.2);
+  --pk-graph-node-lip:     var(--brass-dark);
+  --pk-graph-node-shadow:  rgba(10, 5, 2, 0.55);
+  --pk-graph-edge:          var(--brass-dark);
+  --pk-graph-edge-other:    #a87e2a;
+  --pk-graph-edge-related:  var(--brass-gold);
+  --pk-graph-edge-lit:      var(--brass-light);
+  --pk-graph-edge-selected: #f7eed8;
+  --pk-graph-questioned:    var(--rose-open);   /* the board's own "open" signal; reads on the table and on a paper label */
+  --pk-graph-label-bg:      #f4ead6;
+  --pk-graph-chip-bg:       #f4ead6;
+  --pk-graph-chip-border:   var(--brass-gold);
+  --pk-graph-selection:     #ffffff;
+  --pk-graph-focus:         var(--brass-light);
+  --pk-graph-diff-added:    var(--green-emerald);
+  --pk-graph-diff-changed:  var(--amber-cognac);
+  --pk-graph-diff-removed:  var(--seal-red);
+  --pk-graph-replaced:      #8a7358;
+  --pk-graph-danger:        var(--seal-red-ink);
+  /* a folded group: a stack of the browner .box cards (r5), its count on a dim paper chip */
+  --pk-graph-group-bg:      #e5d0a8;
+  --pk-graph-group-border:  var(--brass-gold);
+  --pk-graph-group-back:    #dcc49a;
+  --pk-graph-group-back-border: #c9a56a;
+  --pk-graph-group-chip:    #e8dcc4;
+  /* the corner marks, in ink on their paper discs: the amber ink for ★, the seal's red ink for ⚑ and the ✎ that asks,
+     the body ink for a plain ✎, the blue ink for ⟳ */
+  --pk-graph-mark-star:     var(--amber-ink);
+  --pk-graph-mark-flag:     var(--seal-red-ink);
+  --pk-graph-mark-note:     var(--ink-black);
+  --pk-graph-mark-ask:      var(--seal-red-ink);
+  --pk-graph-mark-pending:  var(--blue-ink);
+}
+/* The marks written on wood (the List's Observed reality cells) take the light set; the graph reads :root. The
+   legend's mark icons stand on the same paper disc as the objects' badges, so the ink reads there too. */
+table.list { --pk-graph-mark-star: var(--brass-light); --pk-graph-mark-flag: #f59e0b; --pk-graph-mark-note: #f7eed8; --pk-graph-mark-ask: #f59e0b; --pk-graph-mark-pending: #c0d4f0; }
+.legend .lg-mark { background: var(--pk-graph-chip-bg); }
+
+/* ── On a parchment card the tokens are the ink and the paper: text, lines, the families, the accent (the board's
+      cognac edge, amber ink when lit), the light toolbar label as the control, the paper well of `code`. ── */
+.popover, .flyout, dialog, .note-card, .strip-row.open, .graph-tip, .keeper-entry, #toast {
+  --pk-text-strong: var(--ink-black); --pk-text: var(--ink-black); --pk-text-muted: var(--ink-brown); --pk-text-faint: var(--ink-sepia);
+  --pk-surface: #f4ead6; --pk-raised: #fffdf6; --pk-rail: #e8dcc4;
+  --pk-line: #c9a56a; --pk-line-soft: #dbcbb0; --pk-line-strong: var(--brass-gold);
+  --pk-accent: var(--amber-cognac); --pk-accent-bg: var(--amber-bg); --pk-accent-hi: var(--amber-ink); --pk-on-accent: var(--amber-bg); --pk-accent-soft: #f6e6c8; --pk-flash: #f6e6c8; --pk-star: var(--brass-dark);
+  --pk-green: var(--green-ink); --pk-green-bg: var(--green-bg); --pk-green-ln: var(--green-emerald);
+  --pk-blue: var(--blue-ink); --pk-blue-bg: var(--blue-bg);
+  --pk-red: var(--seal-red-ink); --pk-red-bg: var(--seal-red-bg); --pk-red-ln: var(--seal-red);
+  --pk-purple: var(--purple-ink); --pk-purple-bg: var(--purple-bg);
+  --pk-sel-bg: #f6e6c8;
+  --pk-section-bg: #fffdf6; --pk-section-border: #dbcbb0; --pk-section-shadow: none;
+  --pk-control-bg: #f0e6ce; --pk-control-texture: linear-gradient(180deg, #fefbf3 0%, #f0e6ce 100%); --pk-control-border: var(--brass-gold); --pk-control-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 #ffffff; --pk-control-hover-bg: #ffffff; --pk-control-hover-border: var(--brass-gold);
+  --pk-well-bg: #f5eedb; --pk-well-border: #dbcbb0; --pk-well-shadow: inset 0 2px 3px rgba(90, 60, 20, 0.12); --pk-code-bg: #f5eedb;
+  --pk-msg-user-bg: #f6e6c8; --pk-msg-user-border: var(--brass-gold);
+  --pk-shadow-raised: var(--shadow-card);
+}
+/* ── The floating cards and the dialog are WorkflowKeeper's Inbox row under Walnut (owner 2026-09-22, from the two
+      screenshots they sent): the deeper parchment (#e5d0a8), a leather spine with a brass line down the left, the
+      brass rivet, the row's stack of shadows, and one surface — no dim head band, no foot band. On it: the kind under
+      the title is the board's .bCode door number (brass letters on dark wood), the tags are .kid paper
+      chips, the buttons the app's brass-lettered keys (app.css button), `Details` the brass plate of the tab that is
+      on (.dispTab.on), a note card the board's .box (the lightest paper, its shadow). Every value is the theme's. ── */
+.popover, .flyout, .graph-tip, dialog {
+  --pk-card-bg: #e5d0a8; --pk-card-texture: linear-gradient(90deg, #4a3222 0 5px, var(--brass-gold) 5px 6px, transparent 6px);
+  --pk-card-border: rgba(201, 154, 50, 0.7); --pk-card-line: rgba(201, 154, 50, 0.5); --pk-card-radius: 2px;
+  --pk-card-head-bg: transparent; --pk-card-foot-bg: transparent;
+  --pk-text-muted: var(--ink-brown); --pk-text-faint: var(--ink-brown);
+  --pk-surface: #e5d0a8; --pk-raised: #f5eedb; --pk-rail: #f1ebd8; --pk-line-soft: #dbcbb0; --pk-line: #c9a56a;
+  --pk-sel-bg: #f5eedb; --pk-accent-soft: #f5eedb; --pk-flash: #fcf8ed; --pk-radius-sm: 3px;
+  --pk-control-bg: #33241a; --pk-control-texture: linear-gradient(180deg, #33241a, #271b13); --pk-control-border: var(--brass-dark);
+  --pk-control-shadow: inset 0 1px 0 rgba(232, 200, 109, 0.16), 0 1px 0 rgba(10, 5, 2, 0.5);
+  --pk-control-hover-bg: #3d2c1f; --pk-control-hover-border: var(--brass-gold);
+  --pk-well-bg: #f5eedb; --pk-well-border: #dbcbb0; --pk-well-shadow: inset 0 1px 2px rgba(90, 60, 20, 0.1); --pk-code-bg: #f5eedb;
+  --pk-section-bg: #fcf8ed; --pk-section-border: rgba(201, 154, 50, 0.7);
+}
+.popover { border-top-color: var(--brass-gold); }
+dialog { --pk-card-texture: linear-gradient(90deg, #4a3222 0 5px, var(--brass-gold) 5px 6px, transparent 6px); }
+/* the door number under the title: brass letters sunk in dark wood */
+.popover-sub { display: inline-block; font: 800 10.5px/1.6 var(--font-serif); letter-spacing: 0.04em; color: #e6b84d; background: #2a1b10; border: 1px solid #735118; border-radius: 3px; padding: 0 5px; margin-top: 3px; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
+/* the keys: brass letters on dark wood; the plate that is on for `Details`; the seal's red stays readable on wood */
+.popover .btn, .flyout .btn, dialog .btn { color: var(--brass-light); }
+.popover .btn.primary, .flyout .btn.primary, dialog .btn.primary { background: linear-gradient(180deg, var(--brass-light), var(--brass-gold)); color: #2c1e08; border-color: var(--brass-dark); font-weight: 600; }
+.popover .btn.primary:hover:not(:disabled), .flyout .btn.primary:hover:not(:disabled), dialog .btn.primary:hover:not(:disabled) { background: var(--brass-light); }
+.popover .btn.danger, .flyout .btn.danger, dialog .btn.danger { background: var(--seal-red-bg); color: var(--seal-red-ink); border-color: var(--seal-red); }
+.popover .btn.active, .flyout .btn.active, dialog .btn.active { background: var(--amber-bg); color: var(--amber-ink); border-color: var(--amber-cognac); }
+/* the close ring on paper */
+.popover-close { background: #f1ebd8; border-color: #c9a55f; color: var(--ink-brown); }
+.popover-close:hover { background: #ffffff; border-color: var(--brass-gold); color: var(--ink-black); }
+/* The Keeper's tile in the rail is a tray tile (.slot), the row that opens in the strip a card lying among the rows:
+   both lighter in the hand than a floating card. */
+.keeper-entry { --pk-card-border: rgba(201, 154, 50, 0.6); --pk-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); color: var(--pk-card-text); }
+.strip-row.open { --pk-card-shadow: 0 2px 0 rgba(201, 154, 50, 0.45), 0 3px 8px rgba(0, 0, 0, 0.45); }
+/* The toast is a small card set down on the table (WorkflowKeeper's a1 toast): the card's face, not the lightest paper */
+#toast { --pk-raised: #f4ead6; }
+
+/* ── The Keeper's panel is wood, like WorkflowKeeper's Pi panel under Walnut (D87): the dashboard wood with its
+      brass pinstripes, a brass edge, and the light text of the table — its answers are the theme's brightest text. ── */
+.keeper-panel {
+  --pk-card-bg:      var(--wood-header);
+  --pk-card-texture: repeating-linear-gradient(90deg, rgba(201, 154, 50, 0.04) 0 1px, transparent 1px 28px), linear-gradient(180deg, #241810 0%, #1a120c 100%);
+  --pk-card-border:  var(--brass-gold);
+  --pk-card-text:    var(--pk-text);
+  --pk-card-line:    rgba(201, 154, 50, 0.35);
+  --pk-card-radius:  5px;
+  --pk-shadow-window: inset 0 1px 0 rgba(255, 220, 180, 0.2), inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 3px 8px rgba(0, 0, 0, 0.45), 0 22px 40px rgba(10, 5, 2, 0.55);
+}
+
+/* ── On the cast brass plate (section heads, the strip's column heads) the text is the plate's engraved dark ── */
+.section > header, .strip header {
+  --pk-text-strong: #2b1805; --pk-text: #2b1805; --pk-text-muted: #4a2d0a; --pk-text-faint: #4a2d0a;
+  --pk-line: #6b4d13; --pk-line-soft: #6b4d13; --pk-blue: #1e3a8a;
+}
+
+/* ── The ground: the board's body, restated from the tokens so this file is the one source ── */
+body {
+  color: var(--pk-text);
+  font: var(--pk-font-body);
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 200, 120, 0.015) 0px, rgba(255, 200, 120, 0.015) 1px, transparent 1px, transparent 6px),
+    linear-gradient(180deg, #241a12 0%, #1c140e 100%) var(--pk-ground);
+}
+input[type="checkbox"] { accent-color: var(--brass-gold); }
+
+/* ── Classes board.css and the workbench both use: the guard put the metrics back; the colours are set here ── */
+.empty { color: var(--pk-text-muted); }
+.empty h2 { color: var(--pk-text-strong); }
+
+/* ── Titles in the board's serif (its h1, .rootName, .bTitle, .tray h2); sizes stay the workbench's. On wood they
+      carry the board's engraved shadow; on the brass plate its white lift; on paper nothing. ── */
+.brand, .page-head h1, .keeper-who, .section > header, .strip-title, .popover-title, .dialog-head h2, .more-title, .full-head h2, .walk-title, .empty h2 { font-family: var(--font-serif); }
+.brand, .page-head h1, .keeper-who { color: var(--pk-text-strong); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75); }
+.keeper-state { font-family: var(--pk-font-ui); }
+.section > header, .strip-title { text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+.rail-section { color: var(--brass-light); font-family: var(--font-serif); }
+
+/* ── The top bar is the board's header beam: the wood gradient, a brass line under it, its deep drop ── */
+.topbar { background: linear-gradient(180deg, #2c1e15 0%, #20150e 100%) var(--wood-header); border-bottom-color: var(--brass-gold); box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6); }
+
+/* ── The rail is the dashboard wood with its brass pinstripes (.dash r2; WorkflowKeeper's .pool) ── */
+.rail { background-image: repeating-linear-gradient(90deg, rgba(201, 154, 50, 0.04) 0 1px, transparent 1px 28px), linear-gradient(180deg, #241810 0%, #1a120c 100%); }
+.nav-item.active { box-shadow: inset 3px 0 0 var(--brass-gold); }
+
+/* ── The graph's control row is the board's instrument band (.kpis): sunk into the beam; the legend its ribbon; the
+      bottom strip the drawer's well (.cell) with the ribbon's brass line above it ── */
+.graph-tools { background: #18110b; box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5); }
+.legend { background: #170f0a; }
+.strip { border-top-color: var(--brass-gold); background: var(--wood-well); box-shadow: var(--shadow-well); }
+
+/* ── A section is the dial's wood case: lighter at the top edge, darker below (.dc r2), under its brass plate ── */
+.section, details.fold { background-image: linear-gradient(180deg, var(--pk-raised) 0%, var(--pk-section-bg) 100%); }
+
+/* ── Buttons are brass-lettered keys (WorkflowKeeper's a1 buttons); on paper, the toolbar label's amber ink ── */
+.btn { color: var(--pk-accent-hi); }
+/* Where the accent is words on paper rather than an edge, it is the amber ink (the cognac edge reads 4.2:1 as text) */
+.flyout .read-flag.alert, .popover .note-body h4, dialog .note-body h4 { color: var(--pk-accent-hi); }
+
+/* ── Segmented controls after the tray tiles in a groove: the well holds the segments; the one that is on is a cast
+      brass plate (WorkflowKeeper's .dispTab.on). Only paint changes: the segments keep their size. ── */
+.segmented { background: var(--pk-well-bg); background-image: none; box-shadow: var(--pk-well-shadow); border-color: var(--pk-well-border); }
+.segmented button:hover:not(:disabled) { color: var(--pk-text); }
+.segmented button.active { background-image: var(--pk-head-texture); text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+.segmented button:disabled { color: var(--pk-text-faint); }
+
+/* ── The card's head and foot: the detail drawer's dim paper head (WorkflowKeeper's .detail-head), the .box's
+      pocket at the foot (:has(.attach) .attach: a dashed brass line, a shallow inset) ── */
+.popover-head { background: var(--pk-card-head-bg); border-radius: var(--pk-card-radius) var(--pk-card-radius) 0 0; }
+.dialog-head { background: var(--pk-card-head-bg); border-radius: var(--pk-radius-panel) var(--pk-radius-panel) 0 0; }
+.popover-foot { border-top: 1px dashed rgba(201, 154, 50, 0.45); }
+.strip-row.open > .item { box-shadow: inset 0 -1px 0 var(--pk-card-line); }
+/* A note card on the parchment row is the board's .box: the lightest paper, a brass hairline, the card's shadow */
+.popover .note-card, dialog .note-card { --pk-raised: var(--paper-card); --pk-card-border: rgba(201, 154, 50, 0.7); --pk-card-shadow: var(--shadow-card); --pk-card-texture: none; }
+/* The Keeper's head is the header beam over its panel */
+.keeper-head { background: linear-gradient(180deg, #2c1e15 0%, #20150e 100%); border-bottom-color: var(--brass-gold); box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6); }
+
+/* ── The .box's brass pin on the small floating cards; the module's brass corners on the big ones ── */
+.popover::after, .flyout::after, .graph-tip::after, #toast::after {
+  content: ""; position: absolute; top: 3px; right: 4px; width: 4px; height: 4px; border-radius: 50%;
+  background: radial-gradient(circle, #f5d77f 30%, #a87e2a 100%); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.4); pointer-events: none;
+}
+dialog::before, .keeper-panel.floating::before {
+  content: ""; position: absolute; inset: 5px; pointer-events: none;
+  background-image:
+    linear-gradient(#e8c86d, #e8c86d), linear-gradient(#e8c86d, #e8c86d),
+    linear-gradient(#e8c86d, #e8c86d), linear-gradient(#e8c86d, #e8c86d),
+    linear-gradient(#e8c86d, #e8c86d), linear-gradient(#e8c86d, #e8c86d),
+    linear-gradient(#e8c86d, #e8c86d), linear-gradient(#e8c86d, #e8c86d);
+  background-size: 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px;
+  background-repeat: no-repeat;
+  background-position: top left, top left, top right, top right, bottom left, bottom left, bottom right, bottom right;
+}
+
+/* ── Tags and marks: the board's badges keep a hairline edge (a ring, so nothing grows) ── */
+.tag { box-shadow: 0 0 0 1px var(--pk-line-soft); }
+
+/* ── Scrollbars where the workbench already asked for thin ones: the board's brass thumb (color-scheme: light would
+      otherwise hand the dark wood a light thumb) ── */
+.rail, .keeper-stream, .popover-body, .flyout, .strip .items, .walk-spine { scrollbar-color: var(--pk-line-strong) transparent; }
+
+/* ── The List's layers (owner 2026-09-30: 「list界面，[模块块头]都用 … workflowlens里面lane标签的UI … 中间[Owner's words、
+      Product 与 Goal]的内容用[WorkflowLens Sign in 卡片]的UI … 所有的模块界面，你可用[带竖条纹的深色面板]的样式」). The
+      three are WorkflowKeeper's own, copied value for value:
+        the plate   the Sign in card: cover.css `.loginplate` (the leather, its #3d2a1c edge, the seven-part shadow, the
+                    brass inlay hairline, the four rivets), `.signin` and `.flab` for its engraved title and labels, the
+                    vellum `.paper` slot for the product;
+        the lane    the lane label: board.css `.laneLabel` r4/r5 (the leather, the brass frame, the L brass corners) with
+                    `.laneId` / `.laneTitle` / `.laneSub`;
+        the panel   the dark striped wood: cover.css `.strip` (the plank joints every 208px, the grain, the vignette).
+      The plate and the panel are the cover's, not the board's (WorkflowKeeper's themes/a1/cover.css @ 6756fe2): the
+      one place this layer takes values beyond board.css, at the owner's request. ── */
+:root {
+  --pk-plate-bg:           #251a11;
+  --pk-plate-texture:      repeating-linear-gradient(0deg, rgba(255, 200, 120, 0.02) 0 1px, transparent 1px 6px), repeating-linear-gradient(88deg, rgba(0, 0, 0, 0.07) 0 2px, transparent 2px 96px), linear-gradient(180deg, #2f2115 0%, #251a11 58%, #1f150d 100%);
+  --pk-plate-border:       #3d2a1c;
+  --pk-plate-border-width: 1.5px;
+  --pk-plate-radius:       6px;
+  --pk-plate-shadow:       inset 0 1px 0 rgba(255, 210, 140, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.55), inset 1px 0 0 rgba(255, 210, 140, 0.05), inset -1px 0 0 rgba(0, 0, 0, 0.3), 0 2px 0 rgba(0, 0, 0, 0.4), 0 10px 22px rgba(0, 0, 0, 0.45), 0 28px 60px rgba(0, 0, 0, 0.55);
+  --pk-plate-inlay:        rgba(201, 154, 50, 0.26);
+  --pk-plate-rivet:        radial-gradient(circle at 35% 30%, #f5d77f 18%, #a87e2a 62%, #6b4d13 100%);
+  --pk-plate-rivet-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  --pk-plate-kicker:       var(--brass-light);
+  --pk-slot-bg:            var(--paper-card);
+  --pk-slot-text:          var(--ink-black);
+  --pk-slot-border:        rgba(201, 154, 50, 0.7);
+  --pk-slot-shadow:        inset 0 1px 0 #ffffff, 0 1px 0 rgba(201, 154, 50, 0.4), 0 3px 8px rgba(10, 5, 2, 0.38), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --pk-lane-bg:            #4a2c1a;
+  --pk-lane-texture:       repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.14) 0 1px, transparent 1px 6px), repeating-linear-gradient(0deg, rgba(255, 210, 160, 0.07) 0 1px, transparent 1px 4px), linear-gradient(180deg, #6e432c 0%, #4a2c1a 40%, #3a2012 100%);
+  --pk-lane-border:        var(--brass-gold);
+  --pk-lane-radius:        4px;
+  --pk-lane-shadow:        inset 0 1px 0 rgba(255, 220, 180, 0.2), inset 0 -2px 0 rgba(0, 0, 0, 0.4), 0 3px 8px rgba(0, 0, 0, 0.45);
+  --pk-lane-corner:        var(--brass-light);
+  --pk-lane-kicker:        #e8c9a0;
+  --pk-lane-title:         #f3e2c4;
+  --pk-lane-sub:           #c4a07a;
+  --pk-lane-link:          var(--brass-light);
+  --pk-module-bg:          #1f150e;
+  --pk-module-texture:     radial-gradient(60% 42% at 46% 42%, rgba(232, 200, 109, 0.055) 0%, rgba(232, 200, 109, 0.018) 48%, transparent 74%), radial-gradient(130% 110% at 50% 50%, transparent 50%, rgba(0, 0, 0, 0.5) 100%), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.3) 0 2px, rgba(232, 200, 109, 0.045) 2px 3px, transparent 3px 208px), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.14) 0 1px, transparent 1px 11px), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.08) 0 2px, transparent 2px 29px), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.06) 0 1px, transparent 1px 47px), repeating-linear-gradient(0deg, rgba(255, 200, 120, 0.045) 0 1px, transparent 1px 5px), linear-gradient(180deg, #291d13 0%, #1f150e 55%, #150e09 100%);
+  --pk-module-border:      #3d2a1c;
+  --pk-module-shadow:      inset 0 1px 0 rgba(255, 210, 140, 0.06), 0 2px 0 rgba(0, 0, 0, 0.4), 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+/* The engraved serif of the plate and the lane label, with their shadows (.signin, .flab; .laneId, .laneTitle, .laneSub). */
+.list-plate .plate-title, .list-plate .plate-label, .list-plate .plate-slot, .ab-head.lane .lane-kicker, .ab-head.lane .lane-title, .ab-head.lane .lane-sub { font-family: var(--font-serif); }
+.list-plate .plate-title, .list-plate .plate-label { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.list-plate .plate-slot { font-size: 15px; }
+.ab-head.lane .lane-title { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+/* On the paper slot the product's ❓ keeps its ink */
+.list-plate .plate-slot .q-mark { color: var(--seal-red-ink); }

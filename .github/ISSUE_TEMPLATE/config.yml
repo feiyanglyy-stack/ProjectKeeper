@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/feiyanglyy-stack/ProjectKeeper/security/advisories/new
+    about: Please report a vulnerability privately, not in an issue. See SECURITY.md.

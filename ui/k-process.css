@@ -1,0 +1,302 @@
+/* The process view of increment K (CKC-24; mockups list-process-v1.html and graph-process-v0.html), the popover's
+   `How it got here` and versions (§6.4), the generation bands (D85), and the top bar's breakpoint count. Only the
+   themes' own variables are used (Spec §6.16); the fallbacks are the factory ones. */
+
+/* ── A work in the List: what was done on the left, what reality gave on the right ── */
+.unit{border-bottom:1px dashed var(--pk-line-soft,#2b2b26);padding:3px 0}
+.unit:last-child{border-bottom:0}
+.row2{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;align-items:start}
+details.unit>summary{list-style:none;cursor:pointer}
+details.unit>summary::-webkit-details-marker{display:none}
+.caret{display:inline-block;width:14px;color:var(--pk-text-faint,#85857b);font-size:11px}
+details.unit[open]>summary .caret::before{content:'▾'}
+details.unit:not([open])>summary .caret::before{content:'▸'}
+.nocaret{display:inline-block;width:14px}
+.sumline{font-size:11.5px;color:var(--pk-text-faint,#85857b);padding-left:14px;margin-top:1px}
+/* What is still open lights up, folded or not (D75). */
+.flag{font-size:11.5px;padding-left:14px;margin-top:2px;line-height:1.6}
+.flag.back{color:var(--pk-red,#dca6a0)}
+.flag.up{color:var(--pk-accent,#e3b76f)}
+.steps{margin:4px 0 4px 6px;border-left:1px solid var(--pk-line,#35352f);padding-left:10px;display:flex;flex-direction:column;gap:3px}
+.step .k{display:inline-block;min-width:74px;color:var(--pk-text-faint,#85857b);font-size:11px}
+.step .who{color:var(--pk-text,#e7e7df)}
+.step .say{color:var(--pk-text-muted,#a5a59b);font-size:11.5px}
+.step.history .say{text-decoration:line-through}
+.route{font-size:11px;white-space:nowrap;margin-left:4px}
+.route.back{color:var(--pk-red,#dca6a0)}
+.route.up{color:var(--pk-accent,#e3b76f)}
+.route.closed{color:var(--pk-green,#a3c5ac)}
+.route.hand{color:var(--pk-blue,#9fbdd5)}
+.sub{margin-left:18px;border-left:1px dashed var(--pk-line,#35352f);padding-left:10px}
+.par{margin:2px 0 2px 18px;border-left:2px solid var(--pk-blue,#9fbdd5);padding-left:10px;display:flex;flex-direction:column;gap:3px}
+.par-head{font-size:11px;color:var(--pk-blue,#9fbdd5)}
+.order{font-size:11.5px;color:var(--pk-text-muted,#a5a59b);padding-left:14px;margin:2px 0 4px}
+.order b{color:var(--pk-text,#e7e7df);font-weight:600}
+.order .moved{color:var(--pk-accent,#e3b76f)}
+.intent-flag{margin-top:6px;font-size:11.5px;color:var(--pk-accent,#e3b76f);line-height:1.6}
+.ptr{font-size:11.5px;color:var(--pk-text-faint,#85857b)}
+.text-btn.copy{font-size:11px;margin-left:6px;text-decoration:underline dotted;color:var(--pk-accent,#e3b76f)}
+.faint-num{color:var(--pk-text-faint,#85857b)}
+
+/* ── The List by module (D100; the owner's drawn structure): a block per area, the ringed cross-cutting block last ── */
+.list-wrap.by-module{padding:0 12px 14px;gap:10px}
+.list-wrap.by-module>.goals{padding:6px 0 0}
+/* A module's body is a panel of its own (owner 2026-09-30: a1 draws it as WorkflowLens's dark striped wood). */
+.ablock{border:1px solid var(--pk-module-border,var(--pk-section-border,var(--pk-line-soft,#2b2b26)));border-radius:var(--pk-section-radius,var(--pk-radius,6px));background:var(--pk-module-bg,var(--pk-section-bg,var(--pk-surface,#1c1c1a)));background-image:var(--pk-module-texture,none);box-shadow:var(--pk-module-shadow,none);padding:12px 14px 12px;display:flex;flex-direction:column;gap:5px;font-size:12px}
+.ablock.sel{box-shadow:inset 3px 0 0 var(--pk-accent,#e3b76f)}
+/* The cross-cutting block is ringed like the Graph's ring (Spec §6.3): a solid line with round corners, never dashes. */
+.ablock.cross{border:1.5px solid var(--pk-graph-intent,var(--pk-blue,#9fbdd5));border-radius:22px;padding:12px 16px}
+.ablock>.ab-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ablock>.ab-head h3{font-size:13.5px;font-weight:600;margin:0}
+.ablock>.ab-head h3 .text-btn{font-size:13.5px;font-weight:600;color:var(--pk-text-strong,var(--pk-text,#e7e7df))}
+.intent-basis>summary{cursor:pointer;font-size:11.5px;color:var(--pk-blue,#9fbdd5);list-style:none}
+.intent-basis>summary::-webkit-details-marker{display:none}
+.intent-basis[open]>summary{text-decoration:underline dotted}
+.intent-basis .ib-body{margin:4px 0 2px;padding:6px 10px;border-left:2px solid var(--pk-line,#35352f);display:flex;flex-direction:column;gap:6px;color:var(--pk-text-muted,#a5a59b);max-width:900px}
+.ablock .effect{margin:0 0 2px;color:var(--pk-text-muted,#a5a59b)}
+.ablock .rddrow{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-bottom:4px}
+.ablock .rdd{margin-top:0;padding:2px 8px;border:1px solid var(--pk-line-soft,#2b2b26);border-radius:var(--pk-radius-sm,5px)}
+.ablock .rdd[open]{flex:1 1 100%}
+/* Inside the fold one item a line, with room; the version line of its document in a smaller, quieter tone. */
+.ablock .rdd>div{padding:2px 0;line-height:1.55}
+.ablock .rdd>div>.faint{font-size:11px}
+.ablock .cols{display:grid;grid-template-columns:1fr 1fr;column-gap:16px;color:var(--pk-text-faint,#85857b);font-size:11px;border-bottom:1px solid var(--pk-line,#35352f);padding:4px 0 3px 14px}
+.ablock .sub-h{margin:8px 0 0;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b)}
+.ablock .pad{padding:4px 14px}
+.wrow .wr-right .say{color:var(--pk-text-muted,#a5a59b)}
+.wrow .proc-head{margin:4px 0 0 6px;padding-left:10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b)}
+/* The tags on a work row are one kind of chip (owner 2026-09-30): the same size and a 1px frame, the plan's in the plan
+   colour, a shared item's in the work colour — solid in its main module, dashed where it is a copy. */
+.wrow .tag{font-size:10.5px;line-height:1.5;padding:0 6px;border:1px solid var(--pk-line-soft,#2b2b26);box-shadow:none;vertical-align:1px}
+.plan-tag{font-size:10.5px;border:1px solid var(--pk-graph-plan,var(--pk-line,#35352f))}
+.plan-tag.none{color:var(--pk-text-faint,#85857b)}
+/* A work item serving several modules (owner, 2026-09-30): its main row solid, its row in each other module dashed —
+   and faded as a whole, like its copy on the Graph (owner, 2026-10-01, E152: the dashes alone did not tell the two
+   apart). Pointed at, focused or selected, the row comes forward to be read; it stays dashed. */
+.shared-tag{font-size:10.5px;border:1px solid var(--pk-graph-work,var(--pk-green,#a3c5ac))}
+.shared-tag.main{border-style:solid}
+.shared-tag.copy{border-style:dashed;color:var(--pk-text-muted,#a5a59b)}
+.wrow.shared-copy{border:1px dashed var(--pk-graph-work,var(--pk-green,#a3c5ac));border-radius:var(--pk-radius-sm,5px);padding:3px 6px;margin:2px 0;opacity:.5;transition:opacity .12s}
+.wrow.shared-copy:hover,.wrow.shared-copy:focus-within,.wrow.shared-copy[open]{opacity:.95}
+.wrow.shared-copy:has(.sel){opacity:.9}
+/* Work for a whole plan (CN): its tag in the plan's colour, the Keeper's reason under its name. */
+.whole-tag{font-size:10.5px;border:1px solid var(--pk-graph-plan,var(--pk-line,#35352f))}
+.basis-btn{font-size:11px;color:var(--pk-blue,#9fbdd5);text-decoration:underline dotted;margin-left:4px}
+.obs-fold{margin-top:6px}
+.obs-fold>summary{color:var(--pk-text-muted,#a5a59b)}
+.plan-row{border-bottom:1px dashed var(--pk-line-soft,#2b2b26);padding:3px 0}
+/* ── The List's layers (owner 2026-09-30, from a design study of hers: 「list画面更有层次一点，信息密度太大了」). The
+   top of the List is the Sign in card — a framed plate with an inlaid hairline and four rivets —, a module's head its
+   lane card — corner brackets, a small caps kicker, the title —, a module's body its own panel (above). Every part
+   reads its own tokens, which fall back to the section, the raised face and the accent, so each theme has a version
+   of it (TOKENS.md "The List's layers"). ── */
+.list-plate{position:relative;display:flex;flex-direction:column;gap:14px;margin-top:10px;padding:22px 32px 22px;border:var(--pk-plate-border-width,1px) solid var(--pk-plate-border,var(--pk-section-border,var(--pk-line-soft,#2b2b26)));border-radius:var(--pk-plate-radius,var(--pk-radius,6px));background:var(--pk-plate-bg,var(--pk-section-bg,var(--pk-surface,#1c1c1a)));background-image:var(--pk-plate-texture,none);box-shadow:var(--pk-plate-shadow,var(--pk-section-shadow,none));font-size:12.5px}
+.list-plate::before{content:'';position:absolute;inset:8px;pointer-events:none;border:1px solid var(--pk-plate-inlay,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius-xs,3px)}
+.list-plate>.rivet{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--pk-plate-rivet,var(--pk-line-strong,#4b4b42));box-shadow:var(--pk-plate-rivet-shadow,none);pointer-events:none}
+.list-plate>.rivet.r1{top:15px;left:16px}.list-plate>.rivet.r2{top:15px;right:16px}.list-plate>.rivet.r3{bottom:15px;left:16px}.list-plate>.rivet.r4{bottom:15px;right:16px}
+.list-plate .plate-title{margin:0;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.38em;text-indent:.38em;color:var(--pk-plate-kicker,var(--pk-accent,#e3b76f))}
+.list-plate .plate-label{display:block;margin:0 0 7px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--pk-plate-kicker,var(--pk-accent,#e3b76f))}
+.list-plate .plate-count{font:600 10.5px var(--pk-font-mono,'Cascadia Code',Consolas,monospace);letter-spacing:0;color:var(--pk-text-faint,#85857b)}
+.list-wrap .list-plate .plate-group{position:relative;display:flex;flex-direction:column;flex-wrap:nowrap;gap:0;padding:0}
+.list-plate .words-fold{margin:0}
+.list-plate .words-fold>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:6px;font-weight:400}
+.list-plate .words-fold>summary::-webkit-details-marker{display:none}
+.list-plate .words-fold>summary::before{content:'▸';font-size:10px;color:var(--pk-plate-kicker,var(--pk-accent,#e3b76f))}
+.list-plate .words-fold[open]>summary::before{content:'▾'}
+.list-plate .words-fold>summary .plate-label{display:inline;margin:0}
+.list-plate .words-fold>div{padding:3px 0 3px 16px;line-height:1.55}
+.list-plate .words-fold[open]>summary{margin-bottom:5px}
+.list-plate .plate-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.list-plate .plate-slot{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 13px;text-align:left;font-size:14px;font-weight:700;line-height:1.35;background:var(--pk-slot-bg,var(--pk-well-bg,var(--pk-surface,#1c1c1a)));color:var(--pk-slot-text,var(--pk-text,#e7e7df));border:1px solid var(--pk-slot-border,var(--pk-well-border,var(--pk-line,#35352f)));border-radius:var(--pk-radius-sm,4px);box-shadow:var(--pk-slot-shadow,var(--pk-well-shadow,none))}
+.list-plate .plate-slot:hover{border-color:var(--pk-accent,#e3b76f)}
+.list-plate .plate-slot.sel{outline:1px solid var(--pk-accent,#e3b76f);outline-offset:2px}
+.list-plate .plate-row>.faint{font-size:11.5px}
+.list-plate .goal-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px;counter-reset:goal}
+.list-plate .goal-list>li{position:relative;padding-left:24px;line-height:1.6;counter-increment:goal}
+.list-plate .goal-list>li::before{content:counter(goal);position:absolute;left:0;top:0;min-width:16px;font:600 10.5px/1.95 var(--pk-font-mono,'Cascadia Code',Consolas,monospace);color:var(--pk-plate-kicker,var(--pk-accent,#e3b76f))}
+.list-plate .goal-line{padding:0;text-align:left;color:var(--pk-text,#e7e7df)}
+.list-plate .goal-line:hover{text-decoration:underline dotted;text-underline-offset:3px}
+.list-plate .goal-line.sel{color:var(--pk-accent,#e3b76f)}
+/* The lane card: a module's code and counts in small caps, its name, the one sentence of its effect. */
+.ablock>.ab-head.lane{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:3px;margin:0 0 6px;padding:11px 18px 12px;background:var(--pk-lane-bg,var(--pk-raised,#242420));background-image:var(--pk-lane-texture,none);border:1px solid var(--pk-lane-border,var(--pk-line,#35352f));border-radius:var(--pk-lane-radius,var(--pk-radius-sm,4px));box-shadow:var(--pk-lane-shadow,none)}
+.ablock>.ab-head.lane::before{content:'';position:absolute;inset:5px;pointer-events:none;background-image:linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f))),linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f))),linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f))),linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f))),linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f))),linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f))),linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f))),linear-gradient(var(--pk-lane-corner,var(--pk-accent,#e3b76f)),var(--pk-lane-corner,var(--pk-accent,#e3b76f)));background-size:14px 2px,2px 14px,14px 2px,2px 14px,14px 2px,2px 14px,14px 2px,2px 14px;background-repeat:no-repeat;background-position:top left,top left,top right,top right,bottom left,bottom left,bottom right,bottom right}
+.ab-head.lane .lane-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ab-head.lane .lane-kicker{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--pk-lane-kicker,var(--pk-accent,#e3b76f))}
+.ab-head.lane .lane-count{font-size:11px;color:var(--pk-lane-sub,var(--pk-text-muted,#a5a59b));font-variant-numeric:tabular-nums}
+.ablock>.ab-head.lane h3.lane-title{margin:0;font-size:15px;font-weight:700;line-height:1.35;color:var(--pk-lane-title,var(--pk-text-strong,var(--pk-text,#e7e7df)))}
+.ablock>.ab-head.lane h3.lane-title .text-btn{padding:0;font-size:inherit;font-weight:inherit;font-family:inherit;color:inherit}
+.ablock>.ab-head.lane h3.lane-title .text-btn:hover{text-decoration:underline dotted;text-underline-offset:3px}
+.ablock .ab-head.lane .lane-sub{margin:1px 0 0;font-size:12px;line-height:1.5;font-style:italic;color:var(--pk-lane-sub,var(--pk-text-muted,#a5a59b))}
+.ab-head.lane .intent-basis{align-self:flex-start;margin-top:2px}
+.ab-head.lane .intent-basis>summary{font-size:11px;color:var(--pk-lane-link,var(--pk-blue,#9fbdd5))}
+.ab-head.lane .intent-basis .ib-body{color:var(--pk-lane-sub,var(--pk-text-muted,#a5a59b));border-left-color:var(--pk-lane-corner,var(--pk-line,#35352f))}
+/* Compact rows (owner, 2026-10-01, E153: 「现在的布局太松散了，左边也是两行右边也是，但是一共三行，整体看起来非常长」). A folded
+   row is one line on each side — the name, its tags, the count of what is open and what is folded under it; the one
+   sentence cut to the line (the whole of it in the hover) and `Basis` — with one separator between rows and no blank
+   line. In a narrow row the steps note gives way first, then the name; tags and marks are never cut. Opened, the
+   sentence is whole. */
+.ablock .cols{padding:8px 0 5px 14px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+.ablock .rows-note{padding:5px 0 5px 14px;font-size:11px;line-height:1.5;color:var(--pk-text-faint,#85857b);border-bottom:1px solid var(--pk-line-soft,#2b2b26)}
+.ablock .rows-note b{font-weight:600;color:var(--pk-text-muted,#a5a59b)}
+.wrow{padding:6px 0}
+.ablock .wrow{border-bottom:1px solid var(--pk-line-soft,#2b2b26)}
+.wrow .row2{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:28px;align-items:center}
+.wrow .wr-left,.wrow .wr-right{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;line-height:20px}
+.wrow .wr-left>*,.wrow .wr-right>*{flex:none}
+.wrow .wr-left>.caret,.wrow .wr-left>.nocaret{margin-right:-6px}
+.wrow .wr-left>.wr-name{flex:0 1 auto;min-width:0;display:flex;align-items:center}
+.wrow .wr-name>span:not(.text-btn){display:flex;align-items:center;min-width:0}
+.wrow .wr-name .text-btn{display:block;min-width:0;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:20px}
+.wrow .wr-name .star,.wrow .wr-name .q-mark{flex:none}
+.wr-steps,.wr-why{font-size:11px;color:var(--pk-text-faint,#85857b)}
+.wr-steps.same{font-style:italic}
+.wrow .wr-left>.wr-steps,.wrow .wr-left>.wr-why{flex:0 1000 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.wrow .wr-right>.say{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;color:var(--pk-text-muted,#a5a59b)}
+.wrow .wr-right>.basis-btn{margin-left:0;padding:0;line-height:20px}
+details.wrow[open]>summary .row2{align-items:start}
+details.wrow[open]>summary .wr-right{white-space:normal;align-items:baseline}
+details.wrow[open]>summary .wr-right>.say{overflow:visible}
+.wrow .flag{margin-top:1px}
+.ablock .wrow.shared-copy{padding:5px 8px;margin:2px 0}
+/* ── The List's parts open and close (E153; ui/list-fold.js): the top plate, a module's block, the foundation's, the
+   ring's. Each is folded to its head until the owner opens it; a press on the head opens or folds it where it stands.
+   Folded, a block is its head card alone, on two lines — code, name, what is open inside and its counts; the effect it
+   is for — and the plate is one line with the product's name. ── */
+/* The body's parts keep the room they had between them; the work rows stand one under the other with no gap. */
+.ab-body{display:flex;flex-direction:column}
+.ab-body>*+*{margin-top:5px}
+.ab-body>.wrow{margin-top:0}
+.ab-body[hidden],.plate-body[hidden]{display:none}
+[data-fold-head]{cursor:pointer}
+[data-fold-head]:focus-visible{outline:2px solid var(--pk-accent,#e3b76f);outline-offset:2px}
+.fold-caret{display:inline-block;flex:none;width:12px;font-size:10px;line-height:1;color:var(--pk-lane-kicker,var(--pk-accent,#e3b76f))}
+.fold-caret::before{content:'▸'}
+[data-open="true"]>[data-fold-head] .fold-caret::before{content:'▾'}
+.ab-head.lane .lane-top{justify-content:flex-start;gap:5px 6px}
+.ab-head.lane .lane-right{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
+.lane-right .tag,.plate-holds .tag,details.genband>summary .tag.inside-open{font-size:10.5px;line-height:1.5;padding:0 6px}
+.lane-right .q-mark,.plate-holds .q-mark{margin-left:0}
+.ablock[data-open="false"]{padding:0;gap:0;border-color:transparent;background:none;box-shadow:none}
+.ablock[data-open="false"]>.ab-head.lane{margin:0;display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;column-gap:10px;row-gap:2px;align-items:baseline;padding:8px 18px 9px}
+.ablock[data-open="false"]>.ab-head.lane>.lane-top{display:contents}
+.ablock[data-open="false"]>.ab-head.lane .fold-caret{grid-area:1/1}
+.ablock[data-open="false"]>.ab-head.lane .lane-kicker{grid-area:1/2}
+.ablock[data-open="false"]>.ab-head.lane>h3.lane-title{grid-area:1/3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ablock[data-open="false"]>.ab-head.lane .lane-right{grid-area:1/4;margin-left:0}
+.ablock[data-open="false"]>.ab-head.lane>.lane-sub{grid-area:2/2/3/-1;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ablock[data-open="false"]>.ab-head.lane>.intent-basis{display:none}
+.ablock.sel[data-open="false"]>.ab-head.lane{outline:1px solid var(--pk-accent,#e3b76f);outline-offset:1px}
+/* The ring keeps its ring folded; its head says its name first, then that it is not one-to-one with the modules. */
+.ablock.cross[data-open="false"]{padding:5px 7px;border:1.5px solid var(--pk-graph-intent,var(--pk-blue,#9fbdd5))}
+.ablock.cross[data-open="false"]>.ab-head.lane{border-radius:16px}
+.ablock.cross[data-open="false"]>.ab-head.lane>h3.lane-title{grid-area:1/2}
+.ablock.cross[data-open="false"]>.ab-head.lane .lane-kicker{grid-area:1/3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plate-head{position:relative;display:flex;align-items:baseline;justify-content:center;gap:8px}
+.plate-head>.plate-brief,.plate-head>.plate-holds{display:none}
+.plate-body{display:flex;flex-direction:column;gap:14px}
+.list-plate[data-open="false"]{padding:8px 18px;gap:0}
+.list-plate[data-open="false"]::before,.list-plate[data-open="false"]>.rivet{display:none}
+.list-plate[data-open="false"]>.plate-head{justify-content:flex-start;gap:12px}
+.list-plate[data-open="false"]>.plate-head>.plate-title{flex:none}
+.list-plate[data-open="false"]>.plate-head>.plate-brief{display:block;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:700;color:var(--pk-text-strong,var(--pk-text,#e7e7df))}
+.list-plate[data-open="false"]>.plate-head>.plate-holds{display:inline-flex;align-items:center;gap:8px;flex:none;margin-left:auto;font-size:11px;color:var(--pk-text-muted,#a5a59b);font-variant-numeric:tabular-nums}
+.list-only{padding:6px 10px;border:1px solid var(--pk-accent,#e3b76f);border-radius:var(--pk-radius-sm,5px);color:var(--pk-text,#e7e7df);font-size:12px}
+.gendest{color:var(--pk-text-muted,#a5a59b)}
+/* ❓ on an object (D100): lit while a note on it needs you, quiet otherwise; the same mark as on the Graph. */
+.q-mark{display:inline-block;margin-left:4px;padding:0 5px;border-radius:9px;font-size:10.5px;line-height:16px;vertical-align:1px}
+.q-mark.ask{background:var(--pk-accent,#e3b76f);color:var(--pk-ground,#141412);font-weight:700}
+.q-mark.note{border:1px solid var(--pk-line,#35352f);opacity:.6}
+
+/* ── Earlier generations (D85): one rolled-up band per generation, before the current plan ── */
+.genbands{display:flex;flex-direction:column;gap:6px;padding:4px 0}
+details.genband{border:1px solid var(--pk-section-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-section-radius,var(--pk-radius-sm,5px));background:var(--pk-section-bg,var(--pk-surface,#1c1c1a))}
+details.genband>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 10px;font-size:12px;color:var(--pk-text-muted,#a5a59b)}
+details.genband>summary::-webkit-details-marker{display:none}
+details.genband>summary::before{content:'▸';font-size:10px;color:var(--pk-text-faint,#85857b)}
+details.genband[open]>summary::before{content:'▾'}
+.genname{font-weight:600;color:var(--pk-text,#e7e7df)}
+.genbody{padding:2px 10px 10px;display:flex;flex-direction:column}
+
+/* ── The popover and full details (§6.4): How it got here, the versions, what is open ── */
+.kp-block{display:flex;flex-direction:column;gap:5px}
+.kp-block>h4{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b)}
+.kp-lin,.kp-ver{font-size:12px;line-height:1.6}
+.kp-lin .kp-when,.kp-ver .kp-when{color:var(--pk-text-muted,#a5a59b);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kp-lin .kp-what{color:var(--pk-text,#e7e7df)}
+.kp-lin.history .kp-what{color:var(--pk-text-faint,#85857b);text-decoration:line-through}
+.kp-ver.current b{color:var(--pk-text-strong,var(--pk-text,#e7e7df))}
+.kp-ver.superseded s{color:var(--pk-text-faint,#85857b)}
+.kp-sup{font-size:11px;color:var(--pk-text-muted,#a5a59b);padding-left:2px}
+.kp-more summary{cursor:pointer;color:var(--pk-text-faint,#85857b);font-size:11.5px}
+.kp-more summary:hover{color:var(--pk-text-muted,#a5a59b)}
+.kp-more>.content{padding:4px 0 2px 12px;display:flex;flex-direction:column;gap:4px}
+/* The history of the document an object sits in, set apart and named as that document's (owner 2026-09-30): a quiet
+   well under the object's own trail, folded in the popover. */
+details.kp-doc-history{border:1px solid var(--pk-line-soft,#2b2b26);border-radius:var(--pk-radius-sm,5px);background:var(--pk-well-bg,var(--pk-surface,#1c1c1a));padding:6px 9px;gap:6px}
+details.kp-doc-history>summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;list-style-position:outside}
+details.kp-doc-history>summary .kp-doc-kicker{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b)}
+details.kp-doc-history>summary .kp-doc-name{font:11.5px var(--pk-font-mono,'Cascadia Code',Consolas,monospace);color:var(--pk-text-muted,#a5a59b);overflow-wrap:anywhere}
+details.kp-doc-history>summary::-webkit-details-marker{display:none}
+details.kp-doc-history>summary::before{content:'▸';color:var(--pk-text-faint,#85857b);font-size:10px}
+details.kp-doc-history[open]>summary::before{content:'▾'}
+details.kp-doc-history[open]>summary{margin-bottom:4px}
+details.kp-doc-history .kp-doc-steps{display:flex;flex-direction:column;gap:5px}
+details.kp-doc-history .kp-block{padding-top:4px;border-top:1px dashed var(--pk-line-soft,#2b2b26)}
+.kp-openitem{font-size:12px;line-height:1.7}
+
+/* ── The top bar count (§6.2, §2.12) and its panel ── */
+.kp-count{font-variant-numeric:tabular-nums;color:var(--pk-red,#dca6a0)}
+.kp-counts-panel .kp-countrow{display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:12px;flex-wrap:wrap}
+.kp-countrow .kp-what{color:var(--pk-text,#e7e7df);min-width:0}
+
+/* ── The Code view's mount (§6.17); the renderer inside is AS's ui/k/code-view.js ── */
+.k-code{flex:1;min-height:0;overflow:auto}
+
+/* ── QC AY: what the owner reads beside an open item, a patch, an earlier plan, a session draft ── */
+/* The evidence of a breakpoint or send-back, and the original line itself, verbatim (CKC-24 AC-3). */
+.kp-evid{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:11.5px}
+.kp-evid li{line-height:1.55;color:var(--pk-text-muted,#a5a59b)}
+.kp-evid .kp-evid-label{color:var(--pk-text,#e7e7df)}
+.kp-line{margin:2px 0 0;padding:2px 8px;border-left:2px solid var(--pk-accent,#e3b76f);color:var(--pk-text,#e7e7df);white-space:pre-wrap;overflow-wrap:anywhere}
+.kp-openitem .kp-evid{margin:3px 0 2px 2px}
+/* The flag's words open the item; they read as the flag they were (its colour, its size), not as a link. */
+.flag .flag-open{display:inline;color:inherit;text-align:left;font:inherit;line-height:inherit;padding:0;background:none;border:0;cursor:pointer}
+.flag .flag-open:hover{color:inherit;text-decoration:underline dotted}
+.kp-lines-mark{color:var(--pk-text-faint,#85857b);font-size:11px}
+.kp-countrow .kp-what.text-btn{color:var(--pk-text,#e7e7df);text-align:left}
+/* A work's territories: the jump to Code (CKC-25 AC-7). */
+.kp-code .row{gap:5px}
+/* The versions list's pointer to the patch that replaced it (CKC-26 AC-4). */
+.kp-patch-link{font-size:11px;color:var(--pk-accent,#e3b76f);text-decoration:underline dotted}
+.kp-patch-four{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:10px 0}
+.kp-patch-four>div{display:flex;flex-direction:column;gap:2px;line-height:1.6}
+.kp-patch-four s{color:var(--pk-text-faint,#85857b)}
+.kp-patch-text{margin-top:6px}
+/* An earlier generation's plans in its band (CKC-24 AC-18). */
+.genplan{border-bottom:1px dashed var(--pk-line-soft,#2b2b26);padding:3px 0}
+.gendocs{font-size:11.5px;padding:4px 0 4px 14px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.gendoc{font-size:11.5px;color:var(--pk-accent,#e3b76f);text-decoration:underline dotted}
+.kp-deleted{color:var(--pk-text-muted,#a5a59b)}
+.kp-plan-text{max-height:60vh}
+/* A session's draft (§3.11; CKC-23 AC-18): the owner's lines verbatim with their kind, the agents' claims. */
+.kd-sessions .kd-ref{font-size:12px;line-height:1.7}
+.kd-open{font-size:12px;color:var(--pk-accent,#e3b76f)}
+.kd-none{color:var(--pk-text-faint,#85857b)}
+.kd-src-draft{font-size:11px;color:var(--pk-accent,#e3b76f);text-decoration:underline dotted}
+.kd-meta{margin-bottom:8px}
+.kd-h{margin:12px 0 6px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b)}
+.kd-lines,.kd-claims{display:flex;flex-direction:column;gap:8px}
+.kd-line{padding:6px 10px;border:1px solid var(--pk-well-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius-sm,5px);background:var(--pk-well-bg,var(--pk-rail,#191918))}
+.kd-line.kd-decision,.kd-line.kd-confirmation{border-left:3px solid var(--pk-accent,#e3b76f)}
+.kd-line-head{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;font-size:11px;color:var(--pk-text-muted,#a5a59b)}
+.kd-when{font-variant-numeric:tabular-nums}
+.kd-orig{font-size:11px;color:var(--pk-accent,#e3b76f)}
+.kd-text{margin-top:4px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--pk-text,#e7e7df);font-size:12.5px;line-height:1.65;max-height:40vh;overflow:auto}
+.kd-confirm{margin-top:6px;display:flex;flex-direction:column;gap:4px;font-size:12px}
+.kd-answers{margin:2px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;max-height:30vh;overflow:auto;font-style:normal}
+.kd-confirms{color:var(--pk-text,#e7e7df)}
+.kd-claim{font-size:12px;line-height:1.6}
+.kd-claim-text{color:var(--pk-text-muted,#a5a59b);padding-left:2px}
+.kd-foot{margin-top:12px;font-size:11px}
+/* Change log: a semantic patch is its own kind of row (CKC-26 AC-4). */
+.tl-patch .tl-patch-link{color:var(--pk-text,#e7e7df);text-align:left}

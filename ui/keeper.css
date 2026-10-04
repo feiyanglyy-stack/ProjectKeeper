@@ -1,0 +1,101 @@
+/* The Keeper view's two pages and Keeper activity (Spec §6.10, §6.9; D105). Own layer only (§6.16): reads the theme's
+   --pk-* tokens with factory fallbacks and adds no colour of its own. */
+
+/* The two pages */
+.kp-tabs{align-self:flex-start;width:max-content}
+.kp-tabs button{padding:4px 16px;font-weight:600}
+#kp-page,#kp-settings{display:flex;flex-direction:column;gap:12px}
+#kp-page>.stack{gap:12px}
+.kp-head .sub .tag{margin-right:4px}
+
+/* A block folded by default: one line that says what is inside and how much */
+.kp-fold>summary{flex-wrap:wrap}
+.kp-fold-head{color:var(--pk-text,#e7e7df)}
+.kp-fold-note{color:var(--pk-accent,#e3b76f);font-size:11.5px}
+.kp-fold>.content{padding-top:2px}
+.section>.content>.kp-fold{margin-top:2px}
+
+/* Takeover: the three depths */
+.kp-depths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kp-depth{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-radius,6px);cursor:pointer;font-size:12px;line-height:1.45}
+.kp-depth .row{gap:7px}
+.kp-depth input{margin:0}
+.kp-depth.selected{border-color:var(--pk-accent,#e3b76f);background:var(--pk-accent-bg,#322c20)}
+.kp-depth.disabled{cursor:default;opacity:.62}
+.kp-depth:not(.disabled):hover{border-color:var(--pk-accent,#e3b76f)}
+.kp-why{font-style:italic}
+.kp-folder-row{align-items:flex-start;gap:12px;flex-wrap:nowrap}
+.kp-folder-text{gap:4px;max-width:110ch;line-height:1.5}
+.kp-folder-grant label.chk{display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.kp-folder-grant label.chk input{margin:3px 0 0}
+#kp-folder-name{max-width:320px;font-family:var(--pk-font-mono,ui-monospace,monospace)}
+.kp-start-row{align-items:center}
+@media (max-width:900px){.kp-depths{grid-template-columns:1fr}}
+
+/* Takeover: progress as the Keeper works */
+.kp-progress{border-top:1px solid var(--pk-line-soft,#2b2b26);padding-top:10px;gap:8px}
+.kp-steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:3px}
+.kp-steps li>.btn{margin-left:6px}
+.kp-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.kp-lane-q{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100ch}
+.kp-table-frame{overflow-x:auto}
+
+/* The briefing */
+.kp-briefing h4{margin-top:6px}
+.kp-briefing h4:first-child{margin-top:0}
+.kp-brief-text{line-height:1.6;max-width:110ch}
+.kp-work td:first-child .tag{margin-left:6px}
+.kp-work td,.kp-rounds td{padding:4px 8px}
+
+/* Clear */
+.kp-clear table td{padding:3px 8px;vertical-align:top}
+.kp-clear .kp-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kp-warn{color:var(--pk-accent,#e3b76f)}
+#kp-clear-word{max-width:220px;font-family:var(--pk-font-mono,ui-monospace,monospace);letter-spacing:.06em}
+
+/* Daily */
+.kp-schedule-row{align-items:flex-end;gap:12px}
+.kp-schedule-row .field{min-width:150px}
+.kp-schedule-row select.input,.kp-schedule-row input.input{width:auto;min-width:150px}
+.kp-days{gap:6px;min-height:34px}
+.kp-day{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 7px;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-radius-sm,5px);cursor:pointer}
+.kp-day input{margin:0}
+.kp-status{display:flex;flex-direction:column;gap:5px;border-top:1px solid var(--pk-line-soft,#2b2b26);padding-top:8px}
+.kp-disabled{opacity:.6}
+[hidden].field{display:none}
+
+/* Keeper activity: a round is a row; its tree opens on a click */
+.ka-head{margin:6px 0 0}
+.ka-rounds{display:flex;flex-direction:column;gap:6px}
+.ka-round{border:1px solid var(--pk-section-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius,6px)}
+.ka-round-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:7px 10px;cursor:pointer;list-style:none;font-size:12px}
+.ka-round-row::-webkit-details-marker{display:none}
+.ka-round-row::before{content:'▸';font-size:10px;color:var(--pk-text-faint,#85857b)}
+.ka-round[open]>.ka-round-row::before{content:'▾'}
+.ka-round-row .btn{margin-left:auto}
+.ka-round-result{flex-basis:100%;padding-left:16px}
+.ka-round-tree .kv-rounds{padding:4px 8px 10px}
+
+/* Model provider: the keys, the route, the backups (§6.10 key、模型与路由) */
+.kp-keys td{vertical-align:top;padding:5px 8px}
+.kp-keys .kp-mask{letter-spacing:.08em;white-space:nowrap}
+.kp-key-state{min-width:180px;max-width:340px}
+.kp-key-state .faint{font-size:11.5px;overflow-wrap:anywhere}
+.kp-key-actions{white-space:nowrap}
+.kp-key-actions .btn+.btn{margin-left:4px}
+input.kp-key-lanes{width:58px}
+.kp-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kp-add-key,.kp-main-row{align-items:flex-end;gap:10px}
+.kp-add-key .field,.kp-main-row .field{min-width:150px}
+.kp-route{border-top:1px solid var(--pk-line-soft,#2b2b26);padding-top:10px;gap:8px}
+.kp-route h5{margin:6px 0 4px;font-size:12px}
+.kp-steps-route td{padding:4px 8px;vertical-align:top}
+.kp-steps-route select{max-width:420px}
+.kp-backup-list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.kp-backup-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.kp-backup-row select.input{width:auto;min-width:180px;max-width:360px}
+.kp-backup-row select.kp-order-key{width:200px}
+.kp-backup-row select.kp-order-model{width:300px}
+#kp-backup-add{width:auto;min-width:240px;max-width:360px}
+.kp-round-usage>summary{flex-wrap:wrap}
+.kp-model-usage td{padding:4px 8px;vertical-align:top}

@@ -1,0 +1,224 @@
+/* Increment K views: Code (§6.17), a round's tree (§6.9, §3.10), Project-scope additions (§6.7).
+   Own layer only (§6.16): reads the theme's --pk-* tokens with factory fallbacks, adds no colors of its own.
+   Cards use the one card material (--pk-card-*). Text on a card is the card's ink: --kv-ink is --pk-card-text
+   (a1's card is light parchment with dark ink, the others are dark cards with light text); muted/faint are the
+   same ink at 76%/58%, no new colors. Color-coded markers always pair a shape/word with the color. */
+.kv-card, .kv-table {
+  --kv-ink: var(--pk-card-text, #e7e7df);
+  --kv-muted: color-mix(in srgb, var(--kv-ink) 76%, transparent);
+  --kv-faint: color-mix(in srgb, var(--kv-ink) 58%, transparent);
+  /* family hues pulled halfway to the card's ink: readable as text on both light and dark cards */
+  --kv-accent: color-mix(in srgb, var(--pk-accent, #d8a24a) 55%, var(--kv-ink));
+  --kv-green: color-mix(in srgb, var(--pk-green, #7ec88a) 55%, var(--kv-ink));
+  --kv-blue: color-mix(in srgb, var(--pk-blue, #8aa8e8) 55%, var(--kv-ink));
+  --kv-red: color-mix(in srgb, var(--pk-red, #e08a8a) 55%, var(--kv-ink));
+  --kv-purple: color-mix(in srgb, var(--pk-purple, #b99ae0) 55%, var(--kv-ink));
+}
+.kv-card {
+  background: var(--pk-card-bg, var(--pk-surface, #1e1e1a));
+  background-image: var(--pk-card-texture, none);
+  border: 1px solid var(--pk-card-border, var(--pk-line, #3a3a33));
+  border-radius: var(--pk-card-radius, var(--pk-radius, 8px));
+  box-shadow: var(--pk-card-shadow, none);
+  color: var(--kv-ink);
+}
+.kv-muted { color: var(--kv-muted, var(--pk-text-muted, #a5a59b)); }
+.kv-faint { color: var(--kv-faint, var(--pk-text-faint, #7f7f76)); }
+.kv-mono { font-family: var(--pk-font-mono, ui-monospace, monospace); font-size: 0.92em; }
+.kv-strong { color: var(--kv-ink, var(--pk-text-strong, #fff)); }
+
+/* Buttons are the app's own keys (.btn.small): each theme paints them, so on a1's parchment card they are its
+   brass-lettered keys like every other button there (the card's ink on the dark key read about 1:1). .kv-btn only
+   names them for the views' checks. */
+.kv-btn { white-space: nowrap; }
+.kv-text-btn { font: inherit; padding: 0; border: 0; background: none; cursor: pointer; color: var(--pk-accent, #7aa2f7); text-align: left; }
+.kv-text-btn:hover { text-decoration: underline; }
+.kv-card .kv-text-btn, .kv-table .kv-text-btn { color: var(--kv-accent); }
+
+.kv-tag {
+  display: inline-block; padding: 0 6px; border-radius: var(--pk-radius-sm, 4px);
+  background: var(--pk-raised, #242420); color: var(--pk-text-muted, #a5a59b);
+  font-size: 0.86em; line-height: 1.6; white-space: nowrap; border: 0;
+}
+button.kv-tag { cursor: pointer; font: inherit; font-size: 0.86em; }
+button.kv-tag:hover { color: var(--pk-text-strong, #fff); outline: 1px solid var(--pk-line-strong, #4a4a42); }
+.kv-tag.kv-green { background: var(--pk-green-bg, #1d2b1e); color: var(--pk-green, #7ec88a); }
+.kv-tag.kv-blue { background: var(--pk-blue-bg, #1c2433); color: var(--pk-blue, #8aa8e8); }
+.kv-tag.kv-purple { background: var(--pk-purple-bg, #2a2333); color: var(--pk-purple, #b99ae0); }
+.kv-tag.kv-amber { background: var(--pk-accent-soft, #33291c); color: var(--pk-accent, #d8a24a); }
+.kv-tag.kv-red { background: var(--pk-red-bg, #331f1f); color: var(--pk-red, #e08a8a); }
+.kv-tag.kv-strike { text-decoration: line-through; opacity: 0.75; }
+
+/* ─────────── Code view ─────────── */
+.kv-code { padding: 10px 14px 18px; overflow: auto; }
+.kv-head { margin: 2px 0 12px; }
+.kv-head h2 { margin: 0 0 6px; }
+.kv-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.kv-chip { color: var(--pk-text-muted, #a5a59b); font-size: 0.92em; }
+.kv-chip b { color: var(--pk-text, #e8e8e2); font-weight: 600; }
+
+.kv-table { width: 100%; border-collapse: collapse; background: var(--pk-card-bg, var(--pk-surface, #1e1e1a)); background-image: var(--pk-card-texture, none); border: 1px solid var(--pk-card-border, var(--pk-line, #3a3a33)); border-radius: var(--pk-card-radius, var(--pk-radius, 8px)); box-shadow: var(--pk-card-shadow, none); color: var(--kv-ink); }
+.kv-table th {
+  text-align: left; font-weight: 600; font-size: 0.86em; letter-spacing: 0.02em;
+  color: var(--kv-muted); padding: 8px 10px;
+  border-bottom: 1px solid var(--pk-card-line, var(--pk-line, #3a3a33));
+  background: var(--pk-card-head-bg, transparent);
+}
+.kv-table td { vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--pk-card-line, var(--pk-line-soft, #2e2e28)); }
+.kv-table tr:last-child td { border-bottom: 0; }
+.kv-area-cell { width: 15%; border-right: 1px solid var(--pk-card-line, var(--pk-line, #3a3a33)); }
+.kv-area-name { font-weight: 600; color: var(--kv-ink); }
+.kv-col-terr { width: 37%; }
+.kv-col-built { width: 20%; }
+.kv-col-use { width: 10%; }
+.kv-col-state { width: 18%; }
+
+.kv-tname { font-weight: 600; font-size: 1em; }
+.kv-tblock + .kv-tblock { margin-top: 6px; }
+.kv-path { color: var(--kv-faint); }
+.kv-size { color: var(--kv-muted); }
+.kv-generated { color: var(--kv-purple); }
+.kv-deps { margin-top: 3px; font-size: 0.92em; }
+.kv-gens { margin-top: 3px; font-size: 0.92em; }
+
+.kv-also { position: relative; display: inline-block; }
+.kv-also-list {
+  display: none; position: absolute; z-index: 30; left: 0; top: calc(100% + 4px); min-width: 180px;
+  padding: 6px 8px; margin: 0; list-style: none;
+  background: var(--pk-card-bg, var(--pk-raised, #242420));
+  background-image: var(--pk-card-texture, none);
+  border: 1px solid var(--pk-card-border, var(--pk-line-strong, #4a4a42));
+  border-radius: var(--pk-card-radius, var(--pk-radius, 8px));
+  box-shadow: var(--pk-card-shadow, var(--pk-shadow-float, 0 8px 24px rgba(0,0,0,0.35)));
+}
+.kv-also:hover .kv-also-list, .kv-also.kv-open .kv-also-list { display: block; }
+.kv-also-list li { padding: 2px 0; color: var(--pk-card-text, #e8e8e2); font-size: 0.92em; white-space: nowrap; }
+
+.kv-use { display: inline-flex; align-items: center; gap: 5px; font-size: 0.92em; color: var(--kv-muted); }
+.kv-use.kv-lit { color: var(--kv-accent); font-weight: 600; }
+.kv-use.kv-lit-red { color: var(--kv-red); font-weight: 600; }
+
+.kv-anomaly { padding: 6px 8px; border-radius: var(--pk-radius-sm, 4px); font-size: 0.92em; }
+.kv-anomaly + .kv-anomaly { margin-top: 6px; }
+.kv-anomaly.kv-lit { background: color-mix(in srgb, var(--pk-accent, #d8a24a) 12%, transparent); border-left: 3px solid var(--pk-accent, #d8a24a); }
+.kv-anomaly.kv-ok { background: color-mix(in srgb, var(--pk-green, #7ec88a) 12%, transparent); border-left: 3px solid var(--pk-green, #7ec88a); }
+.kv-anomaly .kv-kind { font-weight: 600; }
+.kv-anomaly.kv-lit .kv-kind { color: var(--kv-accent); }
+.kv-anomaly.kv-ok .kv-kind { color: var(--kv-green); }
+.kv-anomaly-text { margin: 2px 0 0; color: var(--kv-ink); }
+.kv-anomaly-acts { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.kv-evid { margin-top: 4px; font-size: 0.9em; color: var(--kv-muted); }
+.kv-evid li { margin: 1px 0; }
+.kv-evid .kv-line { display: block; padding-left: 12px; color: var(--kv-faint); }
+.kv-sendback { margin-top: 6px; padding: 5px 7px; border: 1px dashed var(--pk-blue, #8aa8e8); border-radius: var(--pk-radius-sm, 4px); }
+.kv-sendback .kv-stage { color: var(--kv-blue); font-weight: 600; }
+
+.kv-drill td { background: color-mix(in srgb, var(--kv-ink) 5%, var(--pk-card-bg, var(--pk-ground, #191916))); padding: 8px 12px; }
+.kv-files { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+.kv-files th { text-align: left; font-weight: 600; color: var(--kv-faint); padding: 4px 8px; border-bottom: 1px solid var(--pk-card-line, var(--pk-line, #3a3a33)); }
+.kv-files td { padding: 4px 8px; border-bottom: 1px solid var(--pk-card-line, var(--pk-line-soft, #2e2e28)); vertical-align: top; }
+.kv-files tr:last-child td { border-bottom: 0; }
+.kv-reflist { color: var(--kv-muted); }
+.kv-none { color: var(--kv-faint, var(--pk-text-faint, #7f7f76)); }
+
+/* ─────────── round tree ─────────── */
+.kv-rounds { padding: 10px 14px 18px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
+.kv-round { padding: 10px 12px 12px; }
+.kv-round-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.kv-round-title { font-weight: 700; font-size: 1.05em; color: var(--kv-ink); }
+.kv-round-meta { color: var(--kv-muted); font-size: 0.92em; }
+.kv-round-note { margin-top: 4px; color: var(--kv-faint); font-size: 0.9em; }
+
+.kv-steps { list-style: none; margin: 10px 0 0; padding: 0; }
+.kv-step { border-top: 1px solid var(--pk-card-line, var(--pk-line-soft, #2e2e28)); padding: 8px 0 8px 14px; position: relative; }
+.kv-step::before { content: ''; position: absolute; left: 2px; top: 14px; width: 6px; height: 6px; border-radius: 3px; background: var(--pk-line-strong, #4a4a42); }
+.kv-step.kv-failed::before { background: var(--pk-red, #e08a8a); }
+.kv-digs { border: 1px dashed var(--pk-card-line, var(--pk-line, #3a3a33)); border-radius: var(--pk-radius-sm, 4px); margin: 4px 0; }
+.kv-digs-head { padding: 6px 10px 0; color: var(--kv-faint); font-size: 0.88em; }
+.kv-digs .kv-step { padding-left: 22px; }
+.kv-step-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.kv-step-label { font-weight: 600; color: var(--kv-ink); }
+.kv-step-path { color: var(--kv-accent); }
+.kv-model { color: var(--kv-faint); font-size: 0.88em; }
+.kv-status { font-size: 0.88em; color: var(--kv-green); }
+.kv-status.kv-bad { color: var(--kv-red); }
+
+.kv-timing { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 3px 12px; align-items: center; font-size: 0.88em; color: var(--kv-muted); }
+.kv-bar { display: inline-flex; width: 180px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--pk-raised, #242420); vertical-align: middle; }
+.kv-bar span { display: block; height: 100%; }
+.kv-seg-gen { background: var(--pk-accent, #d8a24a); }
+.kv-seg-tool { background: var(--pk-blue, #8aa8e8); }
+.kv-seg-queue { background: var(--pk-purple, #b99ae0); }
+.kv-seg-parse { background: var(--pk-red, #e08a8a); }
+.kv-seg-other { background: var(--pk-line-strong, #4a4a42); }
+.kv-legend { display: inline-flex; gap: 4px; align-items: center; }
+.kv-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
+.kv-usage { margin-top: 3px; font-size: 0.88em; color: var(--kv-muted); }
+.kv-docs { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 5px; }
+.kv-doc-panel { margin: 6px 0 2px; padding: 8px 12px; border: 1px solid var(--pk-card-line, var(--pk-line, #3a3a33)); border-radius: var(--pk-radius-sm, 4px); background: color-mix(in srgb, var(--kv-ink) 5%, var(--pk-card-bg, var(--pk-ground, #191916))); color: var(--kv-ink); max-width: 960px; }
+.kv-doc-panel h1, .kv-doc-panel h2, .kv-doc-panel h3 { margin: 8px 0 4px; }
+.kv-doc-panel table { border-collapse: collapse; }
+.kv-doc-panel th, .kv-doc-panel td { border: 1px solid var(--pk-card-line, var(--pk-line-soft, #2e2e28)); padding: 3px 8px; }
+.kv-doc-loading { color: var(--kv-faint); }
+
+.kv-round-sum { margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.kv-sum-cell { padding: 7px 9px; border: 1px solid var(--pk-card-line, var(--pk-line-soft, #2e2e28)); border-radius: var(--pk-radius-sm, 4px); font-size: 0.9em; }
+.kv-sum-title { font-weight: 600; color: var(--kv-muted); font-size: 0.88em; margin-bottom: 3px; }
+.kv-sum-cell ul { margin: 0; padding-left: 16px; }
+.kv-sum-cell li { margin: 1px 0; }
+.kv-sum-cell.kv-lit { border-color: var(--pk-accent, #d8a24a); }
+.kv-sum-cell.kv-lit .kv-sum-title { color: var(--kv-accent); }
+
+/* ─────────── Project scope additions ─────────── */
+.kv-scope { padding: 10px 14px 18px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.kv-section { padding: 9px 12px 11px; }
+.kv-section > h3 { margin: 0 0 7px; font-size: 1em; color: var(--kv-ink); }
+.kv-kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; font-size: 0.92em; }
+.kv-kv dt { color: var(--kv-muted); margin: 0; }
+.kv-kv dd { margin: 0; color: var(--kv-ink); }
+.kv-mini { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+.kv-mini th { text-align: left; font-weight: 600; color: var(--kv-faint); padding: 3px 8px 3px 0; border-bottom: 1px solid var(--pk-card-line, var(--pk-line, #3a3a33)); }
+.kv-mini td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--pk-card-line, var(--pk-line-soft, #2e2e28)); vertical-align: top; }
+.kv-mini tr:last-child td { border-bottom: 0; }
+.kv-missing { color: var(--kv-accent); }
+.kv-history { color: var(--kv-faint); text-decoration: line-through; }
+.kv-note-block { padding: 8px 10px; border: 1px dashed var(--pk-card-border, var(--pk-line, #3a3a33)); border-radius: var(--pk-radius-sm, 4px); color: var(--kv-muted); font-size: 0.92em; }
+.kv-note-block b { color: var(--kv-ink); }
+
+/* ─────────── QC AY: the jumps and the honest states of Code; the drafts of a round ─────────── */
+.kv-gone { margin-top: 3px; color: var(--kv-accent); font-size: 0.92em; }
+.kv-use.kv-unplanned { color: var(--kv-ink); }
+.kv-sendback-acts { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 5px; }
+.kv-table tr.kv-target > td { box-shadow: inset 3px 0 0 var(--pk-accent, #d8a24a); }
+.kv-drafts { margin-top: 5px; font-size: 0.9em; }
+.kv-drafts > summary { cursor: pointer; }
+.kv-draft-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.kv-draft-list li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+
+/* ─────────── QC AY package C: what package A added, in sight ─────────── */
+/* What the ledger keeps without reading it (Project scope, ScopeKView ledger.notRead). */
+.kv-notread { display: flex; flex-direction: column; gap: 4px; }
+.kv-notread-paths { list-style: none; margin: 2px 0 0; padding: 0 0 0 12px; display: flex; flex-direction: column; gap: 1px; }
+/* The sweeps the program added to a deepening (RoundView.sweepsAdded): the round's note and each step's tag. */
+.kv-sweeps-added ul { margin: 2px 0 0; padding-left: 18px; }
+.kv-sweeps-added li { margin: 1px 0; }
+/* What of a round did not finish (the coverage's failure list): each with why, and Retry or Continue. */
+.kv-failures { color: var(--kv-red); }
+.kv-failures ul { margin: 2px 0 0; padding-left: 18px; }
+.kv-failures li { margin: 3px 0; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.kv-fail-reason { color: var(--kv-ink); overflow-wrap: anywhere; min-width: 0; flex: 1 1 320px; }
+.kv-added-tag { cursor: help; }
+/* A deepening read by reading assignments: each sweep with its reading line, its assignments under it. */
+.kv-dig-path { padding: 6px 10px 2px; border-top: 1px dashed var(--pk-card-line, var(--pk-line, #3a3a33)); }
+.kv-dig-path:first-of-type { border-top: 0; }
+.kv-dig-path-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 0.94em; }
+.kv-reading { margin-top: 3px; font-size: 0.88em; color: var(--kv-muted); overflow-wrap: anywhere; }
+.kv-accounted { margin-top: 3px; }
+.kv-accounted > summary { cursor: pointer; }
+.kv-accounted ul { margin: 4px 0 2px; padding-left: 18px; }
+.kv-accounted li { margin: 2px 0; }
+.kv-dig-path .kv-step { padding-left: 12px; }
+/* D99: the main agent's stages, its lanes and the coverage check sit under its step, in the same frames as the sweeps. */
+.kv-main-body { margin-top: 6px; }
+.kv-stages { margin: 2px 0 6px; }
+.kv-coverage-body { padding: 6px 10px 6px; }

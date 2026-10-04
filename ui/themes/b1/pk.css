@@ -1,0 +1,218 @@
+/* ───────────────────────────────────────────────────────────────────
+ * b1 · Peacock & Brass — ProjectKeeper's layer (Spec §6.16; CKC-09 AC-41; the UI line's V3)
+ *
+ * board.css beside this file is the owner's, frozen: not a byte of it changes. This file is loaded after it and gives
+ * every `--pk-*` token of ui/styles.css (the contract in ../TOKENS.md) a value the board already has — its tokens where
+ * they exist, its own literals where they do not — and then the parts the board never had (a segmented control, a
+ * conversation, a graph). No colour, shadow or radius that is not in board.css. The whole file can be taken away and
+ * the factory look is back.
+ *
+ * The master (WorkflowKeeper's D87; the theme's own BOARD_CHANGES.md): everything is made after b1's card (.box /
+ * .cvNode / .ibxRow) — a solid --card face pressed into its slot: --line-2 frame, --raise-chunk's top highlight, 3px
+ * hard lip and deep drop, no lift on hover, only a brass edge. The popover, the docked Keeper, the dialog, a note
+ * card, the open row of the bottom strip and the tooltip are that card. Section heads and strip column heads are its
+ * bin header (.rootHead: card face, brass top edge drawn as an inset so no rectangle moves). Segmented controls are
+ * the tray tiles seated in a groove (.slotRow: --well + --sink); the tile that is on is the dispatch tab's solid
+ * brass. Brass stays on edges and on what can be pressed (buttons, links, `Details`, the selected state, the theme
+ * picker) — never on a large face. The four layers: ground (--bg) < band (--bg-1) < section (--bg-2) < card (--card),
+ * with the well (--well) sunk below the ground.
+ * ─────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surfaces and lines: the green-black ladder, groove < page < band < block < card < lit card ── */
+  --pk-ground:        var(--bg);
+  --pk-rail:          var(--bg-1);
+  --pk-surface:       var(--card);
+  --pk-raised:        var(--card-2);
+  --pk-line:          var(--line-2);
+  --pk-line-soft:     var(--line);
+  --pk-line-strong:   var(--line-3);
+  --pk-scrim:         rgba(0,0,0,.55);
+
+  /* ── Text, four steps: the header's near-white, body, secondary, the sage of the master tray's head ── */
+  --pk-text-strong:   #edf2ea;
+  --pk-text:          var(--fg);
+  --pk-text-muted:    var(--fg-2);
+  --pk-text-faint:    #7d9e8a;             /* --fg-3 reads only 3.8 on the card; the board's sage reads 4.7 */
+
+  /* ── The signal: brass, only on edges and on what can be pressed (the theme's own rule) ── */
+  --pk-accent:        var(--brass);
+  --pk-accent-bg:     var(--review-bg);
+  --pk-accent-hi:     var(--click-h);
+  --pk-on-accent:     var(--bg);
+  --pk-accent-soft:   var(--paused-bg);
+  --pk-flash:         var(--review-bd);
+  --pk-star:          var(--paused);
+
+  /* ── The other families; "what can be pressed" (links, .text-btn) is brass in this theme, not blue ── */
+  --pk-green:         var(--good);     --pk-green-bg:  var(--good-bg);    --pk-green-ln: var(--good-bd);
+  --pk-blue:          var(--click);    --pk-blue-bg:   var(--paused-bg);
+  --pk-red:           var(--alert);    --pk-red-bg:    var(--alert-bg);   --pk-red-ln:   var(--alert-bd);
+  --pk-purple:        var(--promoted); --pk-purple-bg: #2e1a3a;
+
+  /* ── Selection: the segment that is on is the dispatch tab's solid brass with the page's dark text ── */
+  --pk-sel-bg:            var(--card-2);
+  --pk-control-on:        var(--brass) linear-gradient(180deg, var(--brass), var(--brass-2));
+  --pk-control-on-text:   var(--bg);
+  --pk-control-on-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 2px 0 rgba(0,0,0,.5);
+
+  /* ── Fonts: the board's own ── */
+  --pk-font-body:     13px/1.5 var(--font);
+  --pk-font-ui:       var(--font);
+  --pk-font-mono:     var(--mono);
+  --pk-font-display:  var(--font);
+
+  /* ── Radii: solid parts, tight; the panel takes the module's 6px ── */
+  --pk-radius:        5px;
+  --pk-radius-sm:     4px;
+  --pk-radius-xs:     3px;
+  --pk-radius-panel:  6px;
+  --pk-radius-pill:   999px;
+
+  /* ── Shadows: the board's three depths — raised block, small solid part, the chunky card ── */
+  --pk-shadow-float:  var(--raise);
+  --pk-shadow-window: var(--raise-chunk), 0 10px 28px rgba(0,0,0,.55);
+  --pk-shadow-raised: var(--raise-sm);
+
+  /* ── The card (the master): the solid part pressed into its slot — flat face, hard lip, deep drop ── */
+  --pk-card-bg:           var(--card);
+  --pk-card-texture:      none;
+  --pk-card-border:       var(--line-2);
+  --pk-card-shadow:       var(--raise-chunk);
+  --pk-card-radius:       5px;
+  --pk-card-text:         var(--fg);
+  --pk-card-line:         var(--line);
+  --pk-card-hover-border: var(--brass-2);
+  --pk-card-foot-bg:      var(--well);
+  --pk-card-head-bg:      var(--card-2);
+
+  /* ── A section (a module block), and its head (the bin header: card face, brass top edge as an inset) ── */
+  --pk-section-bg:      var(--bg-2);
+  --pk-section-border:  var(--line);
+  --pk-section-radius:  6px;
+  --pk-section-shadow:  var(--raise);
+  --pk-head-bg:         var(--card);
+  --pk-head-texture:    none;
+  --pk-head-border:     var(--line);
+  --pk-head-shadow:     inset 0 2px 0 var(--brass-2);
+  --pk-head-text:       #edf2ea;
+
+  /* ── Controls: the theme's button — a raised tile of card-2 over bg-2 on a card-2 face, brass edge when pointed at ── */
+  --pk-control-bg:           var(--card-2) linear-gradient(180deg, var(--card-2), var(--bg-2));
+  --pk-control-texture:      none;
+  --pk-control-border:       var(--line-2);
+  --pk-control-shadow:       var(--raise-sm);
+  --pk-control-radius:       4px;
+  --pk-control-hover-bg:     var(--card-2);
+  --pk-control-hover-border: var(--brass);
+
+  /* ── The sunken well: inputs, the composer, quoted sources, code ── */
+  --pk-well-bg:      var(--well);
+  --pk-well-border:  var(--line);
+  --pk-well-shadow:  var(--sink);
+  --pk-code-bg:      #252f28;
+
+  /* ── The conversation: the owner's words on the brass-tinted face (WorkflowKeeper's D87) ── */
+  --pk-msg-user-bg:     var(--review-bg);
+  --pk-msg-user-border: var(--review-bd);
+
+  /* ── The graph (Spec §6.3; D53): b1's own four, checked — Plan / Work item 40.0 normal, 36.0 protan, 29.2 deutan;
+        --flow reads only 4.11 on the card, so it is ever an edge or a band, never node text ── */
+  --pk-graph-bg:         var(--bg);
+  --pk-graph-intent:     var(--flow);
+  --pk-graph-plan:       var(--promoted);
+  --pk-graph-work:       var(--good);
+  --pk-graph-reality:    var(--paused);
+  --pk-graph-node-bg:    var(--card);
+  --pk-graph-node-text:  var(--fg);            /* node words in the body colour; the kinds' colours stay on edges and bands */
+  --pk-graph-node-kind:  var(--fg-2);
+  --pk-graph-node-muted: var(--fg-2);
+  --pk-graph-node-faint: #7d9e8a;
+  /* the card's material, lent to the objects: the parts of --raise-chunk — top highlight, bottom shade, the 3px
+     hard lip, the deep drop (flat enamel: no brush) */
+  --pk-graph-node-chamfer: rgba(255,255,255,.20);
+  --pk-graph-node-shade:   rgba(0,0,0,.58);
+  --pk-graph-node-lip:     #080c0a;
+  --pk-graph-node-shadow:  rgba(0,0,0,.42);
+  --pk-graph-edge:          var(--line-3);
+  --pk-graph-edge-other:    var(--fg-3);
+  --pk-graph-edge-related:  var(--fg-2);
+  --pk-graph-edge-lit:      var(--fg);
+  --pk-graph-edge-selected: var(--click-h);
+  --pk-graph-questioned:    var(--paused);
+  --pk-graph-label-bg:      var(--well);
+  --pk-graph-chip-bg:       var(--well);
+  --pk-graph-chip-border:   var(--line-2);
+  --pk-graph-selection:     #edf2ea;           /* the brightest the theme has — never one of the kinds */
+  --pk-graph-focus:         var(--brass);
+  --pk-graph-diff-added:    var(--good);
+  --pk-graph-diff-changed:  var(--paused);
+  --pk-graph-diff-removed:  var(--alert);
+  --pk-graph-replaced:      var(--line-3);
+  --pk-graph-danger:        var(--alert);
+  --pk-graph-group-bg:      var(--card-2);
+  --pk-graph-group-border:  var(--line-3);
+  --pk-graph-group-back:    var(--card);
+  --pk-graph-group-back-border: var(--line);
+  --pk-graph-group-chip:    var(--bg-2);
+  /* the corner marks stay loud: the star in the theme's gold, flag and ask in brass, the pending turn in --click */
+  --pk-graph-mark-star:     var(--paused);
+  --pk-graph-mark-flag:     var(--brass);
+  --pk-graph-mark-note:     var(--fg);
+  --pk-graph-mark-ask:      var(--brass);
+  --pk-graph-mark-pending:  var(--click);
+}
+
+/* ── The ground: the board's body, restated from the tokens so this file is the one source ── */
+body {
+  color: var(--pk-text);
+  font: var(--pk-font-body);
+  background: var(--pk-ground);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Classes board.css and the workbench both use: the guard put the metrics back; the colours are set here ── */
+.empty { color: var(--pk-text-muted); }
+.empty h2 { color: var(--pk-text-strong); }
+
+/* ── The chassis top plate: the top bar, as the board's page header — bg-2 block, brass top ridge and the dark
+      bottom seam drawn as shadows so no rectangle moves ── */
+.topbar { background: var(--bg-2); border-bottom-color: #070c09; box-shadow: inset 0 2px 0 var(--brass-2), 0 4px 12px rgba(0,0,0,.35); }
+
+/* ── Titles: the header's near-white; the enamel is flat, no text shadow ── */
+.page-head h1, .dialog-head h2, .popover-title, .more-title, .keeper-head .title, .brand, .walk-title, .full-head h2 { color: var(--pk-text-strong); }
+.crumb strong { color: var(--pk-text-strong); }
+
+/* ── Brass on what can be pressed: button labels (the theme's own button), the theme picker; links and .text-btn
+      already read --pk-blue, which this theme sets to --click ── */
+.btn { color: var(--click); }
+.btn:hover:not(:disabled) { color: var(--click-h); }
+.theme-pick select { color: var(--click); }
+
+/* ── Segmented controls after the tray tiles: a groove (.slotRow: well + sink) holding raised tiles (.slot); the
+      tile that is on is the dispatch tab's solid brass (the --pk-control-on tokens). Only paint changes: the tiles
+      keep their size and the row its height — the tile edge is a 1px spread shadow, not a border. ── */
+.segmented { background: var(--well); background-image: none; border-color: #090e0b; box-shadow: var(--sink); }
+.segmented button { background: var(--card); color: var(--fg-2); box-shadow: var(--raise-sm), 0 0 0 1px var(--line); }
+.segmented button:hover:not(:disabled) { color: var(--fg); }
+.segmented button:disabled { color: var(--fg-4); }
+
+/* ── The card's pocket at the foot of the popover (the board's .box:has(.attach) .attach: the well sunk in) ── */
+.popover-foot { box-shadow: var(--sink); }
+
+/* ── The rail: the active view carries the lane label's brass edge, drawn as an inset ── */
+.nav-item.active { box-shadow: inset 2px 0 0 var(--brass); }
+
+/* ── The bands: the top-light hairline every band of the board carries (.kpis / .dash / .legend) ── */
+.graph-tools, .legend { box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+
+/* ── The toast: the board's own — card face in a brass frame ── */
+#toast { border-color: var(--brass); }
+
+/* ── The timeline's dots: metal at rest, brass when selected ── */
+.tl-event:before { background: var(--line-3); }
+.tl-event.sel:before { background: var(--brass); }
+
+/* ── Checkboxes take the board's flow blue (the board's own toolbar rule) ── */
+input[type="checkbox"] { accent-color: var(--flow); }

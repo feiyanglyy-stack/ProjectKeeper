@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ProjectKeeper</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2323211d'/%3E%3Cpath d='M23 8H12l-5 8 5 8h11M14 8v16M7 16h16' fill='none' stroke='%23e3b76f' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+  <!-- Increment K: the process view, the popover's lineage and versions, the generation bands (CKC-24, §6.3, §6.4). -->
+  <link rel="stylesheet" href="/k-process.css">
+  <!-- Increment K: AS's renderers (Code, the round tree, the scope additions; ui/k/*.js). They also attach it
+       themselves when mounted; linked here so the views never flash unstyled on first paint. -->
+  <link rel="stylesheet" href="/k/k-views.css">
+  <!-- Themes (Spec §6.16): the frozen WorkflowKeeper board, then ProjectKeeper's own layer for it. Both hrefs are set by
+       theme.js from the choice kept in this browser; empty, they are the factory look. The guard is always last: it
+       pins the shell's layout and says no colour (themes/guard.css). -->
+  <link rel="stylesheet" id="theme-board" href="">
+  <link rel="stylesheet" id="theme-pk" href="">
+  <link rel="stylesheet" href="/themes/guard.css">
+</head>
+<body>
+  <div id="app" class="shell"></div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/vendor/cytoscape/dist/cytoscape.min.js"></script>
+  <script src="/vendor/dagre/dist/dagre.min.js"></script>
+  <script src="/vendor/cytoscape-dagre/dist/cytoscape-dagre.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

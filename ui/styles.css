@@ -1,0 +1,482 @@
+:root{--pk-keeper-w:420px;--pk-dock-h:60px;--pk-top:52px;--pk-gap:8px;--pk-pill-w:190px}
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--pk-ground,#141413);color:var(--pk-text,#e7e7df);font:var(--pk-font-body,13px/1.55 var(--pk-font-ui,'Segoe UI Variable Text','Segoe UI','Microsoft YaHei',sans-serif))}
+button,input,textarea,select{font:inherit}button{color:inherit;cursor:pointer;background:none;border:0}button:disabled{cursor:not-allowed;opacity:.5}
+a{color:var(--pk-blue,#9fbdd5);text-decoration:none}a:hover{text-decoration:underline}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--pk-accent,#e3b76f);outline-offset:2px}
+h1,h2,h3,h4,p{margin:0}h1{font-size:22px;font-weight:600;letter-spacing:-.4px}h2{font-size:16px;font-weight:600}h3{font-size:13px;font-weight:600}h4{font-size:12px;font-weight:600;color:var(--pk-text-muted,#a5a59b)}
+small{font-size:11px;color:var(--pk-text-muted,#a5a59b)}.muted{color:var(--pk-text-muted,#a5a59b)}.faint{color:var(--pk-text-faint,#85857b)}.mono{font:11px/1.5 var(--pk-font-mono,'Cascadia Code',Consolas,monospace)}code{font:11px/1.5 var(--pk-font-mono,'Cascadia Code',Consolas,monospace);background:var(--pk-code-bg,var(--pk-raised,#242420));padding:1px 4px;border-radius:var(--pk-radius-xs,3px)}
+.btn{display:inline-flex;gap:6px;align-items:center;justify-content:center;min-height:30px;padding:5px 10px;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-control-radius,var(--pk-radius,6px));font-weight:500;white-space:nowrap;background:var(--pk-control-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-control-texture,none);box-shadow:var(--pk-control-shadow,none)}.btn:hover:not(:disabled){background:var(--pk-control-hover-bg,var(--pk-raised,#242420));border-color:var(--pk-control-hover-border,var(--pk-control-border,var(--pk-line,#35352f)))}
+.btn.primary{color:var(--pk-on-accent,#211e16);background:var(--pk-accent,#e3b76f);border-color:var(--pk-accent,#e3b76f)}.btn.primary:hover:not(:disabled){background:var(--pk-accent-hi,#edc98f)}.btn.small{font-size:12px;min-height:26px;padding:3px 8px}.btn.danger{color:var(--pk-red,#dca6a0)}.btn.active{border-color:var(--pk-accent,#e3b76f);color:var(--pk-accent,#e3b76f);background:var(--pk-accent-bg,#322c20)}
+.text-btn{display:inline-flex;align-items:center;gap:5px;padding:2px 0;color:var(--pk-blue,#9fbdd5);text-align:left}.text-btn:hover{color:var(--pk-text,#e7e7df)}
+.tag{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;border-radius:var(--pk-radius-sm,4px);padding:1px 6px;background:var(--pk-raised,#242420);color:var(--pk-text-muted,#a5a59b);vertical-align:middle}.tag.amber{background:var(--pk-accent-bg,#322c20);color:var(--pk-accent,#e3b76f)}.tag.green{background:var(--pk-green-bg,#253129);color:var(--pk-green,#a3c5ac)}.tag.blue{background:var(--pk-blue-bg,#252e36);color:var(--pk-blue,#9fbdd5)}.tag.red{background:var(--pk-red-bg,#3a2a2a);color:var(--pk-red,#dca6a0)}.tag.purple{background:var(--pk-purple-bg,#2e2838);color:var(--pk-purple,#c4b0dc)}.tag.strike{text-decoration:line-through}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--pk-text-faint,#85857b)}.dot.green{background:var(--pk-green,#a3c5ac)}.dot.amber{background:var(--pk-accent,#e3b76f)}.dot.red{background:var(--pk-red,#dca6a0)}.dot.blue{background:var(--pk-blue,#9fbdd5)}
+.row{display:flex;align-items:center;gap:10px}.spread{justify-content:space-between}.wrap{flex-wrap:wrap}.stack{display:flex;flex-direction:column;gap:10px}.grow{flex:1;min-width:0}
+.input{width:100%;background:var(--pk-well-bg,var(--pk-surface,#1c1c1a));color:var(--pk-text,#e7e7df);border:1px solid var(--pk-well-border,var(--pk-line,#35352f));border-radius:var(--pk-control-radius,var(--pk-radius-sm,5px));padding:7px 10px;box-shadow:var(--pk-well-shadow,none)}select.input{padding:6px 8px}textarea.input{resize:vertical;min-height:70px}
+.field{display:flex;flex-direction:column;gap:5px}.field label{font-size:11px;color:var(--pk-text-muted,#a5a59b)}
+kbd{font:10px var(--pk-font-ui,'Segoe UI Variable Text','Segoe UI','Microsoft YaHei',sans-serif);color:var(--pk-text-faint,#85857b);border:1px solid var(--pk-line,#35352f);border-radius:var(--pk-radius-xs,3px);padding:0 4px}
+
+/* ── shell ── */
+/* Floating panels with gaps between them (D100; Spec §6.1): the top bar across, the rail and the main panel under it,
+   the drawer under the main panel. The layout of the panels themselves is at the end of this file ("D100 · panels"). */
+.shell{display:grid;grid-template-columns:var(--pk-rail-w,230px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;grid-template-areas:"top top" "rail main" "rail drawer";gap:var(--pk-gap);padding:var(--pk-gap);height:100dvh;min-height:480px}
+.rail{background:var(--pk-rail,#191918);border-right:1px solid var(--pk-line-soft,#2b2b26);display:flex;flex-direction:column;min-height:0;overflow:auto;scrollbar-width:thin}
+.brand{height:52px;display:flex;align-items:center;gap:9px;padding:0 16px;font-size:14px;font-weight:650;flex-shrink:0}.brand-mark{width:22px;height:22px;color:var(--pk-accent,#e3b76f)}
+.rail-section{padding:10px 12px 4px;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--pk-text-faint,#85857b)}
+.project-picker{margin:0 10px 8px;display:flex;gap:6px}.project-picker select{flex:1}
+nav.views{padding:0 8px;display:grid;gap:2px}.nav-item{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px;border-radius:var(--pk-radius-sm,5px);color:var(--pk-text-muted,#a5a59b);width:100%}.nav-item:hover{background:var(--pk-raised,#242420)}.nav-item.active{background:var(--pk-accent-soft,#302b22);color:var(--pk-accent,#e3b76f)}.nav-item .count{margin-left:auto;font:11px var(--pk-font-mono,'Cascadia Code',Consolas,monospace);color:var(--pk-text-faint,#85857b)}.nav-item.active .count{color:var(--pk-accent,#e3b76f)}
+/* Which of the two the rail is showing, said in the corner rather than left to be worked out (owner 2026-09-17). */
+.outline-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.outline-modes{display:inline-flex;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-radius-sm,4px);overflow:hidden;text-transform:none;letter-spacing:0}
+.outline-modes button{padding:1px 6px;font-size:10px;color:var(--pk-text-faint,#85857b);background:var(--pk-control-bg,var(--pk-surface,#1c1c1a))}
+.outline-modes button:hover{color:var(--pk-text,#e7e7df)}
+.outline-modes button.active{background:var(--pk-accent-bg,#322c20);color:var(--pk-accent,#e3b76f)}
+.outline{padding:4px 8px 8px;font-size:12px;display:flex;flex-direction:column}.outline .ol-area{padding:4px 10px;border-radius:var(--pk-radius-sm,4px);color:var(--pk-text,#e7e7df);cursor:pointer;display:flex;justify-content:space-between;gap:8px;width:100%;text-align:left}.outline .ol-area>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.outline .ol-area:hover,.outline .ol-work:hover{background:var(--pk-raised,#242420)}.outline .ol-area.sel,.outline .ol-work.sel{color:var(--pk-accent,#e3b76f)}.outline .ol-work{display:block;width:100%;text-align:left;padding:3px 10px 3px 22px;color:var(--pk-text-muted,#a5a59b);cursor:pointer;border-radius:var(--pk-radius-sm,4px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.outline .empty{padding:4px 10px;color:var(--pk-text-faint,#85857b);font-size:11px}
+/* The Keeper's status at the foot of the rail. It lists what is running; the cap keeps a burst of parallel jobs
+   from pushing the rail's own content off screen, and the full list is in its title and in Keeper activity. */
+.rail-foot{margin-top:auto;padding:10px}
+/* The views sit at the top of the rail and the project's structure scrolls under them by itself (owner 2026-09-30), so
+   the way back to the Project graph is always in sight. */
+.rail>nav.views{flex:none;margin-bottom:4px}
+.rail>.outline{flex:1 1 auto;min-height:96px;overflow:auto;scrollbar-width:thin}
+.keeper-entry{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;padding:9px 10px;border:1px solid var(--pk-card-border,var(--pk-line,#35352f));border-radius:var(--pk-card-radius,var(--pk-radius,6px));background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-card-texture,none);box-shadow:var(--pk-card-shadow,none)}
+.keeper-entry .pi-mark{font-family:var(--pk-font-display,Georgia,serif);font-size:20px;line-height:1.1;color:var(--pk-accent,#e3b76f)}
+.keeper-entry .kw{flex:1;min-width:0}
+.keeper-entry .kw b{display:block;font-weight:600;font-size:12px}
+.keeper-entry small{display:block;max-height:4.8em;overflow:hidden}
+
+/* The Keeper's dock, bottom right: Follow up, then the robot (owner 2026-09-17, after WorkflowKeeper's). */
+.keeper-dock{position:fixed;right:var(--pk-gap);bottom:var(--pk-gap);z-index:30}
+.dock-pill{display:flex;align-items:stretch;height:44px;border-radius:var(--pk-radius-pill,22px);overflow:hidden;background:var(--pk-control-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-control-texture,none);border:1px solid var(--pk-accent,#e3b76f);box-shadow:var(--pk-shadow-raised,0 4px 16px #0006)}
+.dock-follow{display:inline-flex;align-items:center;gap:6px;padding:0 15px;font-weight:600;font-size:13px;color:var(--pk-text,#e7e7df)}
+.dock-follow:hover:not(:disabled){background:var(--pk-raised,#242420)}.dock-follow:disabled{opacity:.45}
+.dock-sep{width:1px;background:var(--pk-line,#35352f);margin:9px 0}
+.dock-robot{display:inline-flex;align-items:center;gap:6px;padding:0 15px;font-size:13px;color:var(--pk-text,#e7e7df)}
+.dock-robot:hover{background:var(--pk-raised,#242420)}.dock-robot.on{background:var(--pk-accent-bg,#322c20);color:var(--pk-accent,#e3b76f)}
+.dock-robot svg{width:22px;height:22px;fill:none;stroke:var(--pk-accent,#e3b76f);stroke-width:1.7;stroke-linecap:round}
+.workbench{min-width:0;display:flex;flex-direction:column;min-height:0}
+.topbar{min-height:52px;height:auto;flex-shrink:0;border-bottom:1px solid var(--pk-line-soft,#2b2b26);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 10px;padding:7px 16px}
+.topbar-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 620px}.crumb{display:flex;align-items:center;gap:8px;color:var(--pk-text-muted,#a5a59b);min-width:120px;max-width:min(34vw,440px);font-size:12px;flex:0 1 auto}.crumb strong{font-weight:500;color:var(--pk-text,#e7e7df);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crumb .sep{color:var(--pk-text-faint,#85857b)}
+.coverage-pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-control-radius,var(--pk-radius-sm,5px));padding:4px 9px;font-size:11px;color:var(--pk-text-muted,#a5a59b);background:var(--pk-control-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-control-texture,none);box-shadow:var(--pk-control-shadow,none)}.coverage-pill b{font-weight:500;color:var(--pk-text,#e7e7df)}.coverage-pill>span{white-space:nowrap}
+.top-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px 8px;min-width:0}.top-view-tools{display:flex;align-items:center;min-width:0}.top-view-tools[hidden]{display:none}
+/* The theme picker (Spec §6.16): a control of the top bar, drawn like the other controls; the choice lives in this browser. */
+.theme-pick{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--pk-text-muted,#a5a59b);white-space:nowrap}.theme-pick select{min-height:26px;max-width:124px;padding:3px 6px;font-size:12px;text-overflow:ellipsis;color:var(--pk-text,#e7e7df);background:var(--pk-control-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-control-texture,none);border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-control-radius,var(--pk-radius-sm,5px));box-shadow:var(--pk-control-shadow,none)}.theme-pick select:hover{background:var(--pk-control-hover-bg,var(--pk-raised,#242420))}.search-trigger{display:flex;gap:14px;align-items:center;color:var(--pk-text-muted,#a5a59b);border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-control-radius,var(--pk-radius-sm,5px));padding:4px 8px;font-size:12px;background:var(--pk-control-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-control-texture,none);box-shadow:var(--pk-control-shadow,none)}
+/* The main view alone (D67): an object's details open in the popover beside it and the right belongs to the Keeper.
+   Every view ends above the pill's band; the graph view keeps the corner clear inside its bottom strip instead. */
+.body{display:flex;flex-direction:column;min-height:0;min-width:0;flex:1;position:relative}
+main{flex:1;min-height:0;overflow:auto;min-width:0;padding:18px 22px 28px;scrollbar-width:thin;scrollbar-color:var(--pk-line-strong,#4b4b42) transparent;display:flex;flex-direction:column;gap:14px}
+main.graph-main{padding:0;gap:0}
+.page-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}.page-head .sub{margin-top:4px;color:var(--pk-text-muted,#a5a59b);font-size:12px;max-width:70ch}
+.section{border:1px solid var(--pk-section-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-section-radius,var(--pk-radius,6px));background:var(--pk-section-bg,var(--pk-surface,#1c1c1a));box-shadow:var(--pk-section-shadow,none)}.section>header{padding:9px 12px;border-bottom:1px solid var(--pk-head-border,var(--pk-line-soft,#2b2b26));background:var(--pk-head-bg,transparent);background-image:var(--pk-head-texture,none);box-shadow:var(--pk-head-shadow,none);color:var(--pk-head-text,var(--pk-text,#e7e7df));border-radius:var(--pk-section-radius,var(--pk-radius,6px)) var(--pk-section-radius,var(--pk-radius,6px)) 0 0;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;font-weight:600}.section>.content{padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:12px}
+.kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:4px 10px;font-size:12px}.kv dt{color:var(--pk-text-faint,#85857b)}.kv dd{margin:0;overflow-wrap:anywhere}
+details.fold{border:1px solid var(--pk-section-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-section-radius,var(--pk-radius-sm,5px));background:var(--pk-section-bg,var(--pk-surface,#1c1c1a))}details.fold>summary{cursor:pointer;padding:7px 10px;font-size:12px;color:var(--pk-text-muted,#a5a59b);list-style:none;display:flex;align-items:center;gap:6px}details.fold>summary::before{content:'▸';font-size:10px;color:var(--pk-text-faint,#85857b)}details.fold[open]>summary::before{content:'▾'}details.fold>.content{padding:0 10px 10px;font-size:12px}
+.empty{padding:44px 20px;text-align:center;color:var(--pk-text-muted,#a5a59b);max-width:64ch;margin:0 auto}.empty h2{color:var(--pk-text,#e7e7df);margin-bottom:8px;font-size:17px}.empty p{margin-bottom:14px;font-size:12px}
+table.list{width:100%;border-collapse:collapse;text-align:left;font-size:12px}table.list th{font-size:11px;font-weight:400;color:var(--pk-text-faint,#85857b);padding:8px;border-bottom:1px solid var(--pk-line,#35352f)}table.list td{padding:9px 8px;border-bottom:1px solid var(--pk-line-soft,#2b2b26);vertical-align:top;overflow-wrap:anywhere}table.list tr.clickable{cursor:pointer}table.list tr.clickable:hover td{background:var(--pk-surface,#1c1c1a)}table.list tr.sel td{background:var(--pk-sel-bg,#1f1f1b);box-shadow:inset 3px 0 0 var(--pk-accent,#e3b76f)}
+.scope-item{display:grid;grid-template-columns:130px 170px minmax(0,1fr) auto;gap:10px;padding:9px 12px;border-bottom:1px solid var(--pk-line-soft,#2b2b26);font-size:12px;align-items:start}.scope-item:last-child{border-bottom:0}.scope-item .path{overflow-wrap:anywhere;color:var(--pk-text,#e7e7df)}.scope-item .reason{color:var(--pk-text-muted,#a5a59b);margin-top:3px}.scope-item.excluded .path{color:var(--pk-text-faint,#85857b)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.segmented{display:inline-flex;padding:3px;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-control-radius,var(--pk-radius,6px));background:var(--pk-control-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-control-texture,none);box-shadow:var(--pk-control-shadow,none)}.segmented button{padding:3px 9px;color:var(--pk-text-muted,#a5a59b);font-size:12px;border-radius:var(--pk-radius-xs,3px)}.segmented button.active{background:var(--pk-control-on,#34332d);color:var(--pk-control-on-text,var(--pk-text,#e7e7df));box-shadow:var(--pk-control-on-shadow,none)}
+.note-card{border:1px solid var(--pk-card-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-card-radius,var(--pk-radius,6px));background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-card-texture,none);box-shadow:var(--pk-card-shadow,none);color:var(--pk-card-text,var(--pk-text,#e7e7df));padding:10px 12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;width:100%;text-align:left;font-size:13px}.note-card>.row{width:100%}.note-card:hover{border-color:var(--pk-card-hover-border,var(--pk-line,#35352f))}.note-card.sel{border-color:var(--pk-accent,#e3b76f)}.note-card .preview{color:var(--pk-text-muted,#a5a59b);font-size:12px}.note-body h4{margin:10px 0 4px;color:var(--pk-accent,#e3b76f)}.note-body p,.note-body li{font-size:12px;line-height:1.75}.note-body ul{margin:0;padding-left:18px}
+.timeline{padding-left:20px;position:relative;display:flex;flex-direction:column;gap:18px}.timeline:before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:1px;background:var(--pk-line,#35352f)}.tl-event{position:relative}.tl-event:before{content:'';position:absolute;width:9px;height:9px;border:2px solid var(--pk-ground,#141413);background:var(--pk-text-faint,#85857b);border-radius:50%;left:-19px;top:5px;box-shadow:0 0 0 1px var(--pk-line,#35352f)}.tl-event.sel:before{background:var(--pk-accent,#e3b76f)}.tl-event time{font-size:11px;color:var(--pk-text-muted,#a5a59b)}.tl-event h3{margin:3px 0 4px}.diff{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}.diff>div{padding:8px 10px;border:1px solid var(--pk-line,#35352f);border-radius:var(--pk-radius-sm,5px);font-size:12px}.diff .old{background:var(--pk-red-bg,#23201e)}.diff .old del{color:var(--pk-red-ln,#b8a59d)}.diff .new{background:var(--pk-green-bg,#202820);border-color:var(--pk-green-ln,#374237)}.diff small{display:block;margin-bottom:4px}
+.strip{border-top:1px solid var(--pk-line-soft,#2b2b26);background:var(--pk-rail,#191918);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:hidden}.strip>section{border-right:1px solid var(--pk-line-soft,#2b2b26);display:flex;flex-direction:column;min-width:0;min-height:0}.strip header{padding:8px 12px;font-size:11px;font-weight:600;color:var(--pk-head-text,var(--pk-text-muted,#a5a59b));display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--pk-head-border,var(--pk-line-soft,#2b2b26));background:var(--pk-head-bg,transparent);background-image:var(--pk-head-texture,none);box-shadow:var(--pk-head-shadow,none)}.strip .items{overflow:auto;padding:6px 8px;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin}.strip .item{padding:6px 8px;border-radius:var(--pk-radius-sm,4px);font-size:12px;cursor:pointer;display:flex;flex-direction:column;gap:2px}.strip .item:hover{background:var(--pk-raised,#242420)}.strip .item.sel{background:var(--pk-accent-soft,#302b22)}.strip .item .meta{font-size:10.5px;color:var(--pk-text-faint,#85857b)}.strip .none{padding:8px;font-size:11px;color:var(--pk-text-faint,#85857b)}
+.graph-wrap{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}.graph-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}.top-view-tools .graph-tools{padding:0;border:0;background:none;min-height:0}.top-view-tools .segmented{padding:2px}.top-view-tools .segmented button{padding:2px 7px}.top-view-tools .btn.small,.top-view-tools .read-mark{min-height:26px;padding:2px 7px}#cy{flex:1;min-height:140px;background:var(--pk-graph-bg,var(--pk-ground,#141413))}.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10.5px;color:var(--pk-text-muted,#a5a59b);padding:6px 12px;border-top:1px solid var(--pk-line-soft,#2b2b26);background:var(--pk-rail,#191918)}.legend span{display:inline-flex;align-items:center;gap:4px}.legend .legend-col{color:var(--pk-text,#e7e7df);font-weight:600}.legend i{width:10px;height:10px;display:inline-block;border-radius:var(--pk-radius-xs,2px)}
+.graph-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}.graph-empty>div{pointer-events:auto}
+.keeper-panel{position:fixed;display:none;flex-direction:column;overflow:hidden;outline:0}.keeper-panel.open{display:flex}.keeper-inner{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0}
+.keeper-panel.floating{left:0;top:0;z-index:45;width:min(560px,calc(100vw - 32px));height:min(72vh,680px);min-width:320px;min-height:260px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);background:var(--pk-card-bg,#191917);background-image:var(--pk-card-texture,none);border:1px solid var(--pk-card-border,#4c4c40);border-radius:var(--pk-radius-panel,10px);resize:both;box-shadow:var(--pk-shadow-window,0 28px 80px #000b,0 1px 0 #ffffff0d inset)}.keeper-head{padding:12px 14px;border-bottom:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26));display:flex;flex-direction:column;gap:6px}.keeper-head .title{display:flex;justify-content:space-between;align-items:center;font-weight:600}.keeper-head .ctx{font-size:11px;color:var(--pk-text-muted,#a5a59b);display:flex;gap:6px;align-items:center;min-width:0}.keeper-head .ctx strong{font-weight:400;color:var(--pk-text,#e7e7df);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.keeper-stream{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin}.msg{font-size:12px;line-height:1.75}.msg.user{align-self:flex-end;background:var(--pk-msg-user-bg,var(--pk-raised,#242420));border:1px solid var(--pk-msg-user-border,var(--pk-line,#35352f));border-radius:var(--pk-radius,6px);padding:7px 10px;white-space:pre-wrap;max-width:92%}.msg.keeper{white-space:pre-wrap}.msg.system{color:var(--pk-text-faint,#85857b);font-size:11px}.msg .cites{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.cite{font-size:10px;border:1px solid var(--pk-line,#35352f);padding:2px 6px;border-radius:var(--pk-radius-sm,4px);color:var(--pk-text-muted,#a5a59b);cursor:pointer}.cite:hover{color:var(--pk-blue,#9fbdd5)}
+.composer{border-top:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26));padding:10px}.composer textarea{width:100%;min-height:64px;background:var(--pk-well-bg,#22221e);border:1px solid var(--pk-well-border,#424237);border-radius:var(--pk-radius,6px);box-shadow:var(--pk-well-shadow,none);color:var(--pk-text,#e7e7df);padding:8px;resize:none}.composer .foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:10.5px;color:var(--pk-text-faint,#85857b);gap:8px}
+dialog{color:var(--pk-card-text,var(--pk-text,#e7e7df));background:var(--pk-card-bg,#1e1e1b);background-image:var(--pk-card-texture,none);border:1px solid var(--pk-card-border,#49493d);border-radius:var(--pk-radius-panel,9px);padding:0;width:min(760px,calc(100vw - 32px));max-height:88dvh;box-shadow:var(--pk-shadow-window,0 24px 90px #0008)}dialog::backdrop{background:var(--pk-scrim,#0009);backdrop-filter:blur(3px)}.dialog-head{padding:14px 18px;border-bottom:1px solid var(--pk-card-line,var(--pk-line,#35352f));display:flex;justify-content:space-between;align-items:center;gap:16px}.dialog-head h2{font-size:15px}.dialog-body{padding:16px 18px;overflow:auto;max-height:calc(88dvh - 64px);display:flex;flex-direction:column;gap:12px}.dialog-foot{display:flex;gap:8px;justify-content:flex-end}
+.source-quote{background:var(--pk-well-bg,#171715);padding:10px 0;border:1px solid var(--pk-well-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius-sm,5px);box-shadow:var(--pk-well-shadow,none);font:12px/1.8 var(--pk-font-ui,'Segoe UI Variable Text','Segoe UI','Microsoft YaHei',sans-serif);max-height:50vh;overflow:auto}.src-line{display:grid;grid-template-columns:48px minmax(0,1fr);padding:0 12px 0 0}.src-line .no{color:var(--pk-text-faint,#75756c);font:10px/2.15 var(--pk-font-mono,'Cascadia Code',Consolas,monospace);text-align:right;padding-right:12px;user-select:none}.src-line .tx{white-space:pre-wrap;overflow-wrap:anywhere}
+.search-results{display:flex;flex-direction:column;gap:2px}.search-result{padding:8px 10px;text-align:left;border-bottom:1px solid var(--pk-line-soft,#2b2b26);display:flex;gap:10px;align-items:center;width:100%}.search-result:hover{background:var(--pk-raised,#242420)}.search-result small{margin-left:auto;white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);max-width:calc(100vw - 40px);padding:9px 14px;border:1px solid var(--pk-line-strong,#505044);background:var(--pk-raised,#303027);color:var(--pk-text,#e7e7df);border-radius:var(--pk-radius,7px);font-size:12px;box-shadow:var(--pk-shadow-raised,0 5px 20px #0004);opacity:0;pointer-events:none;transition:opacity .15s;z-index:20}#toast.show{opacity:1}
+.mobile-nav{display:none}
+@media(max-width:1100px){:root{--pk-rail-w:200px}}
+@media(max-width:700px){.shell{grid-template-columns:minmax(0,1fr)}.rail{display:none}.mobile-nav{display:flex;gap:2px;overflow:auto;border-bottom:1px solid var(--pk-line,#35352f);padding:4px 8px;flex-shrink:0}.mobile-nav button{font-size:11px;white-space:nowrap;padding:6px 8px;border-radius:var(--pk-radius-sm,4px);color:var(--pk-text-muted,#a5a59b)}.mobile-nav button.active{background:var(--pk-accent-bg,#322c20);color:var(--pk-accent,#e3b76f)}.topbar{padding:6px 10px;gap:6px}.topbar-main{flex-basis:100%;flex-wrap:wrap;gap:5px}.crumb{max-width:100%;flex:1 1 100%}.top-view-tools{width:100%}.top-actions{margin-left:auto}.coverage-pill{display:none}.search-trigger span{display:none}.theme-pick>span{display:none}.theme-pick select{max-width:92px}main{padding:14px 12px}.scope-item{grid-template-columns:1fr;gap:3px}.strip,.strip.two,.strip.three,.strip.four{grid-template-columns:1fr;max-height:40vh;overflow:auto;padding-right:0}.strip>section{border-right:0;border-bottom:1px solid var(--pk-line-soft,#2b2b26)}.keeper-panel.floating{width:calc(100vw - 16px);resize:none}.diff{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ── graph workbench (B4) ── */
+.strip.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.strip.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.strip.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.legend .sep{color:var(--pk-line,#35352f)}.legend i.line{width:16px;height:2px;border-radius:0}.legend i.line.dashed{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px)}.legend i.dashedbox{border:1px dashed var(--pk-text-muted,#a5a59b);background:transparent}.legend i.redbox{border:1.5px solid var(--pk-red,#dca6a0);background:transparent}
+.list-wrap{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto}.list-wrap .goals{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px}.list-wrap table.list{margin:0 12px 12px;width:calc(100% - 24px)}table.list.three td{width:33%}.text-btn.sel{color:var(--pk-accent,#e3b76f)}.ref-fold{margin-top:4px;font-size:11.5px}.ref-fold summary{cursor:pointer;color:var(--pk-text-faint,#85857b)}.ref-fold summary:hover{color:var(--pk-text-muted,#a5a59b)}.ref-fold>div{padding:2px 0 2px 12px}
+.quote{margin:8px 0;padding:6px 10px;border-left:2px solid var(--pk-accent,#e3b76f);color:var(--pk-text-muted,#a5a59b);font-style:italic}
+ul.stmts{margin:0;padding-left:16px}ul.stmts li{margin:3px 0;line-height:1.7}
+.red{color:var(--pk-red,#dca6a0)}
+@media(max-width:700px){.strip.four{grid-template-columns:1fr}.graph-tools{gap:5px;padding:6px 8px}.list-wrap table.list{margin:0 4px}}
+
+/* Vocabulary window */
+dialog.wide{width:min(1180px,calc(100vw - 32px))}dialog.wide .dialog-body{max-height:calc(88dvh - 64px)}.dialog-body h3{font-size:13px;margin-top:6px}table.glossary{width:100%;border-collapse:collapse;font-size:12px;line-height:1.45}table.glossary th{text-align:left;font-size:11px;color:var(--pk-text-muted,#a5a59b);padding:4px 8px;border-bottom:1px solid var(--pk-line,#35352f)}table.glossary td{vertical-align:top;padding:7px 8px;border-top:1px solid var(--pk-line-soft,#2b2b26)}table.glossary .zh{display:block;color:var(--pk-text-muted,#a5a59b);margin-top:3px}table.glossary .also{color:var(--pk-text-muted,#a5a59b)}table.glossary .chip{display:inline-flex;align-items:center;gap:6px;font-weight:600;white-space:nowrap}table.glossary .chip i{width:10px;height:10px;border-radius:var(--pk-radius-xs,2px);display:inline-block}table.glossary code{font:11px var(--pk-font-mono,'Cascadia Code',Consolas,monospace);color:var(--pk-text,#e7e7df)}.dialog-body p .zh{display:block;color:var(--pk-text-faint,#85857b);margin-top:2px}
+.dialog-body .lang-toggle{align-self:flex-end}
+
+/* Graph legend shapes and stars (owner 2026-09-17) */
+/* The corner marks, by name, wherever the page writes one (the legend, the List): the same colours the picture uses. */
+.mark-star{color:var(--pk-graph-mark-star,#f3ead2)}.mark-flag{color:var(--pk-graph-mark-flag,#e3b76f)}.mark-note{color:var(--pk-graph-mark-note,#e7e7df)}.mark-ask{color:var(--pk-graph-mark-ask,#e3b76f)}.mark-pending{color:var(--pk-graph-mark-pending,#9fbdd5)}
+.shape-icon { display: inline-flex; vertical-align: -2px; color: var(--pk-text-muted,#a5a59b); }
+.legend .star-legend, .star { color: var(--pk-star, #ffd54a); }
+.star-note { font-size: 11px; }
+
+/* Compare (D45): the two ends, the five counts and one difference at a time, above the graph. */
+.compare-bar{display:flex;flex-direction:column;gap:6px;padding:8px 12px;border-bottom:1px solid var(--pk-line-soft,#2b2b26);background:var(--pk-rail,#191918);font-size:12px}
+.compare-bar .input.small{width:auto;padding:3px 6px;font-size:11px}
+
+/* ── walkthrough of a change follow-up (§4.2) ── */
+dialog.wide{width:min(1000px,calc(100vw - 32px))}
+.walk-root{display:flex;flex-direction:column;gap:10px}.walk-title{font-size:15px;margin-bottom:4px}
+.walk-bar{border-top:1px solid var(--pk-line-soft,#2b2b26);padding-top:8px}
+.walk{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:12px;align-items:start}
+.walk-spine{max-height:44dvh;overflow:auto;border:1px solid var(--pk-line,#35352f);border-radius:var(--pk-radius,6px);scrollbar-width:thin}
+.walk-item{display:block;width:100%;text-align:left;padding:7px 10px;border:0;border-bottom:1px solid var(--pk-line-soft,#2b2b26);color:var(--pk-text,#e7e7df);background:none;cursor:pointer;font:inherit}
+.walk-item:hover{background:var(--pk-surface,#1c1c1a)}.walk-item.on{background:var(--pk-accent-bg,#322c20);box-shadow:inset 3px 0 0 var(--pk-accent,#e3b76f)}
+.walk-name{font-size:12.5px;margin-top:3px}.walk-why{font-size:11.5px;color:var(--pk-text-muted,#a5a59b);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.walk-step{border:1px solid var(--pk-line,#35352f);border-radius:var(--pk-radius,6px);padding:12px 14px;display:flex;flex-direction:column;gap:8px}.walk-step h3{font-size:14px}
+.tag.origin{border-style:dashed}
+@media(max-width:700px){.walk{grid-template-columns:1fr}.walk-spine{max-height:30dvh}}
+
+/* ── readability self-check (D46): the mark is in the control row, this is the panel behind it (S3, below) ── */
+.read-flag{color:var(--pk-text-faint,#85857b)}.read-flag.alert{color:var(--pk-accent,#e3b76f)}.read-body{display:flex;flex-direction:column;gap:10px}
+.read-issue{display:flex;flex-direction:column;gap:4px}.read-issue .row{gap:6px}
+
+/* ── the Keeper's window drops in from the top (owner, 2026-09-18) ── */
+.keeper-panel.floating .keeper-head{cursor:grab;user-select:none;touch-action:none}
+.keeper-panel.floating.dragging{box-shadow:var(--pk-shadow-window,0 36px 100px #000c);opacity:.97}.keeper-panel.floating.dragging .keeper-head{cursor:grabbing}
+/* Falls with gravity (accelerating), overshoots below its place as if on an elastic string, and bobs to rest. */
+.keeper-panel.floating.dropping{animation:pk-drop .82s both;transform-origin:50% 0}
+@keyframes pk-drop{
+  0%{transform:translateY(calc(-1 * var(--pk-fall,800px))) rotate(-1.4deg);animation-timing-function:cubic-bezier(.47,0,.86,.36)}
+  56%{transform:translateY(22px) rotate(.4deg) scaleY(1.018);animation-timing-function:cubic-bezier(.2,.65,.4,1)}
+  72%{transform:translateY(-9px) rotate(-.2deg) scaleY(.994);animation-timing-function:cubic-bezier(.5,0,.8,.45)}
+  84%{transform:translateY(4px) scaleY(1.004);animation-timing-function:cubic-bezier(.2,.65,.4,1)}
+  93%{transform:translateY(-1.5px)}
+  100%{transform:none}
+}
+@media(prefers-reduced-motion:reduce){.keeper-panel.floating.dropping{animation:pk-fade .15s both}}
+@keyframes pk-fade{from{opacity:0}to{opacity:1}}
+
+/* ── Graph as tidied (D53–D55, CKC-09 v2.5) ── */
+/* The legend is one line of what the picture shows, with counts; More opens what each item means (WorkflowKeeper). */
+.legend{flex-wrap:nowrap;align-items:center;gap:10px;white-space:nowrap}
+.legend .lg-items{display:flex;align-items:center;gap:4px 14px;flex:1;min-width:0;overflow:hidden}
+.legend .sep{width:1px;height:12px;background:var(--pk-line,#35352f);display:inline-block;flex:none}
+.legend .lg-item{flex:none}
+.legend .lg-item{display:inline-flex;align-items:center;gap:5px}
+.legend .lg-icon{display:inline-flex}
+.legend .lg-mark{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1.2px solid;font-size:10px;font-weight:700;background:var(--pk-surface,#1c1c1a)}
+.legend .lg-count{font-size:10px;font-weight:600;color:var(--pk-text-muted,#a5a59b);border:1px solid var(--pk-line-strong,#4a4a43);border-radius:var(--pk-radius-pill,8px);padding:0 5px;background:var(--pk-surface,#1c1c1a)}
+.legend .lg-desc{display:none;color:var(--pk-text-faint,#85857b)}
+.legend .lg-more{flex:none;font-size:11px}
+.legend.expanded{align-items:flex-start;white-space:normal}
+.legend.expanded .lg-items{flex-wrap:wrap;gap:6px 18px}
+.legend.expanded .lg-item{max-width:520px;align-items:baseline}
+.legend.expanded .lg-desc{display:inline}
+/* The full name and the meaning of the marks, while an object is pointed at. */
+.graph-tip{position:fixed;z-index:40;pointer-events:none;max-width:340px;background:var(--pk-card-bg,#10100f);border:1px solid var(--pk-card-border,var(--pk-line,#35352f));border-radius:var(--pk-card-radius,var(--pk-radius,6px));padding:6px 9px;font-size:12px;line-height:1.5;color:var(--pk-card-text,var(--pk-text,#e7e7df));box-shadow:var(--pk-shadow-raised,0 8px 24px #0006)}
+.graph-tip[hidden]{display:none}
+/* List: the Observed reality cell begins with the same count as the graph's folder (D55). */
+table.list td.obs .obs-sum{font-size:11.5px;color:var(--pk-text-muted,#a5a59b);margin-bottom:4px}
+table.list td.obs .obs-sum b{color:var(--pk-text,#e7e7df)}
+.list-wrap .tag.sel{outline:1px solid var(--pk-accent,#e3b76f)}.list-wrap button.tag{cursor:pointer}
+.list-wrap tr.sel>td:first-child{box-shadow:inset 2px 0 0 var(--pk-accent,#e3b76f)}
+/* Arriving in List from the graph, a folder, search or a link: the target is picked out for a moment. */
+@keyframes pk-flash{0%{background:var(--pk-flash,#4a3f25)}100%{background:transparent}}
+.flash{animation:pk-flash 1.6s ease-out}
+/* Spec v2.8 content (CKC-09 AC-32, AC-33; CKC-21 AC-11): the owner's words above the List's areas, a project rule's row
+   in Project scope, and what a change removed. Only the existing colours and sizes are used. */
+.list-wrap .words-fold{flex:1 1 100%;margin-top:0}.list-wrap .words-fold summary{font-weight:600;color:var(--pk-text-muted,#a5a59b)}
+.rule-group{display:flex;flex-direction:column;gap:6px}.rule-group>h4{margin:6px 0 0}
+.rule-row{border:1px solid var(--pk-well-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius-sm,5px);padding:8px 10px;display:flex;flex-direction:column;gap:4px;background:var(--pk-well-bg,var(--pk-rail,#191918))}.rule-row.replaced{background:transparent}.rule-row .quote{margin:2px 0}
+.strip .removed-line s,.tl-event s{color:var(--pk-text-faint,#85857b)}
+
+/* ══ S1 · details popover, full details, the Keeper docked on the right, Markdown in answers (D67; Spec §6.1, §6.4,
+   §6.8, §6.15). Colours come only through the variables above, so the theme batch changes values, not rules. ══ */
+
+/* ── The details popover: beside the object, inside the main view, over everything but a dialog ── */
+.popover{position:fixed;z-index:40;left:0;top:0;width:min(384px,calc(100vw - 16px));max-height:min(78dvh,640px);display:flex;flex-direction:column;background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-card-texture,none);color:var(--pk-card-text,var(--pk-text,#e7e7df));border:1px solid var(--pk-card-border,var(--pk-line,#35352f));border-top:2px solid var(--pk-accent,#e3b76f);border-radius:var(--pk-card-radius,var(--pk-radius-panel,8px));box-shadow:var(--pk-card-shadow,var(--pk-shadow-float,0 14px 40px #0009));font-size:12px;outline:0}
+.popover[hidden]{display:none}.popover:focus,.popover:focus-visible,.keeper-panel:focus-visible{outline:0}
+.popover-content{display:flex;flex-direction:column;min-height:0;flex:1}
+.popover-head{display:flex;gap:8px;align-items:flex-start;padding:10px 10px 8px 14px;border-bottom:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26));flex:none}
+.popover-title{font-size:14px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.popover-sub{font:10.5px/1.5 var(--pk-font-mono,'Cascadia Code',Consolas,monospace);letter-spacing:.03em;color:var(--pk-text-faint,#85857b);margin-top:1px}
+.popover-back{font-size:11px;margin-bottom:2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.popover-close{flex:none;width:24px;height:24px;border-radius:var(--pk-radius-pill,12px);font-size:16px;line-height:1;color:var(--pk-text-muted,#a5a59b);border:1px solid var(--pk-control-border,var(--pk-line,#35352f))}.popover-close:hover{color:var(--pk-text,#e7e7df);background:var(--pk-raised,#242420)}
+.popover-body{padding:10px 14px 12px;display:flex;flex-direction:column;gap:10px;overflow:auto;min-height:0;scrollbar-width:thin}
+.popover-sentence{line-height:1.65;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+/* The body scrolls as a whole; no part of it shrinks. The summary is clipped (overflow hidden) and so could shrink to
+   nothing in the column when the history under it was long — D1's popover showed no summary at all (owner 2026-09-30). */
+.popover-body>*{flex-shrink:0}
+/* What it is, first: its validity always said, as a tag of its own; where it sits, one line under the summary. */
+.status-tag{font-weight:600}.status-tag .text-btn{font-weight:600;color:inherit;text-decoration:underline dotted}
+.place-line{font-size:12px;line-height:1.55;color:var(--pk-text-muted,#a5a59b)}
+.place-line .place-lead{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b);margin-right:2px}
+.place-line.place-product .place-lead,.place-line.place-none .place-lead{color:var(--pk-accent,#e3b76f)}
+.full-sentence{line-height:1.65;margin:0}
+.popover-notes{display:flex;flex-direction:column;gap:6px}.popover-notes h4,.popover-body h4{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b)}
+.popover .note-card{padding:8px 10px;gap:4px;background:var(--pk-raised,#242420);font-size:12px}.popover .note-card .preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.popover-actions{gap:6px}
+.popover-foot{flex:none;display:flex;gap:10px;align-items:flex-start;padding:9px 14px 10px;border-top:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26));background:var(--pk-card-foot-bg,var(--pk-rail,#191918));border-radius:0 0 var(--pk-card-radius,var(--pk-radius-panel,8px)) var(--pk-card-radius,var(--pk-radius-panel,8px))}
+.popover-scrim{position:fixed;inset:0;z-index:39;background:var(--pk-scrim,#0009)}.popover-scrim[hidden]{display:none}
+/* Narrow window: the popover is an overlay along the bottom (Spec §6.15). */
+.popover.sheet{left:8px!important;right:8px;top:auto!important;bottom:8px;width:auto!important;max-height:72dvh!important}
+
+/* ── Full details: `Details` in the dialog ── */
+dialog.details-dialog{width:min(820px,calc(100vw - 32px))}
+.dialog-head h2{flex:1;min-width:0;overflow-wrap:anywhere}
+.full-details{display:flex;flex-direction:column;gap:14px;font-size:12.5px}
+.full-head{display:flex;flex-direction:column;gap:6px}
+.full-section{display:flex;flex-direction:column;gap:6px;scroll-margin-top:8px;border-radius:var(--pk-radius-sm,5px)}
+.full-section>h4,.full-section h4{margin:0}.full-section p{line-height:1.7}
+.full-details ul{margin:0;padding-left:18px}.full-details li{line-height:1.7}
+/* What an object still lacks, and how it follows the changes that reached it (Spec §5.5, §6.4): in the popover a block
+   like the others, in the full details its `Propagation` part. Colours are the surface's own (card or dialog). */
+.lack{display:flex;flex-direction:column;gap:1px;font-size:12px;line-height:1.6}
+.lack-what{overflow-wrap:anywhere}
+.lack-from{padding-left:10px;overflow-wrap:anywhere}
+.prop-part{display:flex;flex-direction:column;gap:5px}
+.prop-record{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.judged-in{font-size:11.5px;line-height:1.55}
+
+/* ── The Keeper conversation docked on the right (WorkflowKeeper's D81): the main view and the pill give way by the
+   panel's real width, so nothing is covered; narrow windows have no room to give, and it lies over the main view ── */
+.keeper-panel.docked{top:calc(var(--pk-top) + var(--pk-gap));right:var(--pk-gap);bottom:var(--pk-gap);z-index:32;width:var(--pk-keeper-w);min-width:320px;max-width:calc(100vw - var(--pk-rail-w,230px) - 380px);background:var(--pk-card-bg,var(--pk-rail,#191918));background-image:var(--pk-card-texture,none);border:1px solid var(--pk-card-border,var(--pk-line,#35352f));border-radius:var(--pk-radius-panel,10px);box-shadow:var(--pk-section-shadow,0 6px 22px #0005)}
+.keeper-resizer{position:absolute;left:0;top:0;bottom:0;width:7px;cursor:col-resize;z-index:2;touch-action:none}.keeper-resizer::after{content:'';position:absolute;left:0;top:0;bottom:0;width:1px;background:transparent}
+.keeper-resizer:hover::after,.keeper-resizer:focus-visible::after,.keeper-panel.sizing .keeper-resizer::after{background:var(--pk-accent,#e3b76f);width:2px}
+.keeper-panel.floating .keeper-resizer{display:none}
+.keeper-panel.sizing{user-select:none}
+.keeper-who{display:inline-flex;align-items:baseline;gap:6px;min-width:0;flex-wrap:wrap}.keeper-who .pi-mark{font-family:var(--pk-font-display,Georgia,serif);font-size:17px;line-height:1;color:var(--pk-accent,#e3b76f)}
+.keeper-actions{gap:6px;flex:none}
+.keeper-head .title{gap:8px;align-items:flex-start;flex-wrap:wrap}.keeper-head-right{display:flex;align-items:flex-start;justify-content:flex-end;gap:10px;min-width:0;margin-left:auto}.keeper-telemetry{display:flex;align-items:flex-start;gap:10px;min-width:0;font-weight:400}.keeper-telemetry-item{display:flex;flex-direction:column;align-items:flex-end;min-width:0;line-height:1.25}.keeper-telemetry-item small{font-size:9.5px;color:var(--pk-text-faint,#85857b)}.keeper-context-usage,.keeper-model-name{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--pk-text-muted,#a5a59b);font-variant-numeric:tabular-nums}
+.keeper-stream{outline-offset:-2px}
+@media(min-width:901px){
+  body.keeper-docked .main-panel{margin-right:calc(var(--pk-keeper-w) + var(--pk-gap))}
+  body.keeper-docked .drawer{margin-right:calc(var(--pk-keeper-w) + var(--pk-pill-w) + 2 * var(--pk-gap))}
+  body.keeper-docked .keeper-dock{right:calc(var(--pk-keeper-w) + 2 * var(--pk-gap))}
+}
+@media(max-width:900px){
+  .keeper-panel.docked{width:min(440px,calc(100vw - 2 * var(--pk-gap)));max-width:calc(100vw - 2 * var(--pk-gap));min-width:0;box-shadow:var(--pk-shadow-float,0 14px 40px #0009)}
+  .keeper-panel.docked .keeper-resizer{display:none}
+}
+@media(max-width:700px){.keeper-panel.docked{left:var(--pk-gap);width:auto}}
+
+/* ── Answers drawn as Markdown (CKC-10 AC-21). The answer and the owner's own words take the strongest text colour
+   there is, the same as everything the owner is meant to read (WorkflowKeeper's D87) ── */
+.msg.keeper,.msg.keeper .text,.msg.user{color:var(--pk-text-strong,var(--pk-text,#e7e7df))}
+.msg.keeper{white-space:normal}
+.md{white-space:normal;overflow-wrap:anywhere;line-height:1.7}
+.md>:first-child{margin-top:0}.md>:last-child{margin-bottom:0}
+.md p{margin:0 0 7px}
+.md h1,.md h2,.md h3,.md h4,.md h5,.md h6{margin:10px 0 4px;font-size:12.5px;font-weight:700;line-height:1.4;color:inherit;letter-spacing:0;text-transform:none}.md h1{font-size:15px}.md h2{font-size:14px}.md h3{font-size:13px}
+.md ul,.md ol{margin:0 0 7px;padding-left:20px}.md li{margin:1px 0}.md li>p{margin:0}.md li>ul,.md li>ol{margin:1px 0 2px}
+.md code{font:11.5px/1.5 var(--pk-font-mono,'Cascadia Code',Consolas,monospace);padding:0 4px;border-radius:var(--pk-radius-xs,3px);color:inherit;background:var(--pk-well-bg,var(--pk-ground,#141413));border:1px solid var(--pk-well-border,var(--pk-line-soft,#2b2b26))}
+.md pre{margin:4px 0 8px;padding:7px 9px;border-radius:var(--pk-radius,6px);overflow-x:auto;background:var(--pk-well-bg,var(--pk-ground,#141413));border:1px solid var(--pk-well-border,var(--pk-line-soft,#2b2b26))}.md pre code{padding:0;border:0;background:none;white-space:pre;overflow-wrap:normal}
+.md blockquote{margin:0 0 7px;padding-left:9px;border-left:2px solid var(--pk-line,#35352f);color:var(--pk-text-muted,#a5a59b)}
+.md hr{border:0;border-top:1px solid var(--pk-line,#35352f);margin:9px 0}
+.md .md-table{overflow-x:auto;margin:0 0 8px}.md table{border-collapse:collapse;font-size:11.5px}
+.md th,.md td{border:1px solid var(--pk-line,#35352f);padding:3px 7px;text-align:left;vertical-align:top;overflow-wrap:break-word}.md th{font-weight:700;background:var(--pk-raised,#242420)}.md td code,.md th code{overflow-wrap:anywhere}
+.md strong{font-weight:700;color:inherit}
+.md .md-link{color:var(--pk-blue,#9fbdd5);text-decoration:underline;text-underline-offset:2px}.md .md-nolink{text-decoration:underline dotted;text-underline-offset:2px;cursor:help}
+.md .cite,button.cite{font:10px/1.6 var(--pk-font-ui,'Segoe UI Variable Text','Segoe UI','Microsoft YaHei',sans-serif);background:none;vertical-align:1px;margin:0 1px}
+.msg.keeper.streaming .md>:is(p,h1,h2,h3,h4,h5,h6,li):last-child::after{content:'\258D';opacity:.55;margin-left:2px}
+/* A selection must not change the top bar's height and move the graph or List. The title holds the full name. */
+#focus-crumb{min-width:0;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ══ S3 · one row of controls; the panels that float from it; the graph's own buttons on its corner (D68; Spec §6.1,
+   §6.3 "控件放在哪"; CKC-09 AC-37). Colours come only through the variables at the top. ══ */
+.graph-tools{flex:none;min-height:49px}
+.graph-tools .btn.small{min-height:30px}
+.top-view-tools .graph-tools{min-height:0}.top-view-tools .graph-tools .btn.small{min-height:26px}
+/* A narrow window: the row takes the width it has and wraps onto a second line instead of running past the window.
+   Wider than the window, it made a phone page zoom out, so the conversation overlay no longer covered it (QC AY B12). */
+@media(max-width:700px){.top-view-tools .graph-tools{flex:1 1 100%;min-width:0;max-width:100%}}
+.filter-btn{font-variant-numeric:tabular-nums}
+/* The readability mark: always there, quiet at 0, the accent once something is hard to read (D46 is not said less). */
+.read-mark{display:inline-flex;align-items:center;min-height:30px;padding:3px 9px;border:1px solid transparent;border-radius:var(--pk-control-radius,var(--pk-radius,6px));font-size:12px;font-variant-numeric:tabular-nums;color:var(--pk-text-faint,#85857b);white-space:nowrap}
+.read-mark:hover{color:var(--pk-text,#e7e7df);border-color:var(--pk-line,#35352f)}
+.read-mark.alert{color:var(--pk-accent,#e3b76f);border-color:var(--pk-accent,#e3b76f);background:var(--pk-accent-bg,#322c20);font-weight:600}
+.read-mark[aria-expanded="true"],.filter-btn[aria-expanded="true"]{border-color:var(--pk-text-muted,#a5a59b)}
+/* The graph and, over its top right corner, what is done to the picture itself. It takes no row; a view the graph
+   chooses keeps the band under it clear of objects (graph-fit.js `padTop`). In a narrow main view it wraps. */
+.graph-stage{position:relative;flex:1;min-height:140px;display:flex;flex-direction:column}
+.graph-stage #cy{min-height:0}
+.graph-float{position:absolute;top:8px;right:10px;z-index:5;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:4px;max-width:calc(100% - 20px);padding:4px;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-radius-pill,16px);background:var(--pk-control-bg,var(--pk-rail,#191918));background-image:var(--pk-control-texture,none);box-shadow:var(--pk-control-shadow,none)}
+.graph-float .btn.small{min-height:24px;padding:2px 9px;border-radius:var(--pk-radius-pill,12px);font-size:11.5px;font-weight:400;color:var(--pk-text-muted,#a5a59b)}
+.graph-float .btn.small:hover:not(:disabled),.graph-float .btn.small.active{color:var(--pk-text,#e7e7df)}.graph-float .btn.small.active{color:var(--pk-accent,#e3b76f)}
+.graph-float .segmented{padding:2px;border-radius:var(--pk-radius-pill,12px)}.graph-float .segmented button{padding:1px 8px;font-size:11.5px;border-radius:var(--pk-radius-pill,10px)}
+/* A panel of the control row: it floats, so nothing under it moves; flyout.js keeps it inside the main view. */
+.flyout{position:fixed;z-index:36;left:0;top:0;width:min(340px,calc(100vw - 16px));max-height:min(74dvh,600px);overflow:auto;display:flex;flex-direction:column;gap:10px;padding:12px 14px;background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-card-texture,none);color:var(--pk-card-text,var(--pk-text,#e7e7df));border:1px solid var(--pk-card-border,var(--pk-line,#35352f));border-radius:var(--pk-card-radius,var(--pk-radius-panel,8px));box-shadow:var(--pk-card-shadow,var(--pk-shadow-float,0 14px 40px #0009));font-size:12px;outline:0;scrollbar-width:thin}
+.flyout[hidden]{display:none}
+.flyout h4{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pk-text-faint,#85857b)}
+.flyout .input.small{padding:4px 6px;font-size:12px}
+.flyout .chk{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}.flyout .chk input{margin:0}
+.filter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 10px}
+.filter-ticks{gap:16px}
+.filter-show{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding-top:10px;border-top:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26))}
+.flyout-foot{display:flex;justify-content:flex-end;padding-top:10px;border-top:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26))}
+.flyout.read-panel{width:min(440px,calc(100vw - 16px))}
+.read-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+
+/* ══ S3 · the bottom strip: one line per item, a row opens in place, the height is the owner's (D68; Spec §6.2; CKC-09
+   AC-38; after WorkflowKeeper's D55). A row is the one-line form of the card the next batch gives every list: four
+   slots — mark · one sentence · object · time — and the part that opens. Only the colours above are used. ══ */
+.strip{position:relative;flex:none;height:var(--pk-strip-h,260px);min-height:120px;max-height:calc(100% - 240px)}
+/* Its top edge is dragged (or moved with the arrow keys); it takes no height of its own. */
+.strip-resizer{flex:none;height:0;position:relative;z-index:6;touch-action:none;outline:0}
+.strip-resizer::before{content:'';position:absolute;left:0;right:0;top:-4px;height:8px;cursor:row-resize}
+.strip-resizer::after{content:'';position:absolute;left:0;right:0;top:-1px;height:2px;background:transparent}
+.strip-resizer:hover::after,.strip-resizer:focus-visible::after,.strip-resizer.sizing::after{background:var(--pk-accent,#e3b76f)}
+/* The pill at the bottom right lies over the strip's corner. No column is kept empty for it (S1 kept one): the strip
+   takes the whole width, and only a column the pill stands over ends its list above it (views.js fitStripToDock). */
+.strip>section.over-dock .items{margin-bottom:var(--pk-dock-h)}
+/* The header: the name and the count, one line in every column. Under `Notes (attention)`, why the list is shorter
+   than the notes (D50) is a card that opens on hover or focus of the header (owner 2026-09-22: the two lines under
+   the name made that header taller than its neighbours; the reason belongs in a hover box). */
+.strip header{display:block;padding:6px 12px;position:relative;z-index:7}
+.strip header[tabindex]{cursor:default;outline:0}
+.strip-title{display:flex;justify-content:space-between;align-items:baseline;gap:10px}.strip-title>span{white-space:nowrap}
+.strip-title small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400}
+.strip-why{display:none;position:absolute;left:8px;top:calc(100% - 2px);width:max-content;max-width:min(460px,calc(100vw - 32px));padding:7px 10px 8px;flex-direction:column;gap:2px;font-size:11px;font-weight:400;line-height:1.5;text-shadow:none;color:var(--pk-card-text,var(--pk-text,#e7e7df));background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-card-texture,none);border:1px solid var(--pk-card-border,var(--pk-line,#35352f));border-radius:var(--pk-card-radius,var(--pk-radius-panel,8px));box-shadow:var(--pk-card-shadow,var(--pk-shadow-float,0 14px 40px #0009))}
+.strip-why small{font-size:10.5px;color:var(--pk-text-muted,#a5a59b);margin-top:3px}
+.strip header:hover .strip-why,.strip header:focus-within .strip-why{display:flex}
+/* A row. */
+.strip .items{padding:4px 6px;gap:1px}
+.strip-row{flex:none;border-radius:var(--pk-radius-sm,4px)}
+.strip .item{flex-direction:row;align-items:center;gap:8px;min-height:26px;padding:3px 8px;white-space:nowrap}
+.row-marks{display:inline-flex;gap:3px;flex:none}
+.mk{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border:1px solid var(--pk-line,#35352f);border-radius:var(--pk-radius-sm,4px);font-size:10.5px;font-weight:700;line-height:1;color:var(--pk-text-muted,#a5a59b)}
+.mk-decide{background:var(--pk-accent,#e3b76f);border-color:var(--pk-accent,#e3b76f);color:var(--pk-on-accent,#141413)}
+.mk-discuss{border-color:var(--pk-blue,#9fbdd5);color:var(--pk-blue,#9fbdd5)}
+.mk-info,.mk-plain{color:var(--pk-text-faint,#85857b)}
+.mk-origin{border-style:dashed;font-weight:600}
+.mk-work{background:var(--pk-raised,#242420);font-weight:600}
+.mk-good{border-color:var(--pk-green,#a3c5ac);color:var(--pk-green,#a3c5ac)}
+.mk-bad{border-color:var(--pk-red,#dca6a0);color:var(--pk-red,#dca6a0)}
+.mk-wait{border-color:var(--pk-accent,#e3b76f);color:var(--pk-accent,#e3b76f)}
+.row-text{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.row-object{flex:0 1 auto;min-width:0;max-width:32%;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--pk-text-muted,#a5a59b)}
+.row-time{flex:none;font-size:10.5px;color:var(--pk-text-faint,#85857b);font-variant-numeric:tabular-nums}
+/* The sentence comes first: in a narrow column the object gives way to it, then the time (both stay in the hover and
+   in the part that opens). A column is narrow with three of them beside the docked Keeper. */
+.strip>section{container-type:inline-size}
+@container (max-width:420px){.row-object{max-width:24%}}
+@container (max-width:290px){.row-object{display:none}}
+@container (max-width:230px){.row-time{display:none}}
+/* The part that opens, in place. */
+.strip-row.open{background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-card-texture,none);color:var(--pk-card-text,var(--pk-text,#e7e7df));box-shadow:inset 2px 0 0 var(--pk-accent,#e3b76f),var(--pk-card-shadow,0 0 0 0 transparent)}
+.strip-row.open>.item{background:var(--pk-card-head-bg,var(--pk-raised,#242420));border-radius:var(--pk-radius-sm,4px)}
+.row-more{display:flex;flex-direction:column;gap:7px;padding:8px 10px 10px 12px;font-size:12px;white-space:normal;overflow-wrap:anywhere}
+.more-title{font-size:12.5px;font-weight:600;line-height:1.45}
+.more-text{line-height:1.65}
+.more-state,.more-objects,.more-actions,.on-line{gap:6px}
+.more-items{display:flex;flex-direction:column;gap:3px}
+.more-foot{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding-top:8px;border-top:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26))}
+.more-foot>.more-actions{flex:1 1 auto}
+/* The last line of the part that opens — its actions and Details together — stays in sight at the foot of the column
+   while a tall expansion is scrolled, so the buttons are never below the fold without a sign of them (V16). */
+.row-more>:last-child{position:sticky;bottom:0;background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));padding-bottom:2px}
+/* One reading surface for all columns. It rises over the index instead of squeezing a long note into one cell. */
+.strip.has-sheet{overflow:visible}.strip-sheet{position:absolute;left:0;right:0;bottom:0;height:clamp(260px,42dvh,460px);max-height:calc(100dvh - var(--pk-top) - 90px);z-index:9;display:flex;flex-direction:column;min-width:0;color:var(--pk-card-text,var(--pk-text,#e7e7df));background:var(--pk-card-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-card-texture,none);border-top:2px solid var(--pk-accent,#e3b76f);box-shadow:var(--pk-card-shadow,var(--pk-shadow-float,0 -12px 34px #0008));outline:0}.strip-sheet.opening{animation:pk-sheet-up .22s cubic-bezier(.2,.75,.3,1) both}@keyframes pk-sheet-up{from{transform:translateY(100%)}to{transform:none}}
+.strip-sheet-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:9px 12px 8px 16px;border-bottom:1px solid var(--pk-card-line,var(--pk-line-soft,#2b2b26));background:var(--pk-card-head-bg,var(--pk-raised,#242420));flex:none}.strip-sheet-heading{display:flex;align-items:baseline;gap:8px;min-width:0}.strip-sheet-heading strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.strip-sheet-heading small{max-width:28%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.strip-sheet-close{flex:none}
+.strip-sheet-body{flex:1;min-height:0;overflow:auto;margin-bottom:var(--pk-dock-h);padding:12px 18px;gap:9px;scrollbar-width:thin}.strip-sheet-body>.more-title{font-size:15px;line-height:1.4}.strip-sheet-body>.more-text{width:100%;font-size:12.5px}.strip-sheet-body>.more-foot{position:static;bottom:auto;z-index:auto;margin-top:2px;padding:8px 0 4px;background:var(--pk-card-bg,var(--pk-surface,#1c1c1a))}
+/* A narrow window: the columns are stacked into one list that scrolls as a whole, under the graph and above the pill's
+   band. (The rule of the first narrow block was meant to do this; the column rules that follow it in the file undid it.) */
+@media(max-width:700px){.strip,.strip.two,.strip.three{grid-template-columns:minmax(0,1fr);height:auto;min-height:0;max-height:40vh;overflow:auto}.strip.has-sheet{height:40vh;min-height:220px;overflow:hidden}.strip.has-sheet>.strip-sheet{height:100%;max-height:none}.strip>section{border-right:0;min-height:auto}.strip .items{overflow:visible}.strip-resizer{display:none}.row-object{max-width:30%}.strip-sheet-head{padding-left:10px}.strip-sheet-heading small{display:none}.strip-sheet-body{padding-left:12px;padding-right:12px}}
+@media(prefers-reduced-motion:reduce){.strip-sheet.opening{animation:none}}
+
+/* ══ S3 · the outline shows a name in full: a second line when one is not enough, the whole name on hover (D68; Spec
+   §6.1; CKC-09 AC-41). The name is in a span, because a button itself cannot be clamped to lines. ══ */
+.outline .ol-area{align-items:flex-start}
+.outline .ol-work{white-space:normal;overflow:visible}
+.outline .ol-area>span,.outline .ol-work>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-width:0;overflow:hidden;white-space:normal;text-overflow:clip;overflow-wrap:anywhere;line-height:1.4}
+.outline .ol-area>small{flex:none;line-height:1.55}
+
+/* ══ QC AY package C · a Follow up result's news (Spec §3.8, §6.2; CKC-07 AC-27, CKC-24 AC-15): by kind, each entry
+   what it is (a press goes there), where it is and what changed for it; the top bar's "nothing new". The entries take
+   the ink of the surface they are drawn on (the reading sheet, the result's dialog), so they read on every theme. ══ */
+.round-news{display:flex;flex-direction:column;gap:9px}
+.news-kind>h4{margin:0 0 3px;color:inherit;opacity:.8}
+.news-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.news-list>li{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;line-height:1.5}
+.news-list .news-go{color:inherit;text-decoration:underline;text-decoration-color:var(--pk-accent,#e3b76f);text-underline-offset:2px;overflow-wrap:anywhere}
+.news-list .news-go:hover{color:var(--pk-accent,#e3b76f)}
+.news-pos,.news-why{color:inherit;opacity:.72;font-size:11px}
+.news-why{flex-basis:100%}
+.round-news-counts{gap:6px}
+.coverage-pill.with-last{display:inline-grid;justify-items:start;row-gap:1px;padding-top:3px;padding-bottom:3px}@media(max-width:700px){.coverage-pill.with-last{display:none}}.coverage-pill>.cov-parts{display:inline-flex;align-items:center;gap:8px}.coverage-pill>.cov-last-round{color:var(--pk-text,#e7e7df)}
+
+/* ══ D100 · panels: the workbench as floating panels with gaps between them, all made from one card (Spec §6.1, §6.16;
+   CKC-09 AC-38, AC-43, AC-44, AC-45). The top bar, the rail, the main panel and the drawer are the section level of the
+   ladder (ground < section < card < control): the theme's panel colour, its section border, radius and shadow; the
+   Keeper conversation is the card, as it was. Only the tokens above are used, so every theme keeps working. ══ */
+.panel{background:var(--pk-rail,#191918);border:1px solid var(--pk-section-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius-panel,10px);box-shadow:var(--pk-section-shadow,0 6px 22px #0005);min-width:0;min-height:0}
+.topbar{grid-area:top;min-height:48px;padding:6px 10px 6px 12px}
+.mobile-nav{grid-area:nav}
+.rail{grid-area:rail;overflow-x:hidden}
+.main-panel{grid-area:main;position:relative;z-index:1;display:flex;flex-direction:column;overflow:hidden}
+.drawer{grid-area:drawer;position:relative;z-index:2;display:flex;flex-direction:column;min-height:44px;margin-right:calc(var(--pk-pill-w) + var(--pk-gap))}
+/* The brand leads the top bar, so the rail can fold without losing it. */
+.topbar .brand{height:auto;padding:0 4px 0 0;flex:none}.topbar .brand-name{white-space:nowrap}
+/* The head of the rail: `Workspace` and the fold. Folded, the rail keeps the fold, the view icons and the status dot. */
+.rail-head{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px 2px 0;flex:none}
+.rail-head .rail-section{padding-top:4px}
+.rail-fold,.panel-max{flex:none;display:inline-flex;align-items:center;justify-content:center;width:28px;height:26px;border:1px solid var(--pk-control-border,var(--pk-line,#35352f));border-radius:var(--pk-control-radius,var(--pk-radius-sm,5px));background:var(--pk-control-bg,var(--pk-surface,#1c1c1a));background-image:var(--pk-control-texture,none);box-shadow:var(--pk-control-shadow,none);color:var(--pk-text-muted,#a5a59b);font-size:14px;line-height:1}
+.rail-fold:hover,.panel-max:hover{color:var(--pk-text,#e7e7df);background:var(--pk-control-hover-bg,var(--pk-raised,#242420));border-color:var(--pk-control-hover-border,var(--pk-control-border,var(--pk-line,#35352f)))}
+.panel-max svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.panel-max[aria-pressed="true"]{color:var(--pk-accent,#e3b76f);border-color:var(--pk-accent,#e3b76f)}
+.nav-icon{display:inline-flex;width:16px;height:16px;flex:none}.nav-icon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.brand-mark{display:inline-flex}.brand-mark svg{width:22px;height:22px}
+.topbar .topbar-main{flex:1 1 300px}
+.nav-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.rail-folded{--pk-rail-w:52px}
+body.rail-folded .rail-full,body.rail-folded .nav-label,body.rail-folded .nav-item .count,body.rail-folded .keeper-entry .kw{display:none}
+body.rail-folded .rail-head{justify-content:center;padding:8px 0 6px}
+body.rail-folded nav.views{padding:0 6px;gap:4px}
+body.rail-folded .nav-item{justify-content:center;padding:8px 0}
+body.rail-folded .rail-foot{padding:8px 6px}
+body.rail-folded .keeper-entry{justify-content:center;padding:8px 0;position:relative}
+body.rail-folded .keeper-entry::after{content:'';position:absolute;right:6px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--pk-text-faint,#85857b)}
+body.rail-folded .keeper-entry:has(.dot.green)::after{background:var(--pk-green,#a3c5ac)}body.rail-folded .keeper-entry:has(.dot.amber)::after{background:var(--pk-accent,#e3b76f)}body.rail-folded .keeper-entry:has(.dot.red)::after{background:var(--pk-red,#dca6a0)}body.rail-folded .keeper-entry:has(.dot.blue)::after{background:var(--pk-blue,#9fbdd5)}
+.shell{transition:grid-template-columns .18s ease}
+/* The header of the main panel: the view's one row of controls (or its name), and the button that fills the window. */
+.panel-head{display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--pk-head-border,var(--pk-line-soft,#2b2b26));flex:none}
+.panel-head .top-view-tools{flex:1;min-width:0}
+.panel-title{flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--pk-text-muted,#a5a59b);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.main-panel>.body{flex:1}
+/* The drawer: one line, as tall as the pill beside it, until it is pulled up; then the columns, as tall as dragged. */
+.drawer.empty{visibility:hidden;border-color:transparent;box-shadow:none;background:none}
+.drawer-bar{display:flex;align-items:center;gap:10px;min-height:42px;padding:0 10px 0 4px;flex:none}
+.drawer-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--pk-radius-sm,5px);text-align:left;font-size:12px;color:var(--pk-text-muted,#a5a59b);white-space:nowrap;overflow:hidden}
+.drawer-toggle:hover{background:var(--pk-raised,#242420);color:var(--pk-text,#e7e7df)}
+.drawer-toggle b{font-weight:600;color:var(--pk-text,#e7e7df);font-variant-numeric:tabular-nums}
+.drawer-caret{flex:none;width:14px;color:var(--pk-accent,#e3b76f);font-size:12px}
+.drawer-part{min-width:0;overflow:hidden;text-overflow:ellipsis}.drawer-part.since{color:var(--pk-accent,#e3b76f)}
+.drawer-sep{color:var(--pk-text-faint,#85857b)}
+.attn-count{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:24px;padding:1px 8px;border:1px solid var(--pk-accent,#e3b76f);border-radius:var(--pk-radius-pill,12px);font-size:11.5px;color:var(--pk-accent,#e3b76f);background:var(--pk-accent-soft,#302b22);white-space:nowrap;font-variant-numeric:tabular-nums}
+.attn-count:hover{background:var(--pk-accent-bg,#322c20)}
+.attn-count.active{color:var(--pk-on-accent,#211e16);background:var(--pk-accent,#e3b76f)}
+.attn-count .attn-mark{font-size:11px;line-height:1}
+.strip-counts{display:inline-flex;align-items:baseline;gap:8px;min-width:0}
+.drawer .strip{display:none;border-top:1px solid var(--pk-line-soft,#2b2b26);border-radius:0 0 var(--pk-radius-panel,10px) var(--pk-radius-panel,10px);max-height:none}
+.drawer.open .strip{display:grid}
+.drawer .strip-resizer{display:none}.drawer.open .strip-resizer{display:block}
+.drawer .strip-sheet-body{margin-bottom:0}
+.drawer .strip-sheet{border-radius:var(--pk-radius-panel,10px) var(--pk-radius-panel,10px) 0 0}
+/* Filling the window: the main panel is laid over the workbench, which steps aside; the pill keeps its band at the
+   bottom, and the docked Keeper still takes the right, from the top this time (the top bar has stepped aside). */
+body.maximised .main-panel{position:fixed;left:var(--pk-gap);top:var(--pk-gap);right:var(--pk-gap);bottom:var(--pk-dock-h);z-index:28;margin-right:0}
+body.maximised .shell>.topbar,body.maximised .shell>.rail,body.maximised .shell>.drawer,body.maximised .shell>.mobile-nav{visibility:hidden}
+body.maximised .keeper-panel.docked{top:var(--pk-gap)}
+@media(min-width:901px){body.maximised.keeper-docked .main-panel{right:calc(var(--pk-keeper-w) + 2 * var(--pk-gap));margin-right:0}}
+/* A narrow window (Spec §6.15): the rail is the navigation at the top, the panels stack, and the drawer lies full width
+   over the band of the pill. */
+@media(max-width:700px){
+  :root{--pk-gap:6px}
+  .shell{grid-template-rows:auto auto minmax(0,1fr) auto;grid-template-areas:"top" "nav" "main" "drawer"}
+  .mobile-nav{border:1px solid var(--pk-section-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius-panel,10px);background:var(--pk-rail,#191918)}
+  .topbar .brand-name{display:none}
+  .drawer,body.keeper-docked .drawer{margin-right:0;margin-bottom:calc(var(--pk-dock-h) - var(--pk-gap))}
+  .panel-head{flex-wrap:wrap}
+  .drawer-part{display:inline-flex;gap:4px;min-width:0}.dp-name{min-width:0;max-width:6.5em;overflow:hidden;text-overflow:ellipsis}
+  .drawer.open .strip{max-height:30vh}
+}
+@media(prefers-reduced-motion:reduce){.shell{transition:none}}
+/* What intake could not take in: the count beside the coverage pill opens the list, one row a file (CKC-07 AC-10). */
+.cov-failed{cursor:pointer;flex:none;align-self:center}
+.cov-failed:hover{border-color:var(--pk-red,#dca6a0)}
+.failed-list .failed-item{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--pk-line-soft,#2b2b26);border-radius:var(--pk-radius-sm,5px);background:var(--pk-well-bg,var(--pk-surface,#1c1c1a))}
+.failed-list .failed-item .mono{overflow-wrap:anywhere}

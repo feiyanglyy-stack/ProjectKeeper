@@ -1,0 +1,13 @@
+{
+  "about": "The four owner-reviewed WorkflowKeeper themes. Each board.css is a byte-for-byte copy of the frozen original and is never edited here; ProjectKeeper's own layer for a theme lives beside it. See README.md.",
+  "source": "WorkflowKeeper, app/themes/<id>/board.css",
+  "sourceCommit": "6756fe2",
+  "copied": "2026-09-21",
+  "default": "a1",
+  "themes": [
+    { "id": "a1", "name": "Walnut Workshop", "file": "a1/board.css", "bytes": 60502, "sha256": "2a76684350724f7a00134888a4fac4bd5948450e2b169c1b493844a182ade2e2" },
+    { "id": "b1", "name": "Peacock & Brass", "file": "b1/board.css", "bytes": 34595, "sha256": "88c2ff0d29ee870f5b0a52234881d7e732c1405232c7b5e68a22309ea2012d0d" },
+    { "id": "d2", "name": "Warm Clay", "file": "d2/board.css", "bytes": 36715, "sha256": "66ac7baadff3cc022b5d4cb4389bd0a062653b69a45ead089d2870bd4b113778" },
+    { "id": "i1", "name": "Task Console", "file": "i1/board.css", "bytes": 41711, "sha256": "359e44c7473d837ddae5e7a467d5282d27a5c1a130dd68e2137b4fcf64ca7931" }
+  ]
+}

@@ -1,0 +1,58 @@
+name: Bug, or a wrong picture
+description: Something failed, or the workbench shows something your project's material contradicts.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. Please leave out keys and anything from your project you would not publish; screenshots of the workbench show your project's content, so crop them.
+        For a security problem, do not open an issue: see SECURITY.md.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem is it?
+      options:
+        - Something failed (an error, a crash, a round that did not finish)
+        - The picture is wrong (the workbench says something the project's material contradicts)
+        - The workbench looks or behaves wrong
+        - The pk command
+        - Installing or starting
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. For a wrong picture, name the object the workbench shows, and the document, commit or session that contradicts it.
+    validations:
+      required: true
+  - type: textarea
+    id: step
+    attributes:
+      label: Where in a round, if a round was involved
+      description: The round and the step as `Keeper activity` shows them (for example "deepening, coverage check"), and the step's text if you can share it. Say whether the object is marked `Inferred`.
+  - type: input
+    id: models
+    attributes:
+      label: Provider and models
+      description: The main model, and any step set to another model. Takeover depth, if relevant.
+      placeholder: "DeepSeek: deepseek-v4-pro main agent, deepseek-flash lanes; Full"
+  - type: input
+    id: version
+    attributes:
+      label: ProjectKeeper version
+      description: The output of `git rev-parse --short HEAD` in your clone, or the release.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and Node version
+      placeholder: "Windows 11, Node 24.14"
+    validations:
+      required: true
+  - type: textarea
+    id: project
+    attributes:
+      label: About the project it was reading
+      description: Roughly how large (files, commits, sessions), what language its documents are in, which agent tools wrote its sessions. No names needed.

@@ -46,7 +46,7 @@ Claude Code and Codex, from their usual folders in your home folder. `PROJECTKEE
 
 ### Does it work on macOS or Linux?
 
-Untested. It was developed and run on Windows. The code is Node.js and git with no native build of its own, and the test suite is set to run on all three in CI, with the non-Windows jobs allowed to fail until someone has made them pass. Reports are welcome.
+Not yet. ProjectKeeper 0.1 is supported on Windows only, and CI runs there. Its test suite fails on Linux and has never been run on macOS, so neither is supported. The code is Node.js and git with no native build of its own; contributions that make it work on either system are welcome ([CONTRIBUTING.md](../CONTRIBUTING.md)).
 
 ### Does my project need to be a git repository?
 

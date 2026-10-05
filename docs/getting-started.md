@@ -6,7 +6,7 @@ From a fresh clone to an organized project. If you only want to look around firs
 
 - **Node.js 24 or later**, and **git**.
 - **A key for a model provider**, for anything beyond the demo. See [Models and keys](models-and-keys.md).
-- **Windows** is where ProjectKeeper has been developed and run. macOS and Linux are untested.
+- **Windows.** ProjectKeeper 0.1 is supported on Windows only. macOS and Linux are not supported yet.
 
 ## Install
 

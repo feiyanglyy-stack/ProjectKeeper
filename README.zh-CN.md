@@ -198,7 +198,7 @@ flowchart LR
 ## 现状与局限
 
 - **v0.1。** 它会出错，同一个项目每次跑出来也不完全一样；每句话都连着出处，你可以自己核对。四次实测以及各自漏了什么，见 [Cost and quality](docs/cost-and-quality.md)。
-- **在 Windows 上开发和运行。** macOS 和 Linux 没有测过。
+- **目前只支持 Windows。** ProjectKeeper 0.1 只在 Windows 上受支持。macOS 和 Linux 暂不支持：测试套件在 Linux 上通不过，在 macOS 上从未跑过。欢迎为这两个系统贡献修复。
 - **会话只读 Claude Code 和 Codex 的。** 其他 agent 的会话暂时不读。
 - **界面是英文的，内容跟着你项目的语言走。** 截图来自一个中文项目。
 - **名字。** ProjectKeeper 开发期间的名字是 ContextKeeper；截图里它整理的正是它自己的项目，那个项目用的还是这个名字。

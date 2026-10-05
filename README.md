@@ -197,7 +197,7 @@ Tools that draw a graph of code structure, such as Understand-Anything, show how
 ## Status and limits
 
 - **v0.1.** It makes mistakes, and it differs from run to run; every statement links to its source so you can check it. The measured runs, and what each missed, are in [Cost and quality](docs/cost-and-quality.md).
-- **Developed and run on Windows.** macOS and Linux are untested.
+- **Windows only, for now.** ProjectKeeper 0.1 is supported on Windows. macOS and Linux are not supported yet: the test suite fails on Linux and has never been run on macOS. Contributions that make it work on either are welcome.
 - **It reads sessions from Claude Code and Codex.** Other agents' sessions are not read yet.
 - **The interface is English; the content is in your project's language.** The screenshots are from a Chinese-language project.
 - **The name.** ProjectKeeper was developed under the working name ContextKeeper, and the screenshots show it organizing its own project, which carries that name.

@@ -34,6 +34,6 @@ What it includes:
 
 Known limits:
 
-- Developed and run on Windows only; macOS and Linux are untested.
+- Windows only. macOS and Linux are not supported yet: the test suite fails on Linux and has never been run on macOS.
 - The picture has errors, and differs from run to run on the same project. See [docs/cost-and-quality.md](docs/cost-and-quality.md).
 - Not published to npm; run from a clone.

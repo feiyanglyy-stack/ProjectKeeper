@@ -26,7 +26,7 @@ Add `--fake-provider` to serve with a local stand-in for the model, which is how
 
 ```sh
 npm run typecheck   # tsc, no output files
-npm test            # about 1,130 tests, about two minutes; no network, no keys
+npm test            # about 1,160 tests, about two minutes; no network, no keys
 ```
 
 One test file: `node --test src/model/vocab.test.ts`.
@@ -34,7 +34,9 @@ One test file: `node --test src/model/vocab.test.ts`.
 - Tests sit beside the code as `*.test.ts` and use Node's own test runner.
 - A test must not need the network, a key, or anything outside the temporary folders it makes.
 - The browser checks (`scripts/ui-*-check.mjs`) drive headless Chrome against a served fixture; the header of each says how to run it. They need Chrome (`CHROME_PATH` names it) and are not part of `npm test`.
-- CI runs the typecheck and the tests on Windows, Linux and macOS. Only Windows is known to pass; fixes for the other two are welcome.
+- A test that compares the paths ProjectKeeper reports with the ones it made takes its temporary directory from `src/util/tmp.test-helpers.ts`, not from `os.tmpdir()`: ProjectKeeper keeps paths in the file system's own spelling, and the temporary directory is often given in another (a short `RUNNER~1` name on a CI runner). `src/qc/path-spelling.test.ts` is where the other spellings are tried on purpose.
+- A test that makes commits gives git an identity itself (`-c user.name=… -c user.email=…`, or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables): CI has none configured.
+- CI runs the typecheck and the tests on Windows, the only platform ProjectKeeper 0.1 supports. The suite fails on Linux and has never been run on macOS; changes that make it pass on either are welcome.
 
 ## What a good issue looks like
 

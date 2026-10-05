@@ -10,6 +10,17 @@ import type { ServerResponse } from 'node:http';
 const workspace = realpathSync(process.cwd());
 const scratch = mkdtempSync(join(workspace, '.qc-ax-'));
 process.env.PI_CODING_AGENT_DIR = join(scratch, 'pi-agent');
+// So does the user's home as pi reads it (`HOME`, then the system's): pi puts the skills under `~/.agents/skills` into
+// every session's system message, and what a session holds decides whether pi can recover from a cut-off reply.
+process.env.HOME = join(scratch, 'user');
+mkdirSync(process.env.HOME, { recursive: true });
+// pi retries a reply cut off at the output limit only after compacting, and compacts only when the session holds more
+// than `compaction.keepRecentTokens` (20,000 by default). These short sessions hold about 17,000 by pi's estimate, so
+// with the default the two recovery tests below passed only on a machine whose owner has some 3,000 tokens of skills
+// of their own in `~/.agents/skills`, and failed on a clean one. The limit is set here instead, in pi's own settings
+// file, low enough that the Keeper's prompt alone passes it: recovery runs wherever the test does.
+mkdirSync(process.env.PI_CODING_AGENT_DIR, { recursive: true });
+writeFileSync(join(process.env.PI_CODING_AGENT_DIR, 'settings.json'), JSON.stringify({ compaction: { keepRecentTokens: 1000 } }));
 after(async () => {
   // waitFor resolves on Keeper's done event, just before the runtime's final flush/dispose.
   await new Promise((resolve) => setTimeout(resolve, 300));

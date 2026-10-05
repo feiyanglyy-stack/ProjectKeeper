@@ -280,7 +280,9 @@ test('a slot the project has nothing for is said so in one line; an unknown slot
   assert.match(block, /^=== Slots no lane held \(5; the main agent’s reasons, which the program does not check\)/);
   assert.match(block, /- reference:Boundary \(what the product does not include: non-goals, out of scope, limits it states\) · First usable round 1: “The project has no boundary material: one PRD page and a ticket list\.”/);
   assert.doesNotMatch(block, /reference:Decision/, 'a slot that holds something now is not a standing reason');
-  h.store.jobs.put(job('job_spot', { queuedAt: '2026-10-05T00:00:00.000Z', step: { roundId: 'round_2', kind: 'spot-check', path: null } } as Partial<KeeperJob>));
+  // The spot-check of round 2 is queued after the reasons were recorded — by the clock, not on a written date, which
+  // the reasons' own times pass as soon as that day comes.
+  h.store.jobs.put(job('job_spot', { queuedAt: new Date(Date.now() + 1000).toISOString(), step: { roundId: 'round_2', kind: 'spot-check', path: null } } as Partial<KeeperJob>));
   assert.match(String(emptySlotsBlock(h.store, { id: 'round_2' })), /Slots no lane held/, 'the spot-check of the round it is shown to still has it when started again');
   assert.equal(emptySlotsBlock(h.store, { id: 'round_3' }), null, 'and the round after it is not shown them again');
 

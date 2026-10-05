@@ -196,7 +196,9 @@ test('on a machine where git knows no identity, the Keeper is the committer of i
     writeFileSync(empty, '[user]\n\tuseConfigOnly = true\n');   // and never guess one from the machine's user and host names
     for (const key of keys) delete process.env[key];
     Object.assign(process.env, { GIT_CONFIG_GLOBAL: empty, GIT_CONFIG_NOSYSTEM: '1' });
-    assert.throws(() => git(h.root, 'var', 'GIT_COMMITTER_IDENT'), 'git knows no identity here');
+    // Asked quietly: git's answer ("Please tell me who you are") is what this test sets up, and printed into the run's
+    // output it reads as a failure of the run.
+    assert.throws(() => execFileSync('git', ['-C', h.root, 'var', 'GIT_COMMITTER_IDENT'], { encoding: 'utf8', env: process.env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }), 'git knows no identity here');
     const configBefore = readFileSync(join(h.root, '.git', 'config'), 'utf8');
     grantProjectFolderAuthorization(h.store, h.project, { quote: 'Write and commit the folder.' });
     const result = syncProjectFolder(h.store, h.project);

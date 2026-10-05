@@ -3,8 +3,9 @@
  * shows it. The owner gives it on that page (`Authorize…`) and withdraws it there (`Withdraw`, the revoke route of
  * every standing authorization).
  */
-import { existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { existsSync } from 'node:fs';
+import { isAbsolute, relative, sep } from 'node:path';
+import { canonicalPath } from '../util/paths.ts';
 import type { App } from './app.ts';
 import { HttpApp, HttpError, requireString } from './http.ts';
 import { grantProjectFolderAuthorization, projectFolderPath, syncProjectFolder, type ProjectFolderAuthorizationInput } from '../keeper/project-folder.ts';
@@ -89,7 +90,7 @@ export function projectFolderState(app: App, projectId: string): ProjectFolderSt
 function relativeToRoot(location: string | undefined, path: string | null): string | null {
   if (!location || !path) return null;
   try {
-    const rel = relative(realpathSync(resolve(location)), path);
+    const rel = relative(canonicalPath(location), path);
     return rel && !isAbsolute(rel) && rel.split(sep)[0] !== '..' ? rel.split(sep).join('/') : null;
   } catch { return null; }
 }

@@ -21,7 +21,7 @@ import type { ProjectRule, ScopeClassification, ScopeItem, ScopeJudgement, Scope
 import type { ScopeRelation, SessionHost } from '../model/vocab.ts';
 import { stableId } from '../model/ids.ts';
 import { git, gitCommonDir, gitDir, gitRemotes, gitRootCommits, gitToplevel, gitWorktrees } from '../util/git.ts';
-import { isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
+import { canonicalPath, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
 import { locateSessionsForHomes, type LocatedSession } from '../sources/sessions/locate.ts';
 import { sameSessionItem } from '../sources/sessions/scope.ts';
 import { discoverToolchain, type ToolchainRoot } from './toolchain.ts';
@@ -192,10 +192,10 @@ function detectCopy(dir: string, isRepo: boolean): { source: string; sessionStor
       const source = sourceLine && isAbsolute(sourceLine) ? sourceLine
         : /(?:来源|source|from)[:：]?\s*([A-Za-z]:\\[^\s\r\n]+|\/[^\s\r\n]+)/i.exec(text)?.[1];
       const sessionRoot = /^(?:sessions|会话)\s*[:：]\s*(.+?)\s*$/im.exec(text)?.[1];
-      const sessionStoreRoot = sessionRoot && isAbsolute(sessionRoot) ? normalizePath(sessionRoot) : undefined;
+      const sessionStoreRoot = sessionRoot && isAbsolute(sessionRoot) ? canonicalPath(sessionRoot) : undefined;
       const lines = text.split(/\r?\n/);
       const ref: ReasonRef = { path: log, headingPath: [], lineStart: 1, lineEnd: Math.min(lines.length, 5), excerpt: lines.slice(0, 5).join('\n') };
-      if (source && isAbsolute(source)) return { source: normalizePath(source), sessionStoreRoot, reason: ref, how: 'copy log names the source' };
+      if (source && isAbsolute(source)) return { source: canonicalPath(source), sessionStoreRoot, reason: ref, how: 'copy log names the source' };
       return { source: '', sessionStoreRoot, reason: ref, how: 'copy log present' };
     } catch { /* fall through */ }
   }
@@ -334,7 +334,10 @@ export function discoverBase(
   };
   const existingQuestion = (id: string) => options.existingQuestions?.find((q) => q.id === id);
   const base = { reasonSourceIds: [] as string[], sessionHost: null, readOnly: false, copyOf: null, worktreeOf: null, missing: null, addedBy: 'keeper' as const, reasonRef: null };
-  const locations = project.locations.filter((l) => existsSync(l)).map(normalizePath);
+  // The locations in the file system's own spelling, which is how git reports the repository and its worktrees: a
+  // location given through a short (8.3) name, a junction, a subst drive or in another case is the same directory.
+  const given = project.locations.map(canonicalPath);
+  const locations = given.filter((l) => existsSync(l));
 
   /** List what the ignore rules of the git work tree at `root` leave out; returns the predicate the other walks prune with. */
   const listIgnored = (root: string, keep: readonly string[]): ((rel: string) => boolean) | null => {
@@ -415,8 +418,7 @@ export function discoverBase(
     reason: candidateSentence(c.relation, c.kind, c.evidence), classification: programClass(c.kind, c.evidence),
   });
 
-  for (const rawLocation of project.locations) {
-    const location = normalizePath(rawLocation);
+  for (const location of given) {
     if (!existsSync(location)) {
       push({
         id: itemId(location, 'dir'), path: location, category: 'Directory', relation: 'Main project',
@@ -433,7 +435,7 @@ export function discoverBase(
     // An answered copy question is the owner's word on the copy's source and outlives rescans.
     const answered = options.existingQuestions?.find((q) => q.id === stableId('scopeq', 'copy-source', pathKey(location)) && q.answer)?.answer?.text.trim() ?? null;
     const detected = detectCopy(location, isRepo);
-    const namedSource = answered && /^[A-Za-z]:\\|^\//.test(answered) ? normalizePath(answered) : null;
+    const namedSource = answered && /^[A-Za-z]:\\|^\//.test(answered) ? canonicalPath(answered) : null;
     const copy = answered && /not a copy/i.test(answered) ? null
       : namedSource ? { source: namedSource, sessionStoreRoot: detected?.sessionStoreRoot, reason: detected?.reason ?? null, how: detected ? `${detected.how}; the owner named the source` : 'the owner named the source' }
         : detected;
@@ -627,7 +629,7 @@ export function discoverBase(
   }
 
   // Missing source kinds: only what the material itself points at.
-  for (const location of project.locations.filter((l) => existsSync(l))) {
+  for (const location of locations) {
     const evidence = cursorEvidence(location);
     if (evidence && !missing.some((m) => m.kind === 'Cursor sessions')) {
       missing.push({ kind: 'Cursor sessions', reason: `The project shows Cursor use (${evidence}), but ProjectKeeper does not read Cursor session logs yet` });
@@ -648,7 +650,7 @@ export function discoverBase(
     }
   }
 
-  const roots = project.locations.filter((l) => existsSync(l));
+  const roots = locations;
   const roles = roots.flatMap((r) => detectRoles(r));
   const language = roots.length > 0 ? detectLanguage(roots[0]!) : 'en';
   // B2: toolchain the project's own config points at (Spec §6.7); an allowed read root for the Keeper (§3.1). Read here

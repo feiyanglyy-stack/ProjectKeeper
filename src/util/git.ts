@@ -5,7 +5,7 @@
  */
 import { execFile, execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { normalizePath } from './paths.ts';
+import { canonicalPath } from './paths.ts';
 
 export interface GitResult {
   readonly ok: boolean;
@@ -35,19 +35,23 @@ export function git(cwd: string, args: readonly string[], timeoutMs = 8000, maxB
   }
 }
 
+// The paths git reports are put in the file system's own spelling (canonicalPath), the one every location is kept in:
+// git usually prints that spelling already, but not for a repository reached through a mapped drive, and a worktree
+// is listed as it was spelled when it was registered.
+
 export function gitToplevel(dir: string): string | null {
   const r = git(dir, ['rev-parse', '--show-toplevel']);
-  return r.ok && r.out.trim() ? normalizePath(resolve(r.out.trim())) : null;
+  return r.ok && r.out.trim() ? canonicalPath(resolve(r.out.trim())) : null;
 }
 
 export function gitCommonDir(dir: string): string | null {
   const r = git(dir, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
-  return r.ok && r.out.trim() ? normalizePath(r.out.trim()) : null;
+  return r.ok && r.out.trim() ? canonicalPath(r.out.trim()) : null;
 }
 
 export function gitDir(dir: string): string | null {
   const r = git(dir, ['rev-parse', '--path-format=absolute', '--git-dir']);
-  return r.ok && r.out.trim() ? normalizePath(r.out.trim()) : null;
+  return r.ok && r.out.trim() ? canonicalPath(r.out.trim()) : null;
 }
 
 export interface WorktreeInfo {
@@ -66,7 +70,7 @@ export function gitWorktrees(dir: string): WorktreeInfo[] {
   const flush = () => {
     if (current.path) {
       out.push({
-        path: normalizePath(current.path), head: current.head ?? null, branch: current.branch ?? null,
+        path: canonicalPath(current.path), head: current.head ?? null, branch: current.branch ?? null,
         detached: current.detached === true, bare: current.bare === true,
       });
     }

@@ -39,7 +39,7 @@ import { countRound, roundIdOf, roundResultOf } from '../src/keeper/adjustment.t
 import type { Breakpoint, ClerkRound, ClerkStage, CodeTerritory, EvidenceRef, LaneKind, MaterialAccount, RoundDoc, RoundLane, RoundNews, RoundStepKind, SemanticPatch, SendBack, SlotKind } from '../src/model/k-types.ts';
 import { saveVersion } from '../src/store/versions.ts';
 import { projectDir as assetDirOf } from '../src/store/paths.ts';
-import { normalizePath, samePath } from '../src/util/paths.ts';
+import { canonicalPath, normalizePath, samePath } from '../src/util/paths.ts';
 
 export interface UiFixtureResult {
   readonly projectId: string;
@@ -372,7 +372,9 @@ function writeProjectTree(home: string, projectDir: string, wtDir: string, wt2Di
 
 export async function seedUiFixture(home: string, options: { size?: 'standard' | 'large'; projectDir?: string; name?: string } = {}): Promise<UiFixtureResult> {
   const size = options.size ?? 'standard';
-  const root = options.projectDir ? resolve(options.projectDir) : join(tmpdir(), `pk-ui-fixture-papertrail-${size}`);
+  // The fixture's directory in the file system's own spelling (the temporary directory is often given in another one,
+  // a short name on Windows): the worktrees are registered, and looked up below, under the spelling git reports.
+  const root = canonicalPath(options.projectDir ? resolve(options.projectDir) : join(tmpdir(), `pk-ui-fixture-papertrail-${size}`));
   const projectDir = options.projectDir ? root : join(root, 'papertrail');
   const wtDir = `${projectDir}-wt`;
   const wt2Dir = `${projectDir}-wt2`;

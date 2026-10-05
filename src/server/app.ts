@@ -24,7 +24,7 @@ import { ProjectStore } from '../store/project-store.ts';
 import { Workspace } from '../store/workspace.ts';
 import { projectKeeperHome, projectDir } from '../store/paths.ts';
 import { saveVersion, type VersionReason } from '../store/versions.ts';
-import { normalizePath } from '../util/paths.ts';
+import { canonicalPath, normalizePath, samePath } from '../util/paths.ts';
 import { fullIntake, incrementalIntake, type IntakeResult } from '../intake/intake.ts';
 import { applyMaterialRules } from '../intake/material-rules.ts';
 import { ScopeWatcher, type PendingChange } from '../sources/watch.ts';
@@ -40,8 +40,9 @@ export interface AppEvent {
   readonly data?: unknown;
 }
 
-/** The scope items the owner added by hand — not the locations the project was given, which the boundary is drawn from. */
-export const ownerScopeItems = (project: Project): ScopeItem[] => project.scope.filter((i) => i.addedBy === 'owner' && !project.locations.some((l) => normalizePath(l) === i.path));
+/** The scope items the owner added by hand — not the locations the project was given, which the boundary is drawn from.
+ *  An item recorded before locations were kept in the file system's spelling is told by the directory it names. */
+export const ownerScopeItems = (project: Project): ScopeItem[] => project.scope.filter((i) => i.addedBy === 'owner' && !project.locations.some((l) => samePath(l, canonicalPath(i.path))));
 
 export class App extends EventEmitter {
   readonly home: string;
@@ -57,8 +58,9 @@ export class App extends EventEmitter {
 
   constructor(home = projectKeeperHome(), options: { readonly organizing?: boolean } = {}) {
     super();
-    this.home = home;
-    this.workspace = Workspace.open(home);
+    // The home in the file system's own spelling, like every project location (util/paths.ts `canonicalPath`).
+    this.home = canonicalPath(home);
+    this.workspace = Workspace.open(this.home);
     this.workspace.on('change', () => this.emit('event', { type: 'workspace' } satisfies AppEvent));
     this.keeper = new KeeperRuntime(this.workspace, (id) => this.store(id), (id) => this.project(id));
     this.keeper.on('event', (event: KeeperEvent) => {
@@ -71,7 +73,7 @@ export class App extends EventEmitter {
     this.keeper.hooks.requestRelook = (projectId, scope, reason) => { void reason; this.organizing.requestRelook(projectId, { ...scope, label: '' }); };
     // The ledger (§1.16): a round's first step brings it up to date, every step queries it, the writers cite its entries
     // by id, and the views read the versions, the lineage and the coverage from it.
-    this.ledger = new LedgerService({ home });
+    this.ledger = new LedgerService({ home: this.home });
     this.organizing.setLedgerRunner(this.ledger.runner);
     this.keeper.hooks.ledgerFor = (projectId) => this.ledger.hook(projectId);
     // The process engine (§2.12): a round's process step computes the breakpoints and moves the send-backs on; the
@@ -406,7 +408,7 @@ export class App extends EventEmitter {
   private decideProjectScope(projectId: string, base: DiscoveryBase, drawn: boolean): Project {
     const project = this.project(projectId);
     const store = this.store(projectId);
-    const ownerItems = project.scope.filter((i) => i.addedBy === 'owner' && !project.locations.some((l) => normalizePath(l) === i.path));
+    const ownerItems = ownerScopeItems(project);
     const result = decideScope(base, {
       existingQuestions: project.scopeQuestions, ownerItems,
       // §1.15, §1.1: the project's rules and the Keeper's classifications shape the listing (CKC-04 AC-1, AC-14, AC-17).
@@ -501,7 +503,7 @@ export class App extends EventEmitter {
 
   addScopeItem(projectId: string, input: { path: string; category: ScopeItem['category']; relation: ScopeItem['relation']; reason: string }): Project {
     const project = this.project(projectId);
-    const path = normalizePath(input.path);
+    const path = canonicalPath(input.path);   // a path the owner typed: kept in the file system's spelling, like a location
     const item: ScopeItem = {
       id: newId('scope'), path, category: input.category, relation: input.relation, reason: input.reason,
       reasonSourceIds: [], sessionHost: null, readOnly: input.relation === 'Session source', copyOf: null, worktreeOf: null,
@@ -531,7 +533,7 @@ export class App extends EventEmitter {
     const q = questions.find((x) => x.id === questionId);
     if (q && /copy/i.test(q.question) && /^[A-Za-z]:\\|^\//.test(answer.trim())) {
       const scope = updated.scope.map((i) => i.relation === 'Copy of another project' && !i.copyOf
-        ? { ...i, copyOf: normalizePath(answer.trim()), addedBy: 'owner' as const, reason: `${i.reason}; the owner named the source: ${answer.trim()}` } : i);
+        ? { ...i, copyOf: canonicalPath(answer.trim()), addedBy: 'owner' as const, reason: `${i.reason}; the owner named the source: ${answer.trim()}` } : i);
       this.updateProject({ ...updated, scope });
       return this.scopeProject(projectId);
     }

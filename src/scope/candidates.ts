@@ -5,10 +5,10 @@
  * Until the Keeper has judged, a candidate is treated as what it looks like, so a build cache is not organized and a
  * library's release plan is not taken for the project's plan while the judgement is pending.
  */
-import { existsSync, readFileSync, readdirSync, realpathSync, statSync, type Dirent } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
 import { git } from '../util/git.ts';
-import { isWithin, normalizePath } from '../util/paths.ts';
+import { canonicalPath, isWithin, normalizePath } from '../util/paths.ts';
 import { LICENSE_FILE, NEVER_WALKED, classifyName } from './skip.ts';
 
 export interface Candidate {
@@ -63,7 +63,7 @@ export function findCandidates(root: string, walk: CandidateWalk): Candidate[] {
       if (e.isSymbolicLink()) {
         // Never followed. A directory linked in from outside the project is outside material; one inside is read where it lives.
         let target: string | null = null;
-        try { if (statSync(full).isDirectory()) target = normalizePath(realpathSync(full)); } catch { target = null; }
+        try { if (statSync(full).isDirectory()) target = canonicalPath(full); } catch { target = null; }
         if (target && !inProject(target)) out.push({ path: full, relation: 'Third-party material', kind: 'linked in', evidence: [`${e.name} is a link to ${target}, outside the project`] });
         continue;
       }

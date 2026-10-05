@@ -5,7 +5,7 @@
  * network: no fetch, pull or remote query — only what the repository already has.
  */
 import { execFileSync } from 'node:child_process';
-import { normalizePath } from '../util/paths.ts';
+import { canonicalPath } from '../util/paths.ts';
 
 export interface GitOut { readonly ok: boolean; readonly out: string; readonly err: string }
 
@@ -298,7 +298,7 @@ export function worktreeList(dir: string): WorktreeEntry[] {
   const out: WorktreeEntry[] = [];
   let cur: { path?: string; head?: string; branch?: string; detached?: boolean; bare?: boolean; prunable?: boolean } = {};
   const flush = () => {
-    if (cur.path) out.push({ path: normalizePath(cur.path), head: cur.head ?? null, branch: cur.branch?.replace(/^refs\/heads\//, '') ?? null, detached: cur.detached === true, bare: cur.bare === true, prunable: cur.prunable === true });
+    if (cur.path) out.push({ path: canonicalPath(cur.path), head: cur.head ?? null, branch: cur.branch?.replace(/^refs\/heads\//, '') ?? null, detached: cur.detached === true, bare: cur.bare === true, prunable: cur.prunable === true });
     cur = {};
   };
   for (const field of r.out.split('\0')) {

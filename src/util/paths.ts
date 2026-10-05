@@ -1,5 +1,6 @@
+import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, normalize, parse, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, normalize, parse, relative, resolve, sep } from 'node:path';
 
 const WIN = process.platform === 'win32';
 
@@ -10,6 +11,36 @@ export function normalizePath(path: string): string {
   let out = abs;
   while (out.length > root.length && /[\\/]$/.test(out)) out = out.slice(0, -1);
   return out;
+}
+
+/**
+ * The one spelling of a path, as the file system itself gives it: absolute, with links and junctions resolved and, on
+ * Windows, 8.3 short names expanded (`C:\Users\RUNNER~1` → `C:\Users\runneradmin`), a `subst` drive followed and
+ * every name in the case it has on disk. git reports paths this way (`rev-parse --show-toplevel`, `worktree list`),
+ * so a path that enters ProjectKeeper — a project's location, the home, a directory a configuration file names — is
+ * put in this spelling before it is kept or compared; two spellings of one directory compared as text are two
+ * directories, and a repository then looks like it is not one. What does not exist yet keeps its missing tail on top
+ * of the real spelling of the part that exists. A mapped network drive keeps its drive letter (its real spelling is
+ * a `\\server\share` path, which not every program can work in).
+ */
+export function canonicalPath(path: string): string {
+  const abs = normalizePath(path);
+  const tail: string[] = [];
+  for (let head = abs; ;) {
+    let real: string | null = null;
+    try { real = realpathSync.native(head); } catch {
+      // Some volumes (a RAM disk, some network file systems) do not answer the native call; the links are still resolved.
+      try { real = realpathSync(head); } catch { real = null; }
+    }
+    if (real !== null) {
+      if (WIN && real.startsWith('\\\\') && !abs.startsWith('\\\\')) return abs;
+      return normalizePath(tail.length ? join(real, ...tail.reverse()) : real);
+    }
+    const parent = dirname(head);
+    if (parent === head) return abs;   // nothing of it exists, not even its root
+    tail.push(basename(head));
+    head = parent;
+  }
 }
 
 /** Comparison key: case-folded on Windows. Never shown to the user. */

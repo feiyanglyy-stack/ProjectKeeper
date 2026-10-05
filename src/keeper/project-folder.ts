@@ -12,6 +12,7 @@ import { newId } from '../model/ids.ts';
 import { anchorLabel } from '../sources/anchor.ts';
 import type { ProjectStore } from '../store/project-store.ts';
 import { git, gitToplevel, type GitResult } from '../util/git.ts';
+import { canonicalPath } from '../util/paths.ts';
 
 const FILES = ['README.md', 'semantic-patches.md', 'keeper-numbers.md', 'owner-decisions.md'] as const;
 /** The Keeper's commits name it as their author (D89: the Keeper commits the folder itself), so the ledger and `git log`
@@ -44,7 +45,9 @@ function inside(parent: string, child: string): boolean {
 export function projectFolderPath(project: Project, requested = 'projectkeeper'): string {
   const location = project.locations[0];
   if (!location) throw new Error('The project has no root location');
-  const root = realpathSync(resolve(location));
+  // The root in the file system's own spelling (short names expanded, links resolved): the one git reports the
+  // repository in, so the folder is found inside it when the commit is made.
+  const root = canonicalPath(location);
   if (!lstatSync(root).isDirectory()) throw new Error('The project root is not a directory');
   if (!requested.trim() || requested.includes('\0') || /^[A-Za-z]:[^\\/]/.test(requested) || requested.split(/[\\/]/).some((part) => part === '..' || part === '.')) throw new Error('Invalid project folder path');
   // Spelled as it will stay: Windows drops a trailing dot or space from a name, so such a name would write somewhere
@@ -262,7 +265,7 @@ export function syncProjectFolder(store: ProjectStore, project: Project): Projec
   if (!authorization?.projectFolder) return { status: 'not-authorized', path: null, changedFiles: [], commit: null, reason: null };
   const folder = projectFolderPath(project, authorization.projectFolder.path);
   const rendered = renderProjectFolder(store, project);
-  const root = realpathSync(resolve(project.locations[0]!));
+  const root = canonicalPath(project.locations[0]!);
   if (!inside(root, folder)) throw new Error('Project folder escaped the project root');
   mkdirSync(folder, { recursive: true });
   if (!inside(root, realpathSync(folder))) throw new Error('Project folder escaped through a link');

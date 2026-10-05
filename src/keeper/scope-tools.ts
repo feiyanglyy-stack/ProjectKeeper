@@ -17,7 +17,7 @@ import type { ScopeRelation } from '../model/vocab.ts';
 import { BASIS, isOneOf } from '../model/vocab.ts';
 import { stableId } from '../model/ids.ts';
 import { anchorLabel, redactCredentials } from '../sources/anchor.ts';
-import { isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
+import { canonicalPath, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
 import { JUDGED_RELATIONS, applyDecisions, keeperQuestionId } from '../scope/decisions.ts';
 import { isDocumentPath, treatmentOf } from '../scope/skip.ts';
 import { ruleUseRefusal } from './rules.ts';
@@ -76,11 +76,11 @@ export function syncAllScopeUsedAs(store: ToolContext['store'], scope: readonly 
 export function scopeTools(ctx: ToolContext): ToolDefinition[] {
   const { store, project } = ctx;
   const saved = (collection: string, id: string, label: string) => ctx.onSaved?.(collection, id, label);
-  const locations = project.locations.map((l) => normalizePath(l));
+  const locations = project.locations.map((l) => canonicalPath(l));
   const resolve = (raw: string): string | null => {
     const p = raw.trim().replace(/^[`'"“”]+|[`'"“”]+$/g, '');
     if (!p) return null;
-    if (isAbsolute(p)) return normalizePath(p);
+    if (isAbsolute(p)) return canonicalPath(p);
     for (const l of locations) { const full = normalizePath(join(l, p.replace(/[\\/]+$/, ''))); if (existsSync(full)) return full; }
     return locations[0] ? normalizePath(join(locations[0], p.replace(/[\\/]+$/, ''))) : null;
   };

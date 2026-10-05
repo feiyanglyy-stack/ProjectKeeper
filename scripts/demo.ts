@@ -16,6 +16,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
+import { canonicalPath } from '../src/util/paths.ts';   // node built-ins only: nothing of the workbench is loaded yet
 
 const flag = (name: string): string | null => { const i = process.argv.indexOf(name); return i >= 0 ? (process.argv[i + 1] ?? null) : null; };
 const port = Number(flag('--port') ?? 4880);
@@ -28,14 +29,18 @@ const free = await new Promise<boolean>((done) => {
 if (!free) { console.error(`Port ${port} is in use; choose another: npm run demo -- --port <number>`); process.exit(1); }
 
 const MARK = '.projectkeeper-demo';
-const dir = resolve(flag('--dir') ?? join(tmpdir(), 'projectkeeper-demo'));
+const given = resolve(flag('--dir') ?? join(tmpdir(), 'projectkeeper-demo'));
 // Only a directory this script made (or an empty one) is ever emptied.
-if (existsSync(dir) && readdirSync(dir).length > 0 && !existsSync(join(dir, MARK))) {
-  console.error(`${dir} is not empty and was not made by this demo; name another directory with --dir.`);
+if (existsSync(given) && readdirSync(given).length > 0 && !existsSync(join(given, MARK))) {
+  console.error(`${given} is not empty and was not made by this demo; name another directory with --dir.`);
   process.exit(2);
 }
-rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-mkdirSync(dir, { recursive: true });
+rmSync(given, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+mkdirSync(given, { recursive: true });
+// From here on the directory goes by the file system's own spelling. The system's temporary directory is often given
+// in another one — on Windows a short name (C:\Users\LONGNA~1\…) whenever the user name is longer than eight
+// characters or has a space in it — and git reports the project's repository and worktrees in the real one.
+const dir = canonicalPath(given);
 writeFileSync(join(dir, MARK), 'Made by `npm run demo`; emptied and built again on every run.\n');
 
 const home = join(dir, 'home');

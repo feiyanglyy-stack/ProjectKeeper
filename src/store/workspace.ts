@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import type { Project } from '../model/types.ts';
 import { slug } from '../model/ids.ts';
-import { normalizePath } from '../util/paths.ts';
+import { canonicalPath } from '../util/paths.ts';
 import { readJson, writeJsonAtomic } from './json-file.ts';
 import { projectKeeperHome, workspaceFile } from './paths.ts';
 
@@ -80,10 +80,11 @@ export class Workspace extends EventEmitter {
   }
 
   static open(home = projectKeeperHome()): Workspace {
-    const data = readJson<WorkspaceFile>(workspaceFile(home), {
+    const at = canonicalPath(home);
+    const data = readJson<WorkspaceFile>(workspaceFile(at), {
       version: 1, projects: [], settings: DEFAULT_SETTINGS, lastProjectId: null,
     });
-    return new Workspace(home, { ...data, settings: { ...DEFAULT_SETTINGS, ...data.settings } });
+    return new Workspace(at, { ...data, settings: { ...DEFAULT_SETTINGS, ...data.settings } });
   }
 
   get settings(): WorkspaceSettings { return this.data.settings; }
@@ -95,12 +96,17 @@ export class Workspace extends EventEmitter {
 
   /** Project id: name slug plus a hash of the first location, stable across renames of the store. */
   static idFor(name: string, firstLocation: string): string {
-    const hash = createHash('sha1').update(normalizePath(firstLocation).toLowerCase()).digest('hex').slice(0, 6);
+    const hash = createHash('sha1').update(canonicalPath(firstLocation).toLowerCase()).digest('hex').slice(0, 6);
     return `${slug(name)}-${hash}`;
   }
 
+  /**
+   * Add a project. Its locations are kept in the file system's own spelling (`canonicalPath`), whichever way they were
+   * given — a short (8.3) name, a junction, a `subst` drive, another case: that is the spelling git reports the
+   * repository and its worktrees in, and every later comparison is made on it.
+   */
   add(name: string, locations: readonly string[]): Project {
-    const cleaned = locations.map((l) => normalizePath(l));
+    const cleaned = [...new Set(locations.map((l) => canonicalPath(l)))];
     if (cleaned.length === 0) throw new Error('A project needs at least one location');
     const id = Workspace.idFor(name, cleaned[0]!);
     if (this.get(id)) throw new Error(`Project already exists: ${id}`);

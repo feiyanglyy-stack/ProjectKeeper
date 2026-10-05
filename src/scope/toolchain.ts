@@ -19,7 +19,7 @@
 import { homedir } from 'node:os';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join } from 'node:path';
-import { isWithin, normalizePath, pathKey } from '../util/paths.ts';
+import { canonicalPath, isWithin, normalizePath, pathKey } from '../util/paths.ts';
 import { projectKeeperHome as defaultProjectKeeperHome } from '../store/paths.ts';
 import { broadRootReason } from '../keeper/bounds/paths.ts';
 
@@ -132,14 +132,15 @@ function topLevelFilesBySuffix(location: string, suffix: string): string[] {
  * directories (a path inside one of them is already in scope, so it is never reported as toolchain).
  */
 export function discoverToolchain(locations: readonly string[], options: ToolchainOptions = {}): ToolchainRoot[] {
-  const roots = locations.map((l) => normalizePath(l));
+  const roots = locations.map((l) => canonicalPath(l));
   const breadth = { home: options.home ?? homedir(), projectKeeperHome: options.projectKeeperHome ?? defaultProjectKeeperHome(), projectLocations: roots };
   const out: ToolchainRoot[] = [];
   const seen = new Set<string>();
   const add = (rawValue: string, configPath: string, where: string) => {
     const abs = concreteAbsolute(rawValue);
     if (!abs) return;
-    const dir = candidateDir(abs);
+    // A configuration file spells a directory its own way; it is kept in the file system's spelling, like the locations.
+    const dir = candidateDir(canonicalPath(abs));
     if (!dir) return;                                          // must exist on disk
     if (roots.some((r) => isWithin(r, dir))) return;           // already inside the project
     const key = pathKey(dir);

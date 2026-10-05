@@ -147,7 +147,10 @@ test('8.3 short aliases, when the filesystem permits creating one, must be rejec
     try { result = execFileSync('fsutil', ['file', 'setshortname', long, 'CKFOLD~1'], { encoding: 'utf8', windowsHide: true }); }
     catch (error) { t.skip(`8.3 alias unavailable on this volume: ${String((error as { stderr?: string }).stderr ?? error).trim()}`); return; }
     const short = join(h.root, 'CKFOLD~1');
-    if (!existsSync(short) || realpathSync(short).toLowerCase() !== realpathSync(long).toLowerCase()) {
+    // Whether the alias names the folder is asked of the file system itself (the native call): the JavaScript
+    // `realpathSync` resolves links only and gives a short name back as it was spelled, so compared through it the
+    // two never matched and this test skipped itself on every machine, the ones with short names included.
+    if (!existsSync(short) || realpathSync.native(short).toLowerCase() !== realpathSync.native(long).toLowerCase()) {
       t.skip(`8.3 alias not exposed by filesystem: ${result.trim()}`);
       return;
     }

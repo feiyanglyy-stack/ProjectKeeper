@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { dirname, join, relative } from 'node:path';
 import { discoverScope, type DiscoveredItem } from './discover.ts';
 import { applyDecisions } from './decisions.ts';

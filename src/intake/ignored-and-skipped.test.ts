@@ -16,14 +16,14 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { join } from 'node:path';
 import type { ClerkRound } from '../model/k-types.ts';
 import type { PendingMaterial, ScopeItem } from '../model/types.ts';
 import type { ProjectStore } from '../store/project-store.ts';
 
-const scratch = mkdtempSync(join(realpathSync.native(tmpdir()), 'pk-cu-'));
+const scratch = mkdtempSync(join(tmpdir(), 'pk-cu-'));
 process.env.USERPROFILE = scratch;
 process.env.HOME = scratch;
 process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(scratch, 'pi-'));

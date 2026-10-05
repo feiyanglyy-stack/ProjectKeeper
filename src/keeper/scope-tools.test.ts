@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ProjectStore } from '../store/project-store.ts';

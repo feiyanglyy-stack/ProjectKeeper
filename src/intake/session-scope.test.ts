@@ -13,7 +13,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { join, resolve } from 'node:path';
 
 const fakeHome = mkdtempSync(join(tmpdir(), 'pk-session-scope-home-'));

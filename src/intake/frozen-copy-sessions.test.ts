@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { join } from 'node:path';
 
 const hostHome = mkdtempSync(join(tmpdir(), 'pk-copy-host-'));

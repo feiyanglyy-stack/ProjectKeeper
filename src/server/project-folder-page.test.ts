@@ -8,8 +8,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { join } from 'node:path';
 
 process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(tmpdir(), 'pk-pi-agent-'));
@@ -25,7 +25,7 @@ const git = (root: string, ...args: string[]): string => execFileSync('git', ['-
 
 async function workbench() {
   const home = mkdtempSync(join(tmpdir(), 'pk-folder-page-home-'));
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'pk-folder-page-skua-')));
+  const dir = mkdtempSync(join(tmpdir(), 'pk-folder-page-skua-'));
   git(dir, 'init', '-q');
   git(dir, 'config', 'core.autocrlf', 'false');
   git(dir, 'config', 'user.name', ENV.GIT_AUTHOR_NAME);

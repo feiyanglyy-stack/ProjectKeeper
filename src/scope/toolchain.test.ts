@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { join, parse } from 'node:path';
 import { discoverToolchain } from './toolchain.ts';
 import { pathKey } from '../util/paths.ts';

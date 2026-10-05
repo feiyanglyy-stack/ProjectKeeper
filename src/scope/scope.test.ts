@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { dirname, join, relative } from 'node:path';
 import { discoverScope, type DiscoveredItem } from './discover.ts';
 import { scanFiles } from '../sources/files.ts';

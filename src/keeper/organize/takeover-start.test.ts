@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir } from '../../util/tmp.test-helpers.ts';
 import { join } from 'node:path';
 import type { ClerkRound } from '../../model/k-types.ts';
 import type { KeeperJob, Note } from '../../model/types.ts';

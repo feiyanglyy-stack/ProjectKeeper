@@ -8,30 +8,38 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch replaces the run of the older one.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
-    name: Typecheck and tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    # ProjectKeeper has been developed and run on Windows only. The Linux and macOS jobs are here to show where it
-    # stands on them: they are untested, so a failure there does not fail the run. Remove the line below for a platform
-    # once its job passes.
-    continue-on-error: ${{ matrix.os != 'windows-latest' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+    # Windows is the only platform ProjectKeeper 0.1 supports (README, "Status and limits"), so it is the one CI runs
+    # on. The suite fails on Linux and has never been run on macOS; a job for either belongs here once it passes.
+    name: Typecheck and tests (windows-latest)
+    runs-on: windows-latest
+    # The suite takes about eight minutes on a runner. A job that hangs stops here instead of at GitHub's six hours.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+      # What the tests run on, for reading a failed log. The temporary directory in particular: these runners give it
+      # by a short (8.3) name, C:\Users\RUNNER~1\AppData\Local\Temp, which is not the spelling git reports paths in.
+      # No git identity is configured here, on purpose: ProjectKeeper and its tests must work on a machine without one.
+      - name: Environment
+        shell: pwsh
+        run: |
+          git --version
+          "node $(node --version)"
+          "npm $(npm --version)"
+          "TEMP: $env:TEMP"
+          node -e "const os = require('os'), fs = require('fs'); console.log('os.tmpdir(): ' + os.tmpdir()); console.log('real spelling: ' + fs.realpathSync.native(os.tmpdir()));"
       # `npm ci` also applies the patch to the installed model library (bin/postinstall.mjs).
       - run: npm ci
       - run: npm run typecheck
-      # The tests need no network and no key. They run git, which the runners have.
+      # The tests need no network and no key. They run git, which the runner has.
       - run: npm test

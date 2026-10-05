@@ -5,10 +5,11 @@
 import type { RoundStepKind } from '../model/k-types.ts';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import type { Project } from '../model/types.ts';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import type { Project, ScopeItem, ScopeQuestion } from '../model/types.ts';
 import { slug } from '../model/ids.ts';
 import { canonicalPath } from '../util/paths.ts';
-import { readJson, writeJsonAtomic } from './json-file.ts';
+import { writeJsonAtomic } from './json-file.ts';
 import { projectKeeperHome, workspaceFile } from './paths.ts';
 
 export interface ModelChoice {
@@ -69,6 +70,59 @@ interface WorkspaceFile {
 
 const DEFAULT_SETTINGS: WorkspaceSettings = { port: 4870, model: null, modelBackups: [], keeperAgent: 'pi' };
 
+/** The settings file is there and cannot be read as a workspace. The message names the file and says what to do. */
+export class WorkspaceFileError extends Error {
+  readonly file: string;
+  constructor(file: string, what: string) {
+    super(`Cannot read the settings file ${file}: ${what}. Correct it and start again, or move the file away to start with an empty workspace (the projects' assets under projects/ stay where they are). Nothing was changed.`);
+    this.name = 'WorkspaceFileError';
+    this.file = file;
+  }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Read the settings file. Every key it lacks takes its default — `projects` an empty list, `settings` the defaults,
+ * a project's lists empty — so a file written by hand or by an earlier version loads. What cannot be given a default
+ * (text that is not JSON, a project without an id or without locations) is said, with the file's name, and the file is
+ * left as it is: starting with an empty workspace instead would write that over the owner's projects on the next save.
+ */
+function readWorkspaceFile(file: string): WorkspaceFile {
+  if (!existsSync(file)) return { version: 1, projects: [], settings: DEFAULT_SETTINGS, lastProjectId: null };
+  let raw: unknown;
+  try { raw = JSON.parse(readFileSync(file, 'utf8').replace(/^﻿/, '')); }
+  catch (error) { throw new WorkspaceFileError(file, `it is not valid JSON (${(error as Error).message})`); }
+  if (!isRecord(raw)) throw new WorkspaceFileError(file, 'it does not hold a JSON object ({ "projects": […], "settings": {…} })');
+  if (raw.projects !== undefined && !Array.isArray(raw.projects)) throw new WorkspaceFileError(file, '"projects" is not a list');
+  if (raw.settings !== undefined && raw.settings !== null && !isRecord(raw.settings)) throw new WorkspaceFileError(file, '"settings" is not an object');
+  const projects = ((raw.projects as unknown[] | undefined) ?? []).map((entry, index): Project => {
+    const where = `project ${index + 1} of "projects"`;
+    if (!isRecord(entry)) throw new WorkspaceFileError(file, `${where} is not an object`);
+    if (typeof entry.id !== 'string' || !entry.id.trim()) throw new WorkspaceFileError(file, `${where} has no "id"`);
+    if (!Array.isArray(entry.locations) || entry.locations.length === 0 || entry.locations.some((l) => typeof l !== 'string' || !l.trim())) {
+      throw new WorkspaceFileError(file, `${where} (${entry.id}) has no "locations": a list with at least one directory`);
+    }
+    const list = (key: string): unknown[] => (Array.isArray(entry[key]) ? entry[key] as unknown[] : []);
+    return {
+      ...(entry as unknown as Project),
+      name: typeof entry.name === 'string' && entry.name.trim() ? entry.name : entry.id,
+      // One spelling of each location, the file system's own: the one a project is added in (see `add`).
+      locations: (entry.locations as string[]).map((l) => canonicalPath(l)),
+      scope: list('scope') as ScopeItem[], scopeQuestions: list('scopeQuestions') as ScopeQuestion[],
+      keeperFiles: list('keeperFiles') as Project['keeperFiles'], roles: list('roles') as string[],
+      language: typeof entry.language === 'string' && entry.language ? entry.language : 'en',
+      organizingPaused: entry.organizingPaused === true,
+      createdAt: typeof entry.createdAt === 'string' && entry.createdAt ? entry.createdAt : statSync(file).mtime.toISOString(),
+      lastOpenedAt: typeof entry.lastOpenedAt === 'string' ? entry.lastOpenedAt : null,
+      lastScopedAt: typeof entry.lastScopedAt === 'string' ? entry.lastScopedAt : null,
+    };
+  });
+  const settings = { ...DEFAULT_SETTINGS, ...((raw.settings as Partial<WorkspaceSettings> | null | undefined) ?? {}) };
+  const lastProjectId = typeof raw.lastProjectId === 'string' && projects.some((p) => p.id === raw.lastProjectId) ? raw.lastProjectId : null;
+  return { version: 1, projects, settings, lastProjectId };
+}
+
 export class Workspace extends EventEmitter {
   readonly home: string;
   private data: WorkspaceFile;
@@ -79,12 +133,14 @@ export class Workspace extends EventEmitter {
     this.data = data;
   }
 
+  /**
+   * Open the workspace of a home. A settings file that is not there yet is an empty workspace. One that is there is
+   * read as it is and never replaced because of what it holds: a key it lacks (a file written by hand, or by an earlier
+   * version) takes its default, and a file that cannot be read as a workspace stops here with a message naming it.
+   */
   static open(home = projectKeeperHome()): Workspace {
     const at = canonicalPath(home);
-    const data = readJson<WorkspaceFile>(workspaceFile(at), {
-      version: 1, projects: [], settings: DEFAULT_SETTINGS, lastProjectId: null,
-    });
-    return new Workspace(at, { ...data, settings: { ...DEFAULT_SETTINGS, ...data.settings } });
+    return new Workspace(at, readWorkspaceFile(workspaceFile(at)));
   }
 
   get settings(): WorkspaceSettings { return this.data.settings; }

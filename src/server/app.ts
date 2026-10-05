@@ -241,8 +241,10 @@ export class App extends EventEmitter {
    */
   usageWhere(): { port: number | null } {
     if (!this.servedPort) return { port: null };
-    const usual = this.home === projectKeeperHome() ? this.workspace.settings.port : Workspace.open(projectKeeperHome()).settings.port;
-    return { port: this.servedPort !== usual || this.home !== projectKeeperHome() ? this.servedPort : null };
+    // Another home is always named by its port, so the default home's settings file is not opened for it: this
+    // workbench (the demo, say) must not depend on whether that file can be read.
+    const usualHome = this.home === projectKeeperHome();
+    return { port: !usualHome || this.servedPort !== this.workspace.settings.port ? this.servedPort : null };
   }
 
   /**

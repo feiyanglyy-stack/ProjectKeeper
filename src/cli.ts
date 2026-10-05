@@ -24,6 +24,7 @@ import { App } from './server/app.ts';
 import { HttpApp } from './server/http.ts';
 import { registerRoutes } from './server/api.ts';
 import { vendorDir } from './server/vendor.ts';
+import { WorkspaceFileError } from './store/workspace.ts';
 import { changeBrief, factBrief, nodeBrief, relationBrief } from './context/object-brief.ts';
 import type { BriefChange, BriefFact, BriefNode } from './context/object-brief.ts';
 
@@ -284,4 +285,9 @@ async function agentEntry(command: string, app: App, args: string[]): Promise<nu
 /** Leaving with a code without cutting the event loop short: on Windows, exiting while fetch handles are still
  *  closing trips a libuv assertion (seen in the 2026-09-18 trial as exit 127). */
 class Exit extends Error { readonly code: number; constructor(code: number) { super(`exit ${code}`); this.code = code; } }
-main().then((code) => { process.exitCode = code; }, (error) => { if (error instanceof Exit) { process.exitCode = error.code; return; } console.error(error); process.exitCode = 1; });
+main().then((code) => { process.exitCode = code; }, (error) => {
+  if (error instanceof Exit) { process.exitCode = error.code; return; }
+  // A settings file that cannot be read is the owner's to correct: the message names it and says how; no stack.
+  console.error(error instanceof WorkspaceFileError ? error.message : error);
+  process.exitCode = 1;
+});

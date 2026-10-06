@@ -199,6 +199,35 @@ test('a credential environment variable is not visible to a shell the job runs (
   } finally { delete process.env.SOMETHING_API_KEY; fake.close(); app.stopAll(); }
 });
 
+test('git runs in a shell the job runs when git is configured through the environment, and a secret among those settings is not visible (PA-10)', { timeout: 60_000 }, async () => {
+  const group = {
+    GIT_CONFIG_COUNT: '3',
+    GIT_CONFIG_KEY_0: 'http.https://example.invalid/.extraheader', GIT_CONFIG_VALUE_0: 'AUTHORIZATION: bearer invented-bearer-1234',
+    GIT_CONFIG_KEY_1: 'user.name', GIT_CONFIG_VALUE_1: 'Invented Name',
+    GIT_CONFIG_KEY_2: 'user.email', GIT_CONFIG_VALUE_2: 'someone@example.invalid',
+  };
+  const saved = Object.keys(group).map((k) => [k, process.env[k]] as const);
+  Object.assign(process.env, group);
+  const { app, project, fake } = await setup();
+  try {
+    // `git var` reads the settings (`git config` is refused outside --local). The name is now the first of the group,
+    // so `printenv` shows it where the secret was.
+    const job = app.keeper.enqueue(project.id, { kind: 'Organizing', initiator: 'auto', scope: { kind: 'source', ids: [], label: 'x' }, prompt: 'Task: material organizing. DIRECTIVE bash git var GIT_AUTHOR_IDENT; printenv GIT_CONFIG_VALUE_0; echo end' });
+    const done = await app.keeper.waitFor(project.id, job.id);
+    const bashStep = done.steps.find((s) => s.tool === 'bash');
+    assert.ok(bashStep, 'the shell command ran as a step');
+    if (bashStep!.isError && /No bash shell|not found/i.test(bashStep!.summary)) return;   // no shell on this machine: skip
+    assert.equal(bashStep!.isError, false, bashStep!.summary);
+    assert.doesNotMatch(bashStep!.summary, /missing config key|unable to parse/, 'git read its settings');
+    assert.match(bashStep!.summary, /Invented Name <someone@example\.invalid> \d+ \S+\s+Invented Name\s+end/, 'git reads the settings that hold no secret');
+    assert.ok(!/invented-bearer-1234/.test(bashStep!.summary), 'the secret value is not in the shell output');
+    assert.ok(!/invented-bearer-1234/.test(done.resultText ?? ''), 'the secret value is not in the reply');
+  } finally {
+    for (const [k, v] of saved) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    fake.close(); app.stopAll();
+  }
+});
+
 test('the runtime tells the shell guard its home: another writer\'s file made during a command stays and is named on the step on a live project, and is undone on a controlled trial (BQ)', { timeout: 90_000 }, async () => {
   const { app, project, projectDir, fake, home } = await setup();
   try {

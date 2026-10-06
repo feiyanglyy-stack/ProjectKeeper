@@ -54,10 +54,59 @@ export function isCredentialEnvName(name: string): boolean {
     || upper.endsWith('_KEY') || upper.endsWith('_TOKEN') || upper.endsWith('_SECRET');
 }
 
-/** Remove credential-named variables from an environment map (used by the shell spawn hook). */
+/**
+ * Git takes settings from the environment as one group: `GIT_CONFIG_COUNT`, then a name and a value for each setting
+ * (`GIT_CONFIG_KEY_0`, `GIT_CONFIG_VALUE_0`, …). The group is read whole or not at all — with the count left and a
+ * name gone, every git command stops with "missing config key" — and the secret, when there is one, is in a value,
+ * whose variable name says nothing. So the group is filtered by what each setting is, not by the variables' names.
+ */
+const GIT_CONFIG_GROUP = /^GIT_CONFIG_(?:COUNT|(?:KEY|VALUE)_\d+)$/;
+/**
+ * The sections of git's configuration that pass to a tool subprocess: who commits, which directories git trusts, and
+ * how a repository on this machine is read and shown. A secret sits where git reaches a remote (an `http.….extraheader`,
+ * a `credential.*` helper, a `url.….insteadOf` with a token in it), and none of these sections does that. A setting
+ * passes because its section is listed, never because it does not look like a secret.
+ */
+const LOCAL_GIT_SECTIONS = new Set(['user', 'author', 'committer', 'safe', 'core', 'init', 'i18n', 'color', 'diff', 'log', 'status', 'advice', 'gc', 'feature', 'index', 'pack']);
+/** The `core` settings that are commands for reaching, or signing in to, a remote. */
+const REMOTE_CORE_SETTINGS = new Set(['askpass', 'sshcommand', 'gitproxy']);
+
+/** Whether a git setting named `key` (`section.name` or `section.subsection.name`) passes to a tool subprocess. */
+export function isLocalGitSetting(key: string): boolean {
+  const first = key.indexOf('.');
+  if (first <= 0) return false;
+  const section = key.slice(0, first).toLowerCase();
+  const name = key.slice(key.lastIndexOf('.') + 1).toLowerCase();
+  return LOCAL_GIT_SECTIONS.has(section) && !(section === 'core' && REMOTE_CORE_SETTINGS.has(name));
+}
+
+/**
+ * Remove credential-named variables from an environment map (used by the shell spawn hook). Git's settings group is
+ * rebuilt from the settings that pass, numbered from 0 again in their order, so git reads the rest as before.
+ * `GIT_CONFIG_PARAMETERS`, where git hands the `-c` settings of one command to its children, is not passed on.
+ */
 export function stripCredentialEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {};
-  for (const [k, v] of Object.entries(env)) if (!isCredentialEnvName(k)) out[k] = v;
+  const group = new Map<string, string>();
+  for (const [k, v] of Object.entries(env)) {
+    const upper = k.toUpperCase();
+    if (GIT_CONFIG_GROUP.test(upper)) { if (v !== undefined) group.set(upper, v); continue; }
+    if (upper === 'GIT_CONFIG_PARAMETERS') continue;
+    if (!isCredentialEnvName(k)) out[k] = v;
+  }
+  // Git reads the settings 0 … count-1 and stops at the first one that lacks its name or its value; so does this.
+  const count = /^\d+$/.test(group.get('GIT_CONFIG_COUNT') ?? '') ? Number(group.get('GIT_CONFIG_COUNT')) : 0;
+  let kept = 0;
+  for (let i = 0; i < count; i += 1) {
+    const key = group.get(`GIT_CONFIG_KEY_${i}`);
+    const value = group.get(`GIT_CONFIG_VALUE_${i}`);
+    if (key === undefined || value === undefined) break;
+    if (!isLocalGitSetting(key)) continue;
+    out[`GIT_CONFIG_KEY_${kept}`] = key;
+    out[`GIT_CONFIG_VALUE_${kept}`] = value;
+    kept += 1;
+  }
+  if (kept > 0) out.GIT_CONFIG_COUNT = String(kept);
   return out;
 }
 

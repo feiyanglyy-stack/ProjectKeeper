@@ -10,12 +10,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { seedUiFixture, type UiFixtureResult } from '../../scripts/seed-ui-fixture.ts';
 import { App } from './app.ts';
 import { ProjectStore } from '../store/project-store.ts';
+import { Ledger } from '../ledger/index.ts';
 import { Workspace } from '../store/workspace.ts';
 import { projectDir } from '../store/paths.ts';
 import { listVersions } from '../store/versions.ts';
@@ -352,6 +354,24 @@ test('the ledger the fixture builds: each depth path says how it was counted, th
   }
 });
 
+/** The fixture project's commits, oldest first: hash, author time, committer time. */
+function fixtureCommits(r: UiFixtureResult): string[][] {
+  const out = execFileSync('git', ['-C', r.projectDir, 'log', '--all', '--author-date-order', '--reverse', '--format=%H %aI %cI'], { encoding: 'utf8' });
+  return out.trim().split(/\r?\n/).map((line) => line.split(' '));
+}
+
+test('the fixture’s commits are dated as the seed says, by author and by committer: the ledger keeps one time for each, not the moment of seeding beside it', async () => {
+  const r = await standard();
+  const dates = ['2026-08-20T10:00:00Z', '2026-08-28T10:00:00Z', '2026-09-05T10:00:00Z', '2026-09-06T10:00:00Z', '2026-09-19T11:00:00Z'];
+  assert.deepEqual(fixtureCommits(r).map(([, authored, committed]) => [authored, committed]), dates.map((d) => [d, d]));
+  const ledger = Ledger.openDir(openStore(r).dir)!;
+  try {
+    const page = ledger.commits({ oldestFirst: true });
+    assert.ok(typeof page !== 'string', String(page));
+    assert.deepEqual(page.rows.map((c) => [c.authoredAt, c.committedAt, c.occurred.other ?? null]), dates.map((d) => [d, d, null]));
+  } finally { ledger.close(); }
+});
+
 test('a round the main agent ran (D99): the Keeper view’s round carries its stages, its lanes with what each answers and read, the coverage check with its accounts, and the missing steps looked for and checked', async () => {
   const r = await standard();
   const rounds = (await routes(r)('GET', '/api/projects/:id/k-rounds', {})) as unknown as ReturnType<typeof roundsView>;
@@ -564,4 +584,7 @@ test('the large size scales past one screen without errors', { timeout: 120_000 
   const store = openStore(r);
   const g = graphView(store, openProject(r));
   assert.ok(g.nodes.filter((n) => n.category === 'Work item').length >= 140, 'the graph holds the work items');
+  // Seeded at another moment, in another directory: the commits both sizes make of the same files are the same commits.
+  const hashes = (x: UiFixtureResult) => fixtureCommits(x).slice(0, 2).map(([hash]) => hash);
+  assert.deepEqual(hashes(r), hashes(await standard()), 'fixed dates and a fixed identity: the same hashes on every run');
 });

@@ -305,7 +305,7 @@ function gitEnv(root: string, at: string): NodeJS.ProcessEnv {
   return {
     ...process.env,
     GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: join(root, 'gitconfig.empty'),
-    GIT_AUTHOR_DATE: at, GIT_COMMIT_DATE: at,
+    GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at,
   };
 }
 function git(root: string, cwd: string, at: string, args: string[]): void {

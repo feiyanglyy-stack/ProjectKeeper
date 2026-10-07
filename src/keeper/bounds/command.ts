@@ -99,8 +99,12 @@ export function extractHeredocs(command: string): { stripped: string; bodies: st
   return { stripped: out.join('\n'), bodies };
 }
 
-/** Tokenise a bash-family command line, tracking quoting, escapes, expansions and substitutions. */
-export function tokenize(command: string): Token[] {
+/**
+ * Tokenise a bash-family command line, tracking quoting, escapes, expansions and substitutions. `literalBackslash`: the
+ * line is PowerShell's or cmd's, where a backslash escapes nothing and is the separator of a path — read as bash reads
+ * it, `C:\Users\someone` lost its backslashes and was no path to the checks that follow.
+ */
+export function tokenize(command: string, literalBackslash = false): Token[] {
   const tokens: Token[] = [];
   let buf = '';
   let has = false;
@@ -125,7 +129,7 @@ export function tokenize(command: string): Token[] {
       has = true;
       i += 1;
       while (i < s.length && s[i] !== '"') {
-        if (s[i] === '\\' && '$`"\\\n'.includes(s[i + 1] ?? '')) { buf += s[i + 1]; i += 2; continue; }
+        if (!literalBackslash && s[i] === '\\' && '$`"\\\n'.includes(s[i + 1] ?? '')) { buf += s[i + 1]; i += 2; continue; }
         if (s[i] === '`') { substitution = true; buf += s[i]; i += 1; continue; }
         if (s[i] === '$' && s[i + 1] === '(') { substitution = true; buf += s[i]; i += 1; continue; }
         if (s[i] === '$') { dynamic = true; buf += s[i]; i += 1; continue; }
@@ -134,7 +138,7 @@ export function tokenize(command: string): Token[] {
       i += 1;
       continue;
     }
-    if (c === '\\') { has = true; if (i + 1 < s.length) { buf += s[i + 1]; i += 2; } else i += 1; continue; }
+    if (c === '\\' && !literalBackslash) { has = true; if (i + 1 < s.length) { buf += s[i + 1]; i += 2; } else i += 1; continue; }
     if (c === '`') { has = true; substitution = true; buf += c; i += 1; continue; }
     if (c === '$' && s[i + 1] === '(') { has = true; substitution = true; buf += c; i += 1; continue; }
     if (c === '$' && s[i + 1] === '{') { has = true; dynamic = true; buf += c; i += 1; continue; }
@@ -1350,10 +1354,18 @@ export function checkBashCommand(command: string, cwd: string, boundary: Boundar
  * PowerShell command boundary. PowerShell's own dynamic forms ($(...), backticks, subexpressions, Invoke-Expression)
  * are refused outright; the attached `-Param:value` form is split so its value is checked; otherwise path-looking
  * tokens are checked. pi runs bash by default, so this is the conservative fallback for the powershell tool.
+ *
+ * The line is read with its backslashes as they are, and the braces of a script block as words of their own, so the
+ * command inside a block is judged like any other (`checkWrapped`). `&` calls what follows it: a command there that a
+ * variable names cannot be known.
  */
 export function checkPowerShellCommand(command: string, cwd: string, boundary: Boundary, writeRoots: readonly string[] = [], scratchDir?: string, onWrite?: WriteSink): CommandDecision {
   if (/\$\(|`|\biex\b|\bInvoke-Expression\b/i.test(command)) return undeterminable('a PowerShell subexpression or Invoke-Expression');
-  const tokens = knownScratch(tokenize(command), scratchDir);
+  const tokens = knownScratch(tokenize(command, true), scratchDir).flatMap((t): Token[] => {
+    const braces = t.kind === 'word' ? /^(\{*)([^]*?)(\}*)$/.exec(t.text) : null;
+    if (!braces || (!braces[1] && !braces[3])) return [t];
+    return [...[...braces[1]!].map(() => wordToken('{')), ...(braces[2] ? [{ ...t, text: braces[2] }] : []), ...[...braces[3]!].map(() => wordToken('}'))];
+  });
   for (const t of tokens) {
     if (t.kind !== 'word') continue;
     const attached = /^-[A-Za-z]+:(.+)$/.exec(t.text);        // -Path:'C:\…' attaches the value to the parameter
@@ -1366,12 +1378,15 @@ export function checkPowerShellCommand(command: string, cwd: string, boundary: B
   const nodes = toNodes(tokens);
   let pipedInto = false;
   let prevCmd: { words: Token[]; cwd: string } | null = null;
+  let called = false;
   for (const node of nodes) {
-    if (node.kind === 'op') { pipedInto = node.op === '|' || node.op === '|&'; if (!pipedInto) prevCmd = null; continue; }
-    const { decision } = checkSimpleCommand(node.words, cwd, boundary, { pipedInto, prevCmd, depth: 0, writeRoots: writeRoots.map((root) => canonicalKey(root, root)), scratchDir, onWrite });
+    if (node.kind === 'op') { pipedInto = node.op === '|' || node.op === '|&'; called = node.op === '&'; if (!pipedInto) prevCmd = null; continue; }
+    if (called && node.words[0]?.dynamic) return undeterminable('a command named by a variable');
+    const { decision } = checkSimpleCommand(node.words, cwd, boundary, { pipedInto, prevCmd, depth: 0, writeRoots: writeRoots.map((root) => canonicalKey(root, root)), scratchDir, onWrite, powershell: true });
     if (decision && !decision.ok) return decision;
     prevCmd = { words: node.words, cwd };
     pipedInto = false;
+    called = false;
   }
   return OK;
 }

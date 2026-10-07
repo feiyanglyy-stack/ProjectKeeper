@@ -206,3 +206,104 @@ test('code given to an interpreter under its letters written together is read as
   }
   for (const command of ['bash -lc "ls src"', 'python -uc "print(1)"', 'perl -ne "print" src/a.ts', 'node -pe "1+1"', 'bash -x build.sh'.replace('build.sh', 'src/none.sh')]) assert.equal(decide(command).ok, true, `${command}: ${decide(command).reason}`);
 });
+
+// ───────────────────────── the PowerShell tool ─────────────────────────
+
+const ps = (command: string) => decide(command, 'powershell');
+
+test('PowerShell: a path written with backslashes and no quotes is a path — outside the project it is refused, inside it runs', () => {
+  for (const command of [
+    `Get-Content ${outside}\\secret.txt`, `Get-Content -Path ${outside}\\secret.txt`, `type ${outside}\\secret.txt`, `Get-ChildItem ${outside}`,
+    'Get-Content ..\\outside\\secret.txt', `Select-String -Path ${outside}\\*.txt -Pattern x`, `git -C ${outside} log -1`,
+  ]) {
+    const d = ps(command);
+    assert.equal(d.ok, false, command);
+    assert.match(d.reason ?? '', /read boundary/, command);
+  }
+  for (const command of ['Get-Content src\\a.ts', 'Get-ChildItem -Recurse src', 'Select-String -Path src\\*.ts -Pattern x', 'git -C src\\.. log -1', 'git status', `Get-Content "${project}\\src\\a.ts"`]) {
+    assert.equal(ps(command).ok, true, `${command}: ${ps(command).reason}`);
+  }
+});
+
+/** Each way PowerShell runs a command given to it. */
+const PS_FORMS: readonly { name: string; wrap: (c: string) => string }[] = [
+  { name: 'as it stands', wrap: (c) => c },
+  { name: '& (the call operator)', wrap: (c) => `& ${c}` },
+  { name: 'an assignment', wrap: (c) => `$out = ${c}` },
+  { name: 'a script block called', wrap: (c) => `& { ${c} }` },
+  { name: 'a script block, no spaces', wrap: (c) => `& {${c}}` },
+  { name: 'Invoke-Command', wrap: (c) => `Invoke-Command -ScriptBlock { ${c} }` },
+  { name: 'ForEach-Object', wrap: (c) => `1..2 | ForEach-Object { ${c} }` },
+  { name: '%', wrap: (c) => `1 | % { ${c} }` },
+  { name: 'if', wrap: (c) => `if ($true) { ${c} }` },
+  { name: 'else', wrap: (c) => `if ($false) { 1 } else { ${c} }` },
+  { name: 'foreach', wrap: (c) => `foreach ($i in 1..2) { ${c} }` },
+  { name: 'while', wrap: (c) => `while ($true) { ${c}; break }` },
+  { name: 'try', wrap: (c) => `try { ${c} } catch { 1 }` },
+  { name: 'a function, then its call', wrap: (c) => `function f { ${c} }; f` },
+  { name: 'Measure-Command', wrap: (c) => `Measure-Command { ${c} }` },
+  { name: 'after ;', wrap: (c) => `1; ${c}` },
+  { name: 'cmd /c', wrap: (c) => `cmd /c ${c}` },
+  { name: 'cmd /c quoted', wrap: (c) => `cmd /c "${c.replaceAll('"', "'")}"` },
+  { name: 'powershell -Command', wrap: (c) => `powershell -NoProfile -Command "${c.replaceAll('"', "'")}"` },
+  { name: 'pwsh -c', wrap: (c) => `pwsh -c "${c.replaceAll('"', "'")}"` },
+];
+/** The same for a command of a bash-family shell, which PowerShell's own commands are not. */
+const PS_TO_BASH: typeof PS_FORMS = [
+  { name: 'bash -c', wrap: (c) => `bash -c "${c.replaceAll('"', "'")}"` },
+  { name: 'wsl', wrap: (c) => `wsl -e ${c}` },
+];
+
+test('PowerShell: a command refused as it stands is refused however PowerShell is made to run it, and one that runs still runs', () => {
+  for (const command of ['git push origin main', 'git commit -m x', 'rm -r src', 'git credential fill', 'gh auth token']) {
+    for (const { name, wrap } of [...PS_FORMS, ...PS_TO_BASH]) assert.equal(ps(wrap(command)).ok, false, `${name}: ${wrap(command)}`);
+  }
+  for (const command of ['Remove-Item -Recurse src', 'Set-Content src\\a.ts x', 'del src\\a.ts']) {
+    for (const { name, wrap } of PS_FORMS) assert.equal(ps(wrap(command)).ok, false, `${name}: ${wrap(command)}`);
+  }
+  for (const command of ['git status', 'git log --oneline -3']) {
+    for (const { name, wrap } of [...PS_FORMS, ...PS_TO_BASH]) assert.deepEqual(ps(wrap(command)), { ok: true, reason: null, detail: null }, `${name}: ${wrap(command)}`);
+  }
+  for (const command of ['Get-ChildItem src', 'Get-Content src\\a.ts']) {
+    for (const { name, wrap } of PS_FORMS) assert.deepEqual(ps(wrap(command)), { ok: true, reason: null, detail: null }, `${name}: ${wrap(command)}`);
+  }
+});
+
+test('PowerShell: what starts a program apart from the command, or names it by a variable or in code that cannot be read, is refused', () => {
+  const refused = (command: string, what: RegExp) => { const d = ps(command); assert.equal(d.ok, false, command); assert.match(d.reason ?? '', what, command); };
+  for (const command of [
+    'Start-Process git -ArgumentList push', 'Start-Process -FilePath git -ArgumentList "push","origin"', 'start git push', 'saps git push', 'Start-Job { git push }', 'Start-ThreadJob { git push }',
+    'Invoke-WmiMethod -Class Win32_Process -Name Create -ArgumentList "git push"', 'Invoke-CimMethod -ClassName Win32_Process -MethodName Create', 'wmic process call create "git push"',
+    '[Diagnostics.Process]::Start("git", "push")', '[System.Diagnostics.Process]::Start("git", "push")', '(New-Object -ComObject WScript.Shell).Run("git push")',
+  ]) refused(command, /starts a program apart from this command/);
+  refused('$g = "git"; & $g push origin main', /a command named by a variable/);
+  refused('& $env:ComSpec /c git push', /a command named by a variable/);
+  refused('Invoke-Expression "git push"', /Invoke-Expression/);
+  refused('iex "git push"', /Invoke-Expression/);
+  refused('powershell -EncodedCommand ZwBpAHQAIABwAHUAcwBoAA==', /an encoded PowerShell command/);
+  refused('pwsh -enc ZwBpAHQAIABwAHUAcwBoAA==', /an encoded PowerShell command/);
+  // A variable in front of an expression is no command, and what it is assigned may be one that runs.
+  for (const command of ['$n = 1', '$n -gt 1', '$files = Get-ChildItem src', '$files.Count', '$text = Get-Content src\\a.ts; $text.Length', '$status = git status --porcelain']) assert.equal(ps(command).ok, true, `${command}: ${ps(command).reason}`);
+});
+
+test('PowerShell: its own commands that write the files they name are refused in the project and named for the write guard', () => {
+  for (const command of [
+    'Remove-Item -Recurse src', 'Remove-Item src\\a.ts', 'ri src/a.ts', 'del src\\a.ts', 'erase src\\a.ts', 'rd src', 'Set-Content src/a.ts x', 'Set-Content -Path src\\a.ts -Value x', 'Add-Content src\\a.ts x',
+    'Clear-Content src\\a.ts', '"x" | Out-File src\\a.ts', 'Out-File -FilePath src\\a.ts', 'New-Item src/b.ts', 'ni src\\b.ts', 'md src\\new', 'Rename-Item src\\a.ts b.ts', 'ren src\\a.ts b.ts',
+    'Copy-Item src\\a.ts src\\b.ts', 'Copy-Item -Destination src\\b.ts -Path src\\a.ts', 'copy src\\a.ts src\\b.ts', 'Move-Item src\\a.ts src\\b.ts', 'move src\\a.ts src\\b.ts', '"x" | Tee-Object src\\log.txt', 'Get-ChildItem | Export-Csv src\\list.csv',
+  ]) {
+    const d = ps(command);
+    assert.equal(d.ok, false, command);
+    assert.match(d.reason ?? '', /shell cannot write project files/, command);
+  }
+  const scratch = join(base, 'scratch');
+  const withScratch = makeBoundary({ roots: [{ path: project, label: 'the project directory' }, { path: scratch, label: 'scratch' }], files: [] });
+  const written = (command: string) => [...planShellCommand('powershell', command, project, withScratch, [], scratch).writePaths].sort();
+  assert.deepEqual(written('Remove-Item src\\gen.txt'), [canonicalKey('src/gen.txt', project)]);
+  assert.deepEqual(written('Copy-Item src\\a.ts out\\b.ts'), [canonicalKey('out/b.ts', project)]);
+  assert.deepEqual(written('Move-Item src\\a.ts out\\b.ts'), [canonicalKey('out/b.ts', project), canonicalKey('src/a.ts', project)].sort());
+  // Out of the project, into the job's scratch directory, they run.
+  const toScratch = (command: string) => checkShellCommand('powershell', command, project, withScratch, [project], scratch);
+  assert.equal(toScratch(`Copy-Item src\\a.ts ${scratch}\\a.ts`).ok, true, toScratch(`Copy-Item src\\a.ts ${scratch}\\a.ts`).reason ?? '');
+  assert.equal(toScratch(`"x" | Out-File ${scratch}\\note.txt`).ok, true);
+});

@@ -126,6 +126,27 @@ export function partUnder(root: string, path: string, separator: string, fold: (
   return names.slice(above.length).filter((name) => name !== '').join('/');
 }
 
+/**
+ * Whether `path` ends with the names `tail` gives — a repository named by the last part of its path, say — whichever
+ * separator either is written with, and whatever the case. (A path of this system has the system's separator: looking
+ * for `/name` at the end of it as text finds nothing on Windows.)
+ */
+export function endsWithPath(path: string, tail: string): boolean {
+  const names = (p: string) => p.split(/[\\/]+/).filter((name) => name !== '').map((name) => name.toLowerCase());
+  const all = names(path);
+  const last = names(tail);
+  return last.length > 0 && last.length <= all.length && last.every((name, i) => name === all[all.length - last.length + i]);
+}
+
+/**
+ * Where a file lies among these directories: the innermost one that holds it, as a key, and the file's path below it
+ * written with `/` — or, when none holds it, no directory and the file's own key.
+ */
+export function placeUnder(roots: readonly string[], file: string): { repo: string | null; path: string } {
+  const root = roots.filter((r) => isWithin(r, file) && !samePath(r, file)).sort((a, b) => pathKey(b).length - pathKey(a).length)[0];
+  return root !== undefined ? { repo: pathKey(root), path: relativeDisplay(root, file) } : { repo: null, path: pathKey(file) };
+}
+
 export function expandHome(path: string): string {
   return path.startsWith('~') ? resolve(homedir(), path.slice(1).replace(/^[\\/]/, '')) : path;
 }

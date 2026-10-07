@@ -13,7 +13,7 @@ import type { EvidenceRef, Generation } from '../model/k-types.ts';
 import type { ReferenceItem } from '../model/types.ts';
 import type { GenerationPlanDocView, GenerationPlanTextView } from '../model/views-k.ts';
 import type { ProjectStore } from '../store/project-store.ts';
-import { pathKey } from '../util/paths.ts';
+import { isWithin, pathKey, relativeDisplay, samePath } from '../util/paths.ts';
 import { plansOf } from './placement.ts';
 
 const slash = (p: string) => p.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
@@ -106,10 +106,12 @@ export function generationPlanText(ledger: Ledger, store: ProjectStore, g: Gener
   let path = place.path;
   let repoId = place.repo ? ledger.repoId(place.repo) : null;
   if (place.absolute) {
-    const repo = ledger.repos().filter((r) => pathKey(path).startsWith(`${pathKey(slash(r.path))}/`)).sort((a, b) => b.path.length - a.path.length)[0];
+    // Under a repository as the system's own paths are: asked as text with `/` after a key, nothing is under anything
+    // on Windows, where a key has `\`.
+    const repo = ledger.repos().filter((r) => isWithin(r.path, path) && !samePath(r.path, path)).sort((a, b) => b.path.length - a.path.length)[0];
     if (!repo) return none(`${path} is in no repository of the ledger.`, path);
     repoId = repo.id;
-    path = path.slice(slash(repo.path).length + 1);
+    path = relativeDisplay(repo.path, path);
   }
   const repoPath = repoId ? ledger.repos().find((r) => r.id === repoId)?.path ?? null : null;
   let versionId = place.version;

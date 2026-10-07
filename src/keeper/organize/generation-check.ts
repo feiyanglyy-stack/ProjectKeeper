@@ -49,7 +49,7 @@ import type { ClerkRound, Generation, GenerationVerdict, LayerKind } from '../..
 import type { WorkThread } from '../../model/types.ts';
 import type { ProjectStore } from '../../store/project-store.ts';
 import { familyOf } from '../../ledger/numbering.ts';
-import { pathKey } from '../../util/paths.ts';
+import { isWithin, pathKey, relativeDisplay } from '../../util/paths.ts';
 import { ROW_POSITIONS, archiveRootOf, carriedOnItems, currentEntries, currentRows, layerEntryOver, listsWork, nameSays, slash, type DefRow } from './carried-on.ts';
 import { GENERATION_NAMED, generationExcerpts } from './owner-lines.ts';
 import { arrangementEvidence, inferenceContext, type InferenceContext } from './placement-inference.ts';
@@ -444,8 +444,8 @@ export function originOf(store: ProjectStore, ledger: Ledger | null, t: WorkThre
     if (a.kind === 'revision') { out.push(slash(a.path)); continue; }
     if (a.kind !== 'file') continue;
     const abs = a.path.replace(/\\/g, '/');
-    const repo = repos.find((r) => pathKey(abs).startsWith(`${pathKey(r)}/`) || abs.toLowerCase().startsWith(`${r.toLowerCase()}/`));
-    out.push(repo ? abs.slice(repo.length + 1) : abs);
+    const repo = repos.find((r) => (isWithin(r, a.path) && pathKey(r) !== pathKey(a.path)) || abs.toLowerCase().startsWith(`${r.toLowerCase()}/`));
+    out.push(repo ? (isWithin(repo, a.path) ? relativeDisplay(repo, a.path) : abs.slice(repo.length + 1)) : abs);
   }
   return [...new Set(out)];
 }

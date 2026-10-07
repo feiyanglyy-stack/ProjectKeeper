@@ -1,5 +1,5 @@
 /**
- * Path keys (util/paths.ts).
+ * Path keys, and what is asked of paths through them (util/paths.ts).
  *
  * A key is what two spellings of one file share, so it folds what the system's file system folds: case on Windows; case
  * and the Unicode form on macOS; nothing elsewhere. The rules are checked here for every system by name, whichever one
@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { foldForSystem, isWithin, partUnder, pathKey, relativeDisplay, samePath } from './paths.ts';
+import { endsWithPath, foldForSystem, isWithin, partUnder, pathKey, placeUnder, relativeDisplay, samePath } from './paths.ts';
 import { tmpdir } from './tmp.test-helpers.ts';
 
 /** `é` and a Korean syllable, composed (NFC) and decomposed (NFD): the same name to a Mac, two texts to a program. */
@@ -53,4 +53,21 @@ test('the part of a path below a directory is found name by name through the fol
   assert.equal(partUnder('/', '/Users/sam', '/', mac), 'Users/sam', 'under the root directory');
   const exact = (name: string) => name;
   assert.equal(partUnder('/home/sam/Orchard', '/home/sam/orchard/x.md', '/', exact), null, 'with no fold, another case is another directory');
+});
+
+test('what lies under a directory, and how a path ends, is asked of paths as this system writes them', () => {
+  // These were asked as text with `/` put after a key. A key of this system has the system's separator, so on Windows
+  // nothing lay under anything and no path ended in a name.
+  const repo = join(tmpdir(), 'pk-paths-work', 'Orchard');
+  const file = join(repo, 'docs', 'Plan.md');
+  assert.deepEqual(placeUnder([join(tmpdir(), 'pk-paths-work'), repo, join(repo, 'docs-old')], file), { repo: pathKey(repo), path: 'docs/Plan.md' }, 'the innermost directory that holds it, and the path below it with /');
+  assert.deepEqual(placeUnder([join(tmpdir(), 'pk-paths-elsewhere')], file), { repo: null, path: pathKey(file) }, 'held by none: the file’s own key');
+  assert.deepEqual(placeUnder([file], file), { repo: null, path: pathKey(file) }, 'a file is not under itself');
+
+  assert.equal(endsWithPath(repo, 'orchard'), true, 'a repository named by the last part of its path, whatever the case');
+  assert.equal(endsWithPath(repo, 'pk-paths-work/Orchard'), true, 'or by its last parts, written with either separator');
+  assert.equal(endsWithPath(repo, 'pk-paths-work\\orchard'), true);
+  assert.equal(endsWithPath(repo, 'chard'), false, 'a part of a name is not the name');
+  assert.equal(endsWithPath(repo, ''), false);
+  assert.equal(endsWithPath('orchard', 'work/orchard'), false, 'more names than the path has');
 });

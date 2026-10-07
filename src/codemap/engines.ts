@@ -13,7 +13,7 @@ import type { LedgerService } from '../ledger/adapters.ts';
 import type { Project } from '../model/types.ts';
 import type { CodeFileTextView, WorkTerritoryView } from '../model/views-k.ts';
 import type { ProjectStore } from '../store/project-store.ts';
-import { pathKey } from '../util/paths.ts';
+import { endsWithPath, pathKey } from '../util/paths.ts';
 import { CodeMapIndex } from './facts.ts';
 
 export interface CodeMapEngines {
@@ -43,7 +43,7 @@ function ledgerMark(ledger: Ledger): string {
  *  path, by the path's last part; one that matches none is the main repository's. */
 function territoriesOf(store: ProjectStore, project: Project, ledger: Ledger, repoId: string) {
   const repos = ledger.repos();
-  const repoOf = (t: { repo: string }) => (repos.find((r) => r.id === t.repo || pathKey(r.path) === pathKey(t.repo) || r.path.toLowerCase().endsWith(`/${t.repo.toLowerCase()}`)) ?? repos[0])?.id;
+  const repoOf = (t: { repo: string }) => (repos.find((r) => r.id === t.repo || pathKey(r.path) === pathKey(t.repo) || endsWithPath(r.path, t.repo)) ?? repos[0])?.id;
   return store.territories.filter((t) => t.projectId === project.id && repoOf(t) === repoId);
 }
 

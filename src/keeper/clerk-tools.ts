@@ -32,7 +32,7 @@ import { redactCredentials } from '../sources/anchor.ts';
 import { isOwnerMessage } from '../sources/sessions/read.ts';
 import { ownerUtterances } from '../sources/sessions/utterances.ts';
 import { gitTreeEntry } from '../util/git.ts';
-import { pathKey } from '../util/paths.ts';
+import { pathKey, placeUnder } from '../util/paths.ts';
 import { isDecision } from './adjustment.ts';
 import {
   earliestOccurred, evidenceKey, findObject, parsedSession, pathPresence, resolveEvidence, resolveEvidenceList, resolvePath,
@@ -607,9 +607,7 @@ export function clerkTools(ctx: ClerkToolContext): ToolDefinition[] {
     if (fact.kind === 'source') {
       const src = store.sources.get(fact.id);
       if (!src || src.anchor.kind !== 'file') return null;
-      const abs = pathKey(src.anchor.path);
-      const root = project.scope.map((i) => pathKey(i.path)).filter((r) => abs.startsWith(`${r}/`)).sort((a, b) => b.length - a.length)[0];
-      return root ? { repo: root, path: abs.slice(root.length + 1) } : { repo: null, path: abs };
+      return placeUnder(project.scope.map((i) => i.path), src.anchor.path);
     }
     if (fact.kind === 'ledger') {
       const ledger = Ledger.openDir(store.dir);

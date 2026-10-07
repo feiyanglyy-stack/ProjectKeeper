@@ -10,7 +10,7 @@ import type { CodeTerritory, EvidenceRef, Occurred } from '../model/k-types.ts';
 import type {
   CodeFileView, CodeView, DocCurrentView, LineageStepKind, LineageStepView, LineageView, ScopeKView, TerritoryDetailView, TerritoryView, VersionView, VersionsView,
 } from '../model/views-k.ts';
-import { isWithin, normalizePath, pathKey } from '../util/paths.ts';
+import { endsWithPath, isWithin, normalizePath, pathKey } from '../util/paths.ts';
 import { dayOf, materialTime, msOf, undated } from './time.ts';
 import type { Ledger, ProvenanceStep } from './index.ts';
 import { CodeMapIndex, codeLevels } from '../codemap/facts.ts';
@@ -308,7 +308,7 @@ export function codeView(ledger: Ledger, store: ProjectStore, project: Project):
   const headFacts = commitFacts(ledger, main.head);
   const judged = store.territories.filter((t) => t.projectId === project.id);
   const territories = judged.length ? judged : repos.flatMap((r) => unmappedTerritories(ledger, r.id));
-  const repoOf = (t: { repo: string }) => repos.find((r) => r.id === t.repo || pathKey(r.path) === pathKey(t.repo) || r.path.toLowerCase().endsWith(`/${t.repo.toLowerCase()}`)) ?? main;
+  const repoOf = (t: { repo: string }) => repos.find((r) => r.id === t.repo || pathKey(r.path) === pathKey(t.repo) || endsWithPath(r.path, t.repo)) ?? main;
   const files = new Map<string, FileRow[]>();
   const filesOf = (repo: string): FileRow[] => {
     if (!files.has(repo)) files.set(repo, ledger.db.prepare('SELECT * FROM code_files WHERE repo = ?').all(repo) as unknown as FileRow[]);

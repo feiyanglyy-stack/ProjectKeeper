@@ -8,7 +8,7 @@ import type { Ledger } from '../ledger/index.ts';
 import type { BlameSegment } from '../ledger/blame.ts';
 import { LANG_BY_EXT, NOT_CODE, compilerReads, fileNameOf, namingOf, namingThatCounts, type Naming } from '../ledger/code.ts';
 import { ledgerGit } from '../ledger/git-read.ts';
-import { pathKey } from '../util/paths.ts';
+import { endsWithPath, pathKey } from '../util/paths.ts';
 import { earlierWork } from '../keeper/organize/carried-on.ts';
 
 export interface CodeMapFile {
@@ -383,7 +383,7 @@ export class CodeMapIndex {
     const norm = (ps: readonly string[]) => [...ps].map((p) => p.replace(/\\/g, '/').replace(/\/+$/, '')).sort().join('\n');
     const key = norm(paths);
     const repos = this.ledger.repos();
-    const repoOf = (t: CodeTerritory) => (repos.find((r) => r.id === t.repo || pathKey(r.path) === pathKey(t.repo) || r.path.toLowerCase().endsWith(`/${t.repo.toLowerCase()}`)) ?? repos[0])?.id;
+    const repoOf = (t: CodeTerritory) => (repos.find((r) => r.id === t.repo || pathKey(r.path) === pathKey(t.repo) || endsWithPath(r.path, t.repo)) ?? repos[0])?.id;
     return this.store.territories.find((t) => norm(t.paths) === key && repoOf(t) === this.repo);
   }
 

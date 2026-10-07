@@ -105,3 +105,44 @@ test('a generation’s band carries its plan objects, and reads each plan docume
     rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
+
+test('a plan document a generation names by a file source is read from the repository that file lies in', async () => {
+  // The reference is a source whose anchor is the file's path on disk — a path of this system, with its separator.
+  // (On Windows the repository holding it was looked for as text with `/` after the repository's key, found nothing,
+  // and every such reference answered "is in no repository of the ledger".)
+  const root = mkdtempSync(resolve('.generations-test-'));
+  const repo = join(root, 'repo');
+  mkdirSync(repo);
+  let ledger: Ledger | null = null;
+  try {
+    git(repo, ['init', '-q', '-b', 'main'], '2026-09-01T09:00:00Z');
+    write(repo, 'docs/plan-v1.md', '# Plan v1\n\nThe tag browser.\n');
+    const first = commit(repo, 'Plan v1', '2026-09-01T09:00:00Z');
+    write(repo, 'docs/plan-v1.md', '# Plan v1\n\nThe tag browser, then search.\n');
+    commit(repo, 'Plan v1 goes on after the generation ended', '2026-09-09T09:00:00Z');
+    const scope = { id: 'repo', path: repo, category: 'Repository', relation: 'Main project', reason: 'test', reasonSourceIds: [], sessionHost: null, readOnly: true, copyOf: null, worktreeOf: null, versionControl: 'git', missing: null, addedBy: 'owner' } as ScopeItem;
+    const project = { id: 'gs', name: 'Tags', locations: [repo], scope: [scope], scopeQuestions: [], keeperFiles: [], roles: [], language: 'en', organizingPaused: false, createdAt: '', lastOpenedAt: null, lastScopedAt: null } as unknown as Project;
+    rebuildLedgerInPlace(ledgerPath('gs', root), project);
+    ledger = Ledger.openPath(ledgerPath('gs', root))!;
+    const store = ProjectStore.open('gs', root);
+    store.sources.put({ id: 'src_plan', projectId: 'gs', title: 'plan v1', anchor: { kind: 'file', path: join(repo, 'docs', 'plan-v1.md'), headingPath: [], lineStart: 1, lineEnd: 3 }, availability: null } as unknown as Source);
+    store.sources.put({ id: 'src_elsewhere', projectId: 'gs', title: 'a file of no repository', anchor: { kind: 'file', path: join(root, 'elsewhere', 'notes.md'), headingPath: [], lineStart: 1, lineEnd: 3 }, availability: null } as unknown as Source);
+    const g: Generation = {
+      id: 'gen_first', projectId: 'gs', name: 'Plan v1', started: null, ended: { at: '2026-09-05', basis: 'Commit', anchor: `commit:${first.slice(0, 12)}` },
+      endedBy: { kind: 'commit', id: first, label: 'Plan v1' },
+      planRefs: [{ kind: 'source', id: 'src_plan', label: 'Plan v1, by its file' }, { kind: 'source', id: 'src_elsewhere', label: 'Notes kept elsewhere' }],
+      workIds: [], roundId: null, updatedAt: '',
+    };
+    store.generations.put(g);
+    const byFile = generationPlanText(ledger, store, g, 0)!;
+    assert.equal(byFile.path, 'docs/plan-v1.md', `found in its repository, by its path there: ${byFile.why ?? ''}`);
+    assert.equal(byFile.text, '# Plan v1\n\nThe tag browser.\n', 'and read as it stood when the generation ended');
+    const elsewhere = generationPlanText(ledger, store, g, 1)!;
+    assert.equal(elsewhere.text, null);
+    assert.match(elsewhere.why ?? '', /is in no repository of the ledger/, 'a file outside every repository still says so');
+    await store.flush();
+  } finally {
+    ledger?.close();
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+});

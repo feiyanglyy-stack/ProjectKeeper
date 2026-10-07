@@ -13,10 +13,11 @@ export function readJson<T>(path: string, fallback: T): T {
   }
 }
 
-export function writeJsonAtomic(path: string, value: unknown): void {
+/** `mode`: the file's permissions on macOS and Linux when it must not be readable by other accounts (not used on Windows). */
+export function writeJsonAtomic(path: string, value: unknown, mode?: number): void {
   mkdirSync(dirname(path), { recursive: true });
   const temp = join(dirname(path), `.${randomBytes(6).toString('hex')}.tmp`);
-  writeFileSync(temp, JSON.stringify(value, null, 1), { encoding: 'utf8', flag: 'wx' });
+  writeFileSync(temp, JSON.stringify(value, null, 1), { encoding: 'utf8', flag: 'wx', ...(mode === undefined ? {} : { mode }) });
   for (let attempt = 0; ; attempt += 1) {
     try {
       renameSync(temp, path);

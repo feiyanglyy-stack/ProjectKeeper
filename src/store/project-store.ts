@@ -17,7 +17,7 @@ import type {
   Breakpoint, ClerkRound, CodeTerritory, Generation, KeeperNumber, LayerEntry, ProcessLink, RoundDoc, SemanticPatch, SendBack, SessionDraft,
 } from '../model/k-types.ts';
 import { appendJsonLine, readJson, readJsonLines, writeJsonAtomic } from './json-file.ts';
-import { projectKeeperHome, projectDir } from './paths.ts';
+import { ensureHome, projectKeeperHome, projectDir } from './paths.ts';
 
 export interface TraceInfo {
   readonly jobId: string | null;
@@ -202,6 +202,7 @@ export class ProjectStore extends EventEmitter {
 
   static open(projectId: string, home = projectKeeperHome()): ProjectStore {
     const dir = projectDir(projectId, home);
+    ensureHome(home);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     return new ProjectStore(projectId, dir);
   }

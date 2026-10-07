@@ -10,7 +10,7 @@ import type { Project, ScopeItem, ScopeQuestion } from '../model/types.ts';
 import { slug } from '../model/ids.ts';
 import { canonicalPath } from '../util/paths.ts';
 import { writeJsonAtomic } from './json-file.ts';
-import { projectKeeperHome, workspaceFile } from './paths.ts';
+import { ensureHome, projectKeeperHome, workspaceFile } from './paths.ts';
 
 export interface ModelChoice {
   readonly provider: string;
@@ -209,6 +209,7 @@ export class Workspace extends EventEmitter {
   }
 
   private save(): void {
+    ensureHome(this.home);
     writeJsonAtomic(workspaceFile(this.home), this.data);
   }
 }

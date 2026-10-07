@@ -12,6 +12,8 @@
  * `registerOwnKeys`), so it has its own lanes, its own quota window and its own place in a project's backup order.
  */
 import { readJson, writeJsonAtomic } from '../store/json-file.ts';
+import { ensureHome } from '../store/paths.ts';
+import { chmodSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface OwnKey {
@@ -41,6 +43,8 @@ export const KEY_MASK = '••••••••••••';
 interface KeysFile { readonly version: 1; readonly keys: readonly OwnKey[] }
 
 export const keysFile = (home: string): string => join(home, 'keys.json');
+/** The key file is its owner's alone on macOS and Linux, like any credentials file (`~/.ssh`, pi's own `auth.json`). */
+const KEYS_FILE_MODE = 0o600;
 
 export const publicKey = (k: OwnKey): PublicOwnKey => ({ id: k.id, provider: k.provider, name: k.name, mask: KEY_MASK, addedAt: k.addedAt, replacedAt: k.replacedAt });
 
@@ -58,6 +62,8 @@ export class OwnKeyStore {
   private readonly home: string;
   constructor(home: string) {
     this.home = home;
+    // A key file written before it was kept to its owner (or copied in) is closed to other accounts as it is read.
+    if (process.platform !== 'win32') { try { if (statSync(keysFile(home)).mode & 0o077) chmodSync(keysFile(home), KEYS_FILE_MODE); } catch { /* no key file yet */ } }
     this.keys = [...readJson<KeysFile>(keysFile(home), { version: 1, keys: [] }).keys];
   }
 
@@ -101,5 +107,8 @@ export class OwnKeyStore {
     return out;
   }
 
-  private save(): void { writeJsonAtomic(keysFile(this.home), { version: 1, keys: this.keys } satisfies KeysFile); }
+  private save(): void {
+    ensureHome(this.home);
+    writeJsonAtomic(keysFile(this.home), { version: 1, keys: this.keys } satisfies KeysFile, KEYS_FILE_MODE);
+  }
 }

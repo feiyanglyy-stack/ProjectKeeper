@@ -694,6 +694,8 @@ function unwrap(argv: readonly Token[], powershell: boolean): Wrapped | null {
   const name = commandName(head.text).toLowerCase();
   const rest = argv.slice(1);
   const texts = (tokens: readonly Token[]): string => tokens.map((t) => t.text).join(' ');
+  // Asked only what it is, a program runs nothing.
+  if (rest.length === 1 && /^--(?:help|version)$/.test(rest[0]!.text)) return null;
 
   // A command whose name is computed. In PowerShell a variable in front is an expression (`$n -gt 1`), or an
   // assignment whose right side is a command; what `&` calls is refused where `&` is seen (checkPowerShellCommand).
@@ -915,6 +917,13 @@ function checkWrapped(argv: readonly Token[], cwd: string, boundary: Boundary, o
   if (plain.length === 0) return null;
   const name = commandName(plain[0]!.text).toLowerCase();
   const stop = (decision: CommandDecision) => ({ decision, cwd, own: null });
+
+  // An interpreter given its script on standard input (`bash < build.sh`) runs it as `bash build.sh` does.
+  const fed = INTERPRETERS[name] && !plain.slice(1).some((w) => !w.text.startsWith('-')) ? redirections.findIndex((w) => w.kind === 'op' && (w.text === '<' || w.text === '0<')) : -1;
+  if (fed >= 0 && redirections[fed + 1]) {
+    const d = scanScriptFile(redirections[fed + 1]!, cwd, boundary, opts.depth, opts.writeRoots, opts.scratchDir, opts.onWrite);
+    if (d) return stop(d);
+  }
 
   // PowerShell's and cmd's commands that write the files they name: said as writes, and refused in the project.
   if (opts.powershell && (WRITE_CMDLETS.has(name) || COPY_CMDLETS.has(name))) {

@@ -177,7 +177,7 @@ test('a wrapper’s own words are told from its command, and where they cannot b
   assert.match(decide(`env GIT_DIR=${outsideBash}/.git git log`).reason ?? '', /read boundary/);
   assert.match(decide('find src -name "*.tmp" -delete').reason ?? '', /shell cannot write project files \(src\)/);
   // A wrapper that is asked something, or given nothing to run, is an ordinary command.
-  for (const command of ['command -v git', 'command -V ls', 'env', 'nice', 'timeout 5', 'busybox --list', 'ionice -p 1', 'xargs', 'find src -name "*.ts"', 'trap - EXIT', 'alias', 'exec 3< src/a.ts', 'time', 'echo a | xargs']) {
+  for (const command of ['command -v git', 'command -V ls', 'env', 'nice', 'timeout 5', 'busybox --list', 'ionice -p 1', 'xargs', 'find src -name "*.ts"', 'trap - EXIT', 'alias', 'exec 3< src/a.ts', 'time', 'echo a | xargs', 'env --version', 'timeout --help', 'xargs --version', 'sudo --version']) {
     assert.equal(decide(command).ok, true, `${command}: ${decide(command).reason}`);
   }
   // A cd made behind a word of the shell holds; one made by a program does not exist.
@@ -185,6 +185,16 @@ test('a wrapper’s own words are told from its command, and where they cannot b
   assert.match(decide('builtin cd .. && ls').reason ?? '', /read boundary/);
   assert.match(decide('if cd ..; then ls; fi').reason ?? '', /read boundary/);
   assert.equal(decide('{ cd src; cat a.ts; }').ok, true);
+});
+
+test('a shell given its script on standard input reads it as it reads a script named to it', () => {
+  writeFileSync(join(project, 'src', 'list.sh'), 'ls\n');
+  for (const command of ['bash < build.sh', 'sh < build.sh', 'bash -s < build.sh', 'env bash < build.sh', 'timeout 5 bash -e < build.sh']) {
+    assert.equal(decide(command).reason, decide('bash build.sh').reason, command);
+    assert.equal(decide(command).ok, false, command);
+  }
+  assert.match(decide(`bash < ${outsideBash}/run.sh`).reason ?? '', /read boundary/);
+  for (const command of ['bash < src/list.sh', 'sh -e < src/list.sh', 'bash src/list.sh < build.sh']) assert.equal(decide(command).ok, true, `${command}: ${decide(command).reason}`);
 });
 
 test('programs that run a command as someone else, or start one apart from the command, are refused outright', () => {

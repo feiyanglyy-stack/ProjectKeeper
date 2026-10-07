@@ -1568,6 +1568,11 @@ export function checkBashCommand(command: string, cwd: string, boundary: Boundar
   return OK;
 }
 
+/** A word of a PowerShell or cmd line with its backslashes as the separator the path library of this system reads. */
+export function inSystemSeparators(text: string, separator: string = sep): string {
+  return separator === '\\' ? text : text.replaceAll('\\', separator);
+}
+
 /**
  * PowerShell command boundary. PowerShell's own dynamic forms ($(...), backticks, subexpressions, Invoke-Expression)
  * are refused outright; the attached `-Param:value` form is split so its value is checked; otherwise path-looking
@@ -1576,10 +1581,16 @@ export function checkBashCommand(command: string, cwd: string, boundary: Boundar
  * The line is read with its backslashes as they are, and the braces of a script block as words of their own, so the
  * command inside a block is judged like any other (`checkWrapped`). `&` calls what follows it: a command there that a
  * variable names cannot be known.
+ *
+ * To PowerShell, and to cmd, a backslash separates the names of a path on every system. The path library that places
+ * a word does not agree everywhere: off Windows `..\outside\secret.txt` is to it one odd file name in the
+ * directory at hand, so the path was taken for a file of the project. The words of the line are therefore given the
+ * system's own separator here, once, before any of them is read as a path (`inSystemSeparators`).
  */
 export function checkPowerShellCommand(command: string, cwd: string, boundary: Boundary, writeRoots: readonly string[] = [], scratchDir?: string, onWrite?: WriteSink): CommandDecision {
   if (/\$\(|`|\biex\b|\bInvoke-Expression\b/i.test(command)) return undeterminable('a PowerShell subexpression or Invoke-Expression');
-  const tokens = knownScratch(tokenize(command, true), scratchDir).flatMap((t): Token[] => {
+  const tokens = knownScratch(tokenize(command, true), scratchDir).flatMap((word): Token[] => {
+    const t = word.kind === 'word' ? { ...word, text: inSystemSeparators(word.text) } : word;
     const braces = t.kind === 'word' ? /^(\{*)([^]*?)(\}*)$/.exec(t.text) : null;
     if (!braces || (!braces[1] && !braces[3])) return [t];
     return [...[...braces[1]!].map(() => wordToken('{')), ...(braces[2] ? [{ ...t, text: braces[2] }] : []), ...[...braces[3]!].map(() => wordToken('}'))];

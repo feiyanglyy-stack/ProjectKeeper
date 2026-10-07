@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkShellCommand, planShellCommand } from './command.ts';
+import { checkShellCommand, inSystemSeparators, planShellCommand } from './command.ts';
 import { canonicalKey, makeBoundary } from './paths.ts';
 
 const base = mkdtempSync(join(tmpdir(), 'pk-wrapped-'));
@@ -274,6 +274,34 @@ test('PowerShell: a path written with backslashes and no quotes is a path — ou
   for (const command of ['Get-Content src\\a.ts', 'Get-ChildItem -Recurse src', 'Select-String -Path src\\*.ts -Pattern x', 'git -C src\\.. log -1', 'git status', `Get-Content "${project}\\src\\a.ts"`]) {
     assert.equal(ps(command).ok, true, `${command}: ${ps(command).reason}`);
   }
+});
+
+test('PowerShell and cmd: a backslash separates the names of a path on every system, whatever the system’s own separator is', () => {
+  // Paths that only a backslash takes out of the project. Read by a path library for which `\` is a character of a
+  // name (macOS, Linux), each was one odd file name inside the project, and ran.
+  for (const command of [
+    'Get-Content ..\\outside\\secret.txt', 'Get-Content "..\\outside\\secret.txt"', "Get-Content '..\\outside\\secret.txt'", 'Get-Content src\\..\\..\\outside\\secret.txt', 'Get-ChildItem ..\\outside',
+    'Get-Content -Path:..\\outside\\secret.txt', 'Set-Location ..\\outside', 'cd ..\\outside', 'git -C ..\\outside log -1', '& { Get-Content ..\\outside\\secret.txt }', 'cmd /c type ..\\outside\\secret.txt',
+  ]) {
+    const d = ps(command);
+    assert.equal(d.ok, false, command);
+    assert.match(d.reason ?? '', /read boundary/, command);
+  }
+  // … and the same line handed to PowerShell or cmd from a bash-family shell.
+  for (const command of ['powershell -Command "Get-Content ..\\outside\\secret.txt"', 'pwsh -c "Get-ChildItem ..\\outside"', 'cmd /c "type ..\\outside\\secret.txt"']) {
+    const d = decide(command);
+    assert.equal(d.ok, false, command);
+    assert.match(d.reason ?? '', /read boundary/, command);
+  }
+  for (const command of ['Get-Content .\\src\\a.ts', 'Get-Content src\\..\\src\\a.ts', 'Get-ChildItem .\\src\\..', 'cmd /c type src\\a.ts']) assert.equal(ps(command).ok, true, `${command}: ${ps(command).reason}`);
+  // What is named as written is the file, not a name with a backslash in it.
+  const written = (command: string) => planShellCommand('powershell', command, project, boundary, [], join(base, 'scratch')).writePaths;
+  assert.deepEqual(written('Remove-Item src\\gen\\old.txt'), [canonicalKey(join(project, 'src', 'gen', 'old.txt'), project)]);
+  assert.deepEqual(written('"x" > out\\log.txt'), [canonicalKey(join(project, 'out', 'log.txt'), project)]);
+  // In a bash-family shell a backslash is not a separator, and that reading does not change.
+  assert.equal(inSystemSeparators('..\\outside\\secret.txt', '/'), '../outside/secret.txt');
+  assert.equal(inSystemSeparators('..\\outside\\secret.txt', '\\'), '..\\outside\\secret.txt');
+  assert.equal(decide('cat src\\\\a.ts').ok, true, 'bash: the doubled backslash is one character of a name, on Windows a separator');
 });
 
 /** Each way PowerShell runs a command given to it. */

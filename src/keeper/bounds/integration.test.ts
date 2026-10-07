@@ -246,13 +246,14 @@ test('what leads to a stored login is not in a shell the job runs: the program t
   Object.assign(process.env, given);
   const { app, project, fake } = await setup();
   try {
-    const job = app.keeper.enqueue(project.id, { kind: 'Organizing', initiator: 'auto', scope: { kind: 'source', ids: [], label: 'x' }, prompt: 'Task: material organizing. DIRECTIVE bash printenv GIT_ASKPASS SSH_ASKPASS VSCODE_GIT_IPC_HANDLE GIT_TRACE GIT_TRACE_REDACT; printenv GIT_TERMINAL_PROMPT; git --version; echo end' });
+    const job = app.keeper.enqueue(project.id, { kind: 'Organizing', initiator: 'auto', scope: { kind: 'source', ids: [], label: 'x' }, prompt: 'Task: material organizing. DIRECTIVE bash printenv GIT_ASKPASS; printenv SSH_ASKPASS; printenv VSCODE_GIT_IPC_HANDLE; printenv GIT_TRACE; printenv GIT_TRACE_REDACT; printenv GIT_TERMINAL_PROMPT; git --version; echo end' });
     const done = await app.keeper.waitFor(project.id, job.id);
     const bashStep = done.steps.find((s) => s.tool === 'bash');
     assert.ok(bashStep, 'the shell command ran as a step');
     if (bashStep!.isError && /No bash shell|not found/i.test(bashStep!.summary)) return;   // no shell on this machine: skip
     assert.equal(bashStep!.isError, false, bashStep!.summary);
-    assert.match(bashStep!.summary, /^0\s+git version \S+\s+end\s*$/, 'none of them is set, git prints no trace, and terminal prompts are off');
+    // One name to a printenv: not every system's takes several. And a git may say more than its number ("(Apple Git-154)").
+    assert.match(bashStep!.summary, /^0\s+git version \d[^\n]*?\s+end\s*$/, 'none of them is set, git prints no trace, and terminal prompts are off');
   } finally {
     for (const [k, v] of saved) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
     fake.close(); app.stopAll();

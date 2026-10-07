@@ -86,7 +86,7 @@ npm run demo
 
 ## 快速开始
 
-需要 Node.js 24 及以上，以及 git。
+需要 Node.js 24 及以上，以及 git；系统是 Windows 或 macOS。在 Mac 上，git 随 Xcode 命令行工具安装（`xcode-select --install`）；Homebrew 的 `node` 比这里测试过的 24 要新：见 [Mac 上需要什么](docs/getting-started.md#on-a-mac)。
 
 ```sh
 git clone https://github.com/feiyanglyy-stack/ProjectKeeper.git && cd ProjectKeeper
@@ -198,7 +198,8 @@ flowchart LR
 ## 现状与局限
 
 - **v0.1。** 它会出错，同一个项目每次跑出来也不完全一样；每句话都连着出处，你可以自己核对。四次实测以及各自漏了什么，见 [Cost and quality](docs/cost-and-quality.md)。
-- **目前只支持 Windows。** ProjectKeeper 0.1 只在 Windows 上受支持。macOS 和 Linux 暂不支持：测试套件在 Linux 上通不过，在 macOS 上从未跑过。欢迎为这两个系统贡献修复。
+- **Windows 和 macOS。** ProjectKeeper 是在 Windows 上做出来的，也每天在 Windows 上用。它也能在 macOS 上运行：测试套件在 GitHub 的 macOS 运行器上通过，但还没有人在 Mac 上日常用过，难免有粗糙的地方——欢迎告诉我们它在你的 Mac 上表现如何。Linux 暂不支持。
+- **Mac 上的文件名。** 只差大小写的两个名字，或者只差 Unicode 写法的两个名字（带重音的字母、韩文、日文假名的合成与分解两种形式），ProjectKeeper 都当作同一个名字，和 Mac 常用的卷一样。如果卷被格式化成区分大小写的，这样的两个文件会被当成一个。
 - **路径很长的项目。** 项目里再深的文件都能读。但在 Windows 上，项目自身的路径有上限，git 和 Windows 的长路径设置都解除不了：超过 246 个字符，git 打不开这个仓库（文件照读，历史读不到，`Project scope` 里会写明）；超过 251 个字符，Keeper 无法在这个目录里工作。请把这样的项目挪到短一些的路径下。
 - **会话只读 Claude Code 和 Codex 的。** 其他 agent 的会话暂时不读。
 - **界面是英文的，内容跟着你项目的语言走。** 截图来自一个中文项目。

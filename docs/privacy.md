@@ -16,7 +16,7 @@ Everything is in one folder on your machine, `~/.projectkeeper` (or where `PROJE
 
 - the list of your projects and your settings;
 - per project: the picture it built (objects, relations, notes, change records), excerpts of the sources it cites, a ledger database with the project's commit history, document versions and the text of your session messages, and a trace of every write;
-- your saved keys, in `keys.json`, in plain text. The workbench never shows a saved key again, and the key is written nowhere else.
+- your saved keys, in `keys.json`, in plain text. The workbench never shows a saved key again, and the key is written nowhere else. On macOS that file is readable by your account alone.
 
 The Keeper's own model sessions are kept by pi, the agent library, in its folder (`~/.pi/agent`, or where `PI_CODING_AGENT_DIR` points).
 

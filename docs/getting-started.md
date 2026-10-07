@@ -4,9 +4,27 @@ From a fresh clone to an organized project. If you only want to look around firs
 
 ## What you need
 
-- **Node.js 24 or later**, and **git**.
+- **Windows or macOS.** ProjectKeeper was built on Windows and is used there every day. On macOS its test suite passes on GitHub's runners, and it has not yet had daily use there. Linux is not supported yet.
+- **Node.js 24 or later**, and **git** (2.31 or later). The workbench says at its start when git is missing or too old.
 - **A key for a model provider**, for anything beyond the demo. See [Models and keys](models-and-keys.md).
-- **Windows.** ProjectKeeper 0.1 is supported on Windows only. macOS and Linux are not supported yet.
+
+### On a Mac
+
+- **git** comes with the Xcode command line tools: `xcode-select --install`. Until they are installed, `git` on a Mac only offers to install them. Homebrew's git works as well.
+- **Node.js 24.** `brew install node` installs the newest Node, which ProjectKeeper is not tested on. Install 24: `brew install node@24` (and put it on your `PATH` as Homebrew tells you), or through nvm, or with the installer from nodejs.org.
+- **A project under Documents, Desktop or Downloads.** The first time ProjectKeeper reads one, macOS may ask whether your terminal may access that folder. Allow it. If it was refused, the project's files show as unreadable until you allow the terminal under System Settings → Privacy & Security → Files and Folders.
+- **In Add project** you can write a location with `~`: `~/code/myproject`.
+- **The Keeper's shell commands** run in `/bin/bash`, with the tools macOS has.
+- **Names.** Two names that differ only in case, or only in the Unicode form of an accented, Korean or Japanese character, are one name to ProjectKeeper, as they are to a Mac's usual volume. Below a project's folder ProjectKeeper keeps such a name composed, the form git reports it in.
+
+Not tried on a Mac yet:
+
+- **Daily use.** The tests run on GitHub's macOS runners; nobody has organized a project on a Mac day after day.
+- **Apple's own git.** The runners have Homebrew's. The git of the Xcode command line tools adds settings of its own (a keychain credential helper), which the Keeper's shell is meant to keep out; that has not been checked against it.
+- **A Node newer than 24.**
+- **`Open in pi`**, which opens a Terminal window, and the workbench in Safari.
+- **A volume formatted case-sensitive**, where two names that differ only in case would be taken for one.
+- **A repository whose history holds decomposed names** (made by a git without `core.precomposeunicode`): there git and the file walk still name such a file differently.
 
 ## Install
 

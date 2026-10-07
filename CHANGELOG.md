@@ -32,9 +32,16 @@ What it includes:
 
 **The demo** — `npm run demo`: an invented project, already organized, with no key and no network.
 
+**Systems** — Windows and macOS.
+
+- On macOS: a project's sessions are looked for where Claude Code and Codex keep them on a Mac; a file named in another case, or in the other Unicode form of an accented, Korean or Japanese character, is the same file; the Keeper's shell is `/bin/bash`, and its check knows paths that start at `/` and macOS's own tools (AppleScript, the clipboard, the keychain and a Spotlight search of the whole machine are refused); `Open in pi` opens Terminal; a location can be typed with `~`.
+- On macOS and Linux the saved keys are readable by their owner alone.
+- The workbench says at its start when git is missing or too old.
+
 Known limits:
 
-- Windows only. macOS and Linux are not supported yet: the test suite fails on Linux and has never been run on macOS.
+- Linux is not supported yet. On macOS the test suite passes on GitHub's runners, and ProjectKeeper has not yet had daily use there.
+- On a Mac volume formatted case-sensitive, two names that differ only in case are taken for one.
 - A project whose own path is longer than 246 characters is read without its git history, and one longer than 251 cannot be organized: git and the Keeper cannot work in a directory that deep on Windows. Files deep inside a project are fine.
 - The picture has errors, and differs from run to run on the same project. See [docs/cost-and-quality.md](docs/cost-and-quality.md).
 - Not published to npm; run from a clone.

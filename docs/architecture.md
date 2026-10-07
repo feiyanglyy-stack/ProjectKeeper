@@ -120,4 +120,4 @@ npm run typecheck     # tsc, no output files
 npm test              # node --test over src/**/*.test.ts
 ```
 
-The suite has about 1,130 tests and takes about two minutes on the machine it was developed on. The scripts under `scripts/ui-*-check.mjs` drive a real headless Chrome against a served fixture and measure the page; they need Chrome installed (`CHROME_PATH` names it) and are not part of `npm test`.
+The suite has about 1,220 tests and takes about two minutes on the machine it was developed on; CI runs it on Windows and macOS. The scripts under `scripts/ui-*-check.mjs` drive a real headless Chrome against a served fixture and measure the page; they need Chrome installed (`CHROME_PATH` names it) and are not part of `npm test`.

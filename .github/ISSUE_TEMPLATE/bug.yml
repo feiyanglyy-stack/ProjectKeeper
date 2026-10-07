@@ -48,7 +48,7 @@ body:
     id: environment
     attributes:
       label: Operating system and Node version
-      placeholder: "Windows 11, Node 24.14"
+      placeholder: "Windows 11, Node 24.14 — or: macOS 15 on Apple silicon, Node 24.14"
     validations:
       required: true
   - type: textarea

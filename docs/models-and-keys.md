@@ -15,7 +15,7 @@ Other providers should work as far as pi supports them, and have not been run by
 
 In the workbench: **Keeper** → **Model provider** → **Add a key**. Choose the provider, give the key a name, paste it, **Save**.
 
-- The key is kept in one file on your machine, `~/.projectkeeper/keys.json`, in plain text. It is not written into any project, export, log or context pack, and the workbench never shows it again, not even in part. Protect that file as you would any credentials file.
+- The key is kept in one file on your machine, `~/.projectkeeper/keys.json`, in plain text. It is not written into any project, export, log or context pack, and the workbench never shows it again, not even in part. On macOS the file is readable by your account alone, and so is the `~/.projectkeeper` folder when ProjectKeeper makes it; on Windows your profile's own access rules cover it. Protect that file as you would any credentials file.
 - Any project can use a saved key.
 - **Check** asks the provider with one request of one output token, and shows `Usable`, `Refused`, `Out of quota`, `Rate-limited` or `Could not check`, with the provider's own words. Where the provider reports what is left (DeepSeek's balance), that is shown; where it does not, the page says so.
 
@@ -23,7 +23,21 @@ In the workbench: **Keeper** → **Model provider** → **Add a key**. Choose th
 
 Keys you already have elsewhere are listed and used the same way:
 
-- **An environment variable** the provider's adapter reads — for example `DEEPSEEK_API_KEY`, `ZAI_API_KEY`, `ZAI_CODING_CN_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`. Set it before `npm start`.
+- **An environment variable** the provider's adapter reads — for example `DEEPSEEK_API_KEY`, `ZAI_API_KEY`, `ZAI_CODING_CN_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`. Set it in the terminal you start the workbench from, before `npm start`:
+
+  ```powershell
+  # Windows, PowerShell
+  $env:DEEPSEEK_API_KEY = "your key"
+  npm start
+  ```
+
+  ```sh
+  # macOS, zsh (or Git Bash on Windows)
+  export DEEPSEEK_API_KEY="your key"
+  npm start
+  ```
+
+  Set this way the key lasts as long as that terminal. To have it in every terminal, put the `export` line in `~/.zshrc` on a Mac, or set a user environment variable on Windows.
 - **pi's own login**: run `pi` in a terminal and use `/login`.
 
 ## The main model

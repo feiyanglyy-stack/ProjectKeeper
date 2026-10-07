@@ -560,6 +560,8 @@ interface CommandOptions {
   readonly scratchDir?: string;
   /** Named the places the command says it writes (see the header); it never changes a decision. */
   readonly onWrite?: WriteSink;
+  /** The command is PowerShell's (or cmd's), not a bash-family shell's. */
+  readonly powershell?: boolean;
 }
 
 /**
@@ -594,6 +596,362 @@ function knownScratch(tokens: Token[], scratchDir?: string): Token[] {
   });
 }
 
+// ───────────────────────── commands that run another command ─────────────────────────
+//
+// Every rule below this section is decided by a command's first word. A command that only runs another one — `env`,
+// `timeout 5`, `xargs`, `find … -exec`, the shell's own `if`, `then`, `do`, `{` — used to be judged by its own first
+// word, and the command it runs by none: `git push` was refused and `env git push` ran. So the command a wrapper runs
+// is found here and judged as a command of its own, by the same rules, as deep as the wrappers go (`checkWrapped`,
+// called at the top of `checkSimpleCommand`, is the one place). To find it the wrapper's own options have to be told
+// from the command: each wrapper's are listed, and an option that is not listed is refused as undeterminable rather
+// than guessed at. What a wrapper adds to the command at run time — the lines `xargs` reads, the file `find` found —
+// stands in it as a computed word, which the rules already refuse wherever a computed word cannot be allowed.
+//
+// The list is by name. A program that runs commands and is not here is judged by its own first word, as before.
+
+/** A wrapper whose own words are options (some with a value), then perhaps a fixed number of operands, then the command. */
+interface WrapperOptions {
+  /** Options whose value is the next word. */
+  readonly valued?: readonly string[];
+  /** Options that stand alone, their value attached or none. */
+  readonly flags?: RegExp;
+  /** Operands of the wrapper's own before the command (`timeout`'s duration). */
+  readonly operands?: number;
+  /** Options with which the wrapper runs nothing (it describes or lists): it is then judged as an ordinary command. */
+  readonly inert?: RegExp;
+  /** A word of the shell itself: a `cd` the command makes holds for what follows. */
+  readonly sameShell?: boolean;
+}
+const WRAPPERS: Readonly<Record<string, WrapperOptions>> = {
+  command: { flags: /^-p$/, inert: /^-[pvV]*[vV][pvV]*$/, sameShell: true },
+  builtin: { sameShell: true },
+  exec: { flags: /^-[cl]+$/, valued: ['-a'], sameShell: true },
+  time: { flags: /^-p$/, sameShell: true },
+  nohup: {},
+  setsid: { flags: /^(?:-[cfw]+|--ctty|--fork|--wait)$/ },
+  nice: { valued: ['-n', '--adjustment'], flags: /^(?:-\d+|-n-?\d+|--adjustment=\S+)$/ },
+  timeout: { valued: ['-s', '--signal', '-k', '--kill-after'], flags: /^(?:--foreground|--preserve-status|-v|--verbose|--signal=\S+|--kill-after=\S+|-[sk]\S+)$/, operands: 1 },
+  stdbuf: { valued: ['-i', '-o', '-e'], flags: /^(?:-[ioe]\S+|--(?:input|output|error)=\S+)$/ },
+  ionice: { valued: ['-c', '-n', '--class', '--classdata'], flags: /^(?:-[cn]\d+|-t|--ignore|--class(?:data)?=\S+)$/, inert: /^(?:-p|--pid|-P|--pgid|-u|--uid)/ },
+  caffeinate: { valued: ['-t', '-w'], flags: /^-[disum]+$/ },
+  winpty: { flags: /^(?:-X\S+|--mouse|--showkey)$/ },
+  busybox: { inert: /^--/ },
+  unbuffer: { flags: /^-p$/ },
+  chronic: { flags: /^-[ev]+$/ },
+  wsl: { valued: ['-d', '--distribution', '-u', '--user', '--cd'], flags: /^(?:-e|--exec|--shell-type=\S+)$/, inert: /^(?:-l|--list|--status|--shutdown|--version|--help|--install|--update|--set-\S+|--export|--import|--unregister|-t|--terminate)/ },
+};
+/** Words of the shell's grammar that stand in front of a command, in bash and in PowerShell. */
+const SHELL_WORDS = new Set(['!', '{', 'if', 'then', 'elif', 'else', 'while', 'until', 'do', 'coproc', 'function']);
+/** Programs refused whatever they are given: they run a command as someone else, or start one nobody waits for. */
+const REFUSED_RUNNERS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(['sudo', 'doas', 'su', 'runas', 'pkexec', 'runuser', 'chroot'].map((n) => [n, `${n} runs a command as another user or in another root; the Keeper's shell works as the user who started it, in the project.`])),
+  ...Object.fromEntries(['start', 'start-process', 'saps', 'start-job', 'sajb', 'start-threadjob', 'invoke-wmimethod', 'iwmi', 'invoke-cimmethod', 'icim', 'wmic', 'schtasks', 'register-scheduledtask', 'register-scheduledjob']
+    .map((n) => [n, `${n} starts a program apart from this command, which can then be neither checked nor undone; run the program itself.`])),
+};
+/** PowerShell's commands that write the files they are given (and cmd's, which PowerShell and `cmd /c` both know). */
+const WRITE_CMDLETS = new Set([
+  'remove-item', 'ri', 'del', 'erase', 'rd', 'set-content', 'sc', 'add-content', 'ac', 'clear-content', 'clc', 'out-file', 'new-item', 'ni', 'md',
+  'rename-item', 'rni', 'ren', 'tee-object', 'export-csv', 'epcsv', 'export-clixml', 'set-itemproperty', 'clear-item', 'cli', 'remove-itemproperty',
+]);
+/** The same, for the ones that write their last operand, or the one after `-Destination`. */
+const COPY_CMDLETS = new Set(['copy-item', 'cpi', 'copy', 'move-item', 'mi', 'move']);
+
+const wordToken = (text: string, dynamic = false): Token => ({ kind: 'word', text, dynamic, substitution: false });
+/** A word that stands for what a wrapper adds to its command when it runs: nothing is known of it. */
+const ADDED_AT_RUN_TIME = wordToken('$ADDED_AT_RUN_TIME', true);
+const unknownOption = (wrapper: string, option: string): CommandDecision => undeterminable(`${wrapper} with an option this check does not know (${option}), so the command it runs cannot be told from its own words`);
+
+/** What a command turns out to run. */
+interface Wrapped {
+  /** Refused as it stands. */
+  readonly refusal?: CommandDecision;
+  /** The commands it runs, each as its words. */
+  readonly commands?: readonly (readonly Token[])[];
+  /** The command lines it hands to a shell. */
+  readonly lines?: readonly { readonly text: string; readonly powershell?: boolean }[];
+  /** The files it writes itself. */
+  readonly writes?: readonly Token[];
+  /** The directory it runs its command in, when it changes it (`env -C`). */
+  readonly chdir?: Token;
+  /** What is left for the rules below to judge: the wrapper with its own operands, without the command. Null: nothing. */
+  readonly own: Token[] | null;
+  readonly sameShell?: boolean;
+  /** The wrapper reads standard input itself; its command gets none of it. */
+  readonly takesInput?: boolean;
+}
+
+/** `argv` without its redirections; null when the command is no wrapper. */
+function unwrap(argv: readonly Token[], powershell: boolean): Wrapped | null {
+  const head = argv[0]!;
+  const name = commandName(head.text).toLowerCase();
+  const rest = argv.slice(1);
+  const texts = (tokens: readonly Token[]): string => tokens.map((t) => t.text).join(' ');
+
+  // A command whose name is computed. In PowerShell a variable in front is an expression (`$n -gt 1`), or an
+  // assignment whose right side is a command; what `&` calls is refused where `&` is seen (checkPowerShellCommand).
+  if (head.dynamic) {
+    if (!powershell) return { refusal: undeterminable('a command whose name is computed'), own: null };
+    return /^[-+*/%]?=$/.test(rest[0]?.text ?? '') && rest.length > 1 ? { commands: [rest.slice(1)], own: null, sameShell: true } : null;
+  }
+  const refused = REFUSED_RUNNERS[name];
+  if (refused) return { refusal: refuse(name, refused), own: null };
+
+  if (SHELL_WORDS.has(name)) {
+    // `function f { … }` and `coproc NAME { … }` name something first.
+    let inner = name === 'function' || (name === 'coproc' && rest[1]?.text === '{') ? rest.slice(1) : rest;
+    if (name === '{' && inner[inner.length - 1]?.text === '}') inner = inner.slice(0, -1);
+    return inner.length ? { commands: [inner], own: null, sameShell: true } : null;
+  }
+  // PowerShell: a script block anywhere in a command (`ForEach-Object { … }`, `Invoke-Command -ScriptBlock { … }`).
+  if (powershell) {
+    const open = argv.findIndex((w) => w.text === '{');
+    if (open > 0) {
+      const close = argv.findIndex((w, i) => i > open && w.text === '}');
+      const inner = argv.slice(open + 1, close < 0 ? undefined : close);
+      const after = close < 0 ? [] : argv.slice(close + 1);
+      return { commands: inner.length ? [inner] : [], own: [...argv.slice(0, open), ...after] };
+    }
+    // What `[Diagnostics.Process]::Start(…)` or a COM shell object starts is as far from this check as Start-Process.
+    if (argv.some((w) => /Diagnostics\.Process|WScript\.Shell|Shell\.Application/i.test(w.text))) return { refusal: refuse(name, REFUSED_RUNNERS['start-process']!), own: null };
+  }
+
+  const spec = WRAPPERS[name];
+  if (spec) {
+    let i = 0;
+    for (; i < rest.length; i += 1) {
+      const t = rest[i]!.text;
+      if (t === '--') { i += 1; break; }
+      if (!t.startsWith('-')) break;
+      if (spec.inert?.test(t)) return null;
+      if (spec.valued?.includes(t)) { i += 1; continue; }
+      if (!spec.flags?.test(t) || rest[i]!.dynamic) return { refusal: unknownOption(name, t), own: null };
+    }
+    const inner = rest.slice(i + (spec.operands ?? 0));
+    return inner.length ? { commands: [inner], own: null, sameShell: spec.sameShell } : null;
+  }
+
+  if (name === 'env') {
+    const words = [...rest];
+    const assignments: Token[] = [];
+    let chdir: Token | undefined;
+    let i = 0;
+    for (; i < words.length; i += 1) {
+      const w = words[i]!;
+      const t = w.text;
+      if (/^[A-Za-z_]\w*=/.test(t)) { assignments.push(w); continue; }
+      if (t === '--' || t === '-') continue;
+      if (!t.startsWith('-')) break;
+      if (/^(?:-i|-0|-v|--ignore-environment|--null|--debug|-u.+|--unset=.*|--argv0=.*|--(?:block|default|ignore)-signal(?:=.*)?|--list-signal-handling)$/.test(t)) continue;
+      if (t === '-u' || t === '--unset' || t === '-a' || t === '--argv0') { i += 1; continue; }
+      const dir = t === '-C' || t === '--chdir' ? words[i + 1] : /^(?:--chdir=|-C)(.+)$/.test(t) ? { ...w, text: t.replace(/^(?:--chdir=|-C)/, '') } : undefined;
+      if (dir) { chdir = dir; if (dir === words[i + 1]) i += 1; continue; }
+      // `-S` gives the rest of the command in one string, which env splits into words itself.
+      const split = t === '-S' || t === '--split-string' ? words[i + 1] : /^(?:--split-string=|-S)(.+)$/.test(t) ? { ...w, text: t.replace(/^(?:--split-string=|-S)/, '') } : undefined;
+      const parts = split && !split.dynamic && !split.substitution ? tokenize(split.text) : null;
+      if (!parts || parts.some((p) => p.kind !== 'word')) return { refusal: unknownOption('env', t), own: null };
+      words.splice(i, split === words[i + 1] ? 2 : 1, ...parts);
+      i -= 1;
+    }
+    const inner = words.slice(i);
+    return inner.length ? { commands: [[...assignments, ...inner]], chdir, own: null } : null;
+  }
+
+  if (name === 'xargs') {
+    let replace: string | null = null;
+    let i = 0;
+    for (; i < rest.length; i += 1) {
+      const t = rest[i]!.text;
+      if (t === '--') { i += 1; break; }
+      if (!t.startsWith('-')) break;
+      if (rest[i]!.dynamic) return { refusal: unknownOption('xargs', t), own: null };
+      if (t === '-I') { replace = rest[i + 1]?.text ?? '{}'; i += 1; continue; }
+      const attached = /^(?:-I|-i|--replace=)(.+)$/.exec(t);
+      if (attached) { replace = attached[1]!; continue; }
+      if (t === '-i' || t === '--replace') { replace = '{}'; continue; }
+      if (/^(?:-[adELnPs]|--arg-file|--delimiter|--max-args|--max-chars|--max-lines|--max-procs|--process-slot-var)$/.test(t)) { i += 1; continue; }
+      if (/^(?:-[0rtpxo]+|-[adEelLnPs].+|--null|--no-run-if-empty|--verbose|--interactive|--exit|--open-tty|--show-limits|--(?:arg-file|delimiter|eof|max-args|max-chars|max-lines|max-procs|process-slot-var)=.*|-[el]|--eof|--max-lines)$/.test(t)) continue;
+      return { refusal: unknownOption('xargs', t), own: null };
+    }
+    const inner = rest.slice(i);
+    if (inner.length === 0) return null;
+    const marker = replace;
+    // The lines xargs reads become words of the command: where the replace string stands, or at the end.
+    const command = marker ? inner.map((w) => (w.text.includes(marker) ? { ...w, dynamic: true } : w)) : [...inner, ADDED_AT_RUN_TIME];
+    return { commands: [command], own: argv.slice(0, 1 + i), takesInput: true };
+  }
+
+  if (name === 'find') {
+    const commands: Token[][] = [];
+    const writes: Token[] = [];
+    const own: Token[] = [head];
+    const firstTest = rest.findIndex((w) => /^[-(!]/.test(w.text));
+    const starts = rest.slice(0, firstTest < 0 ? rest.length : firstTest);
+    for (let i = 0; i < rest.length; i += 1) {
+      const t = rest[i]!.text;
+      if (/^-(?:exec|execdir|ok|okdir)$/.test(t)) {
+        let end = i + 1;
+        while (end < rest.length && rest[end]!.text !== ';' && rest[end]!.text !== '+') end += 1;
+        // `{}` is the file found.
+        const inner = rest.slice(i + 1, end).map((w) => (w.text.includes('{}') ? { ...w, dynamic: true } : w));
+        if (inner.length) commands.push(inner);
+        i = end;
+      } else if (t === '-delete') {
+        writes.push(...(starts.length ? starts : [wordToken('.')]));
+      } else if (/^-(?:fprint|fprint0|fprintf|fls)$/.test(t) && rest[i + 1]) {
+        writes.push(rest[i + 1]!);
+        i += 1;
+      } else own.push(rest[i]!);
+    }
+    return commands.length || writes.length ? { commands, writes, own } : null;
+  }
+
+  if (name === 'watch') {
+    let i = 0;
+    for (; i < rest.length; i += 1) {
+      const t = rest[i]!.text;
+      if (t === '--') { i += 1; break; }
+      if (!t.startsWith('-')) break;
+      if (t === '-n' || t === '--interval') { i += 1; continue; }
+      if (!/^(?:-[bcdegtxprw]+|-n\S+|--interval=\S+|--differences(?:=\S+)?|--\w[\w-]*)$/.test(t) || rest[i]!.dynamic) return { refusal: unknownOption('watch', t), own: null };
+    }
+    // watch hands its words, joined, to `sh -c`.
+    return i < rest.length ? { lines: [{ text: texts(rest.slice(i)) }], own: null } : null;
+  }
+
+  if (name === 'parallel') {
+    let i = 0;
+    for (; i < rest.length; i += 1) {
+      const t = rest[i]!.text;
+      if (t === '--') { i += 1; break; }
+      if (!t.startsWith('-')) break;
+      if (/^(?:-j|--jobs|-N|-n|--max-args|-L|-P|--max-procs)$/.test(t)) { i += 1; continue; }
+      if (!/^(?:-k|--keep-order|-q|--quote|-X|-m|-u|--ungroup|--dry-run|--will-cite|--bar|--progress|-0|--null|-[jP]\S+|--jobs=\S+|--halt\S*)$/.test(t) || rest[i]!.dynamic) return { refusal: unknownOption('parallel', t), own: null };
+    }
+    const at = rest.findIndex((w, k) => k >= i && /^:{3,4}\+?$/.test(w.text));
+    const template = rest.slice(i, at < 0 ? undefined : at);
+    const given = at < 0 ? [] : rest.slice(at).filter((w) => !/^:{3,4}\+?$/.test(w.text));
+    // parallel hands a shell the command with each argument put in at `{…}`, or at its end; with no command, the
+    // arguments are the commands.
+    const line = texts(template).replace(/\{[^}\s]*\}/g, '$ADDED_AT_RUN_TIME');
+    const lines = template.length ? [{ text: line === texts(template) ? `${line} $ADDED_AT_RUN_TIME` : line }] : given.map((w) => ({ text: w.text }));
+    return { lines, own: [head, ...(template.length ? given : [])] };
+  }
+
+  if (name === 'cmd') {
+    const at = rest.findIndex((w) => /^\/{1,2}[ck]$/i.test(w.text));
+    if (at < 0 || rest.slice(0, at).some((w) => !/^\/{1,2}[a-z](?::\S*)?$/i.test(w.text))) return null;
+    return at + 1 < rest.length ? { lines: [{ text: texts(rest.slice(at + 1)), powershell: true }], own: null } : null;   // cmd's line is read with backslashes as they are, like PowerShell's
+  }
+
+  if (name === 'powershell' || name === 'pwsh') {
+    for (let i = 0; i < rest.length; i += 1) {
+      const t = rest[i]!.text.toLowerCase();
+      if (/^-(?:c|co\w*)$/.test(t)) return i + 1 < rest.length ? { lines: [{ text: texts(rest.slice(i + 1)), powershell: true }], own: null } : null;
+      if (/^-(?:e|ec|en\w*)$/.test(t)) return { refusal: undeterminable('an encoded PowerShell command'), own: null };
+      if (/^-(?:f|fi\w*)$/.test(t)) return rest[i + 1] ? { own: [head, rest[i + 1]!] } : null;                       // a script file: read as one below
+      if (/^-(?:ex\w*|ep|w|wi\w*|inputformat|if|outputformat|of|o|wd|workingdirectory|config\w*|custompipename|settingsfile|settings|version|v|psconsolefile)$/.test(t)) { i += 1; continue; }
+      if (t.startsWith('-')) continue;
+      // No -Command and no -File: Windows PowerShell takes the rest for a command, PowerShell 7 for a script file.
+      return { lines: [{ text: texts(rest.slice(i)), powershell: true }], own: [head, rest[i]!] };
+    }
+    return null;
+  }
+
+  // The shell's `trap 'commands' SIGNAL…` and `alias name='commands'` keep a command line for later.
+  if (name === 'trap') {
+    const operands = rest.filter((w) => w.text !== '--');
+    if (operands.length < 2 || /^-[lp]/.test(operands[0]!.text) || operands[0]!.text === '-') return null;
+    return { lines: [{ text: operands[0]!.text }], own: null };
+  }
+  if (name === 'alias') {
+    const lines = rest.flatMap((w) => { const eq = w.text.indexOf('='); return eq > 0 ? [{ text: w.text.slice(eq + 1) }] : []; });
+    return lines.length ? { lines, own: null } : null;
+  }
+
+  // An interpreter's option letters written together (`bash -lc '…'`, `python -uc '…'`, `perl -ne '…'`), and `--`
+  // before the code: put as the rule for inline code below reads them.
+  const interp = INTERPRETERS[name];
+  if (interp) {
+    const letters = interp.flags.filter((f) => /^-[A-Za-z]$/.test(f)).map((f) => f[1]!);
+    let changed = false;
+    const own: Token[] = [head];
+    for (let i = 0; i < rest.length; i += 1) {
+      const w = rest[i]!;
+      const cluster = /^-[A-Za-z0-9]+([A-Za-z])$/.exec(w.text);
+      if (cluster && w.text.length > 2 && letters.includes(cluster[1]!) && !interp.flags.includes(w.text)) {
+        own.push(wordToken(`-${cluster[1]}`));
+        if (rest[i + 1]?.text === '--') i += 1;
+        changed = true;
+      } else if (interp.flags.includes(w.text) && rest[i + 1]?.text === '--') {
+        own.push(w);
+        i += 1;
+        changed = true;
+      } else own.push(w);
+    }
+    return changed ? { own } : null;
+  }
+  return null;
+}
+
+/**
+ * Judge what a command runs, when it runs another: null when it is no wrapper; a refusal; or what is left of the
+ * wrapper for the rules below (`own`, null when nothing is), with the directory the shell is in afterwards.
+ */
+function checkWrapped(argv: readonly Token[], cwd: string, boundary: Boundary, opts: CommandOptions): { decision: CommandDecision | null; cwd: string; own: Token[] | null } | null {
+  // Redirections belong to the command that is run in the end; they go with it.
+  const plain: Token[] = [];
+  const redirections: Token[] = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i]!.kind === 'op' && REDIRECTS.has(argv[i]!.text)) { redirections.push(argv[i]!, ...(argv[i + 1] ? [argv[i + 1]!] : [])); i += 1; } else plain.push(argv[i]!);
+  }
+  if (plain.length === 0) return null;
+  const name = commandName(plain[0]!.text).toLowerCase();
+  const stop = (decision: CommandDecision) => ({ decision, cwd, own: null });
+
+  // PowerShell's and cmd's commands that write the files they name: said as writes, and refused in the project.
+  if (opts.powershell && (WRITE_CMDLETS.has(name) || COPY_CMDLETS.has(name))) {
+    const operands = plain.slice(1).filter((w) => !w.text.startsWith('-'));
+    const named = plain.findIndex((w) => /^-dest/i.test(w.text));
+    const targets = WRITE_CMDLETS.has(name) ? operands : named >= 0 && plain[named + 1] ? [plain[named + 1]!] : operands.slice(-1);
+    for (const target of targets) {
+      if (target.dynamic || target.substitution) return stop(undeterminable('a computed output path'));
+      opts.onWrite?.(target.text, cwd);
+      if (inWriteRoot(target.text, cwd, opts.writeRoots)) return stop(projectWrite(target.text));
+    }
+    if (/^(?:move-item|mi|move)$/.test(name)) for (const source of operands) if (!source.dynamic && !targets.includes(source)) opts.onWrite?.(source.text, cwd);
+  }
+
+  const wrapped = unwrap(plain, opts.powershell === true);
+  if (!wrapped) return null;
+  if (wrapped.refusal) return stop(wrapped.refusal);
+  let inside = cwd;
+  if (wrapped.chdir) {
+    if (wrapped.chdir.dynamic || wrapped.chdir.substitution) return stop(undeterminable('a computed directory'));
+    const d = checkPath(wrapped.chdir.text, cwd, boundary);
+    if (d) return stop(d);
+    inside = toAbsolute(wrapped.chdir.text, cwd);
+  }
+  for (const target of wrapped.writes ?? []) {
+    if (target.dynamic || target.substitution) return stop(undeterminable('a computed output path'));
+    opts.onWrite?.(target.text, cwd);
+    if (inWriteRoot(target.text, cwd, opts.writeRoots)) return stop(projectWrite(target.text));
+  }
+  for (const line of wrapped.lines ?? []) {
+    const d = line.powershell
+      ? checkPowerShellCommand(line.text, inside, boundary, opts.writeRoots, opts.scratchDir, opts.onWrite)
+      : checkBashCommand(line.text, inside, boundary, opts.depth + 1, opts.writeRoots, opts.scratchDir, opts.onWrite);
+    if (!d.ok) return stop(d);
+  }
+  let next = cwd;
+  const input = wrapped.takesInput ? { pipedInto: false, prevCmd: null } : {};
+  for (const command of wrapped.commands ?? []) {
+    const r = checkSimpleCommand([...command, ...redirections], inside, boundary, { ...opts, ...input });
+    if (r.decision && !r.decision.ok) return stop(r.decision);
+    if (wrapped.sameShell) next = r.cwd;
+  }
+  return { decision: null, cwd: next, own: wrapped.own };
+}
+
 /** Analyse one simple command with the working directory it runs in; returns the next directory (after `cd`). */
 function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opts: CommandOptions): { decision: CommandDecision | null; cwd: string } {
   // Leading VAR=value assignments set the command's environment; their path values are checked, then skipped as operands.
@@ -615,6 +973,10 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
   const trace = traceSwitch(words, start);
   if (trace) return { decision: trace, cwd };
   if (argv.length === 0) return { decision: null, cwd };
+  // A command that runs another command: that one is judged first, as a command of its own (see `checkWrapped`).
+  const wrapped = checkWrapped(argv, cwd, boundary, opts);
+  if (wrapped && (wrapped.decision || !wrapped.own)) return { decision: wrapped.decision, cwd: wrapped.cwd };
+  if (wrapped?.own) argv = wrapped.own;
   const name = commandName(argv[0]!.text);
   // The sed of macOS takes the backup suffix of -i as a word of its own, usually an empty one: `sed -i '' 's/a/b/' file`.
   // That word is no operand. Counted as one, it made the expression a file sed writes — inside the project, so refused,

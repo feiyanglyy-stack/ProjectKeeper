@@ -323,6 +323,9 @@ export function incrementalIntake(store: ProjectStore, project: Project, changes
   const returned: string[] = [];
   /** Files this pass read, or found gone: what was recorded about one of them before no longer stands. */
   const settled = new Set<string>();
+  // The scope's session logs, located at the pass's first session change and kept for the rest: locating walks the
+  // hosts' whole session stores, and the pass does nothing between two changes that could add a log to them.
+  let scopeSessions: LocatedSession[] | null = null;
   for (const c of changes) {
     if (c.kind === 'file') {
       const path = normalizePath(c.ref);
@@ -345,7 +348,8 @@ export function incrementalIntake(store: ProjectStore, project: Project, changes
       returned.push(...r.returned);
       settled.add(pathKey(path));
     } else if (c.kind === 'session') {
-      const located = locateSessionsForHomes(scopeCwds(project), (host, cwd) => sessionStoreRootOf(project.scope, host, cwd)).find((s) => samePath(s.file, c.ref));
+      scopeSessions ??= locateSessionsForHomes(scopeCwds(project), (host, cwd) => sessionStoreRootOf(project.scope, host, cwd));
+      const located = scopeSessions.find((s) => samePath(s.file, c.ref));
       if (!located) continue;   // a log for some other directory
       if (located.cwd && !located.matchedCwd) continue;
       try {

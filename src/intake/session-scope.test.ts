@@ -12,7 +12,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import fs, { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { join, resolve } from 'node:path';
 
@@ -21,7 +22,7 @@ process.env.USERPROFILE = fakeHome;
 process.env.HOME = fakeHome;
 
 const { discoverScope } = await import('../scope/discover.ts');
-const { fullIntake } = await import('./intake.ts');
+const { fullIntake, incrementalIntake } = await import('./intake.ts');
 const { ProjectStore } = await import('../store/project-store.ts');
 const { claudeProjectDirName, pathKey, samePath } = await import('../util/paths.ts');
 const { stableId } = await import('../model/ids.ts');
@@ -151,4 +152,36 @@ test('rescan migrates an owner-edited legacy session item by host and cwd withou
   assert.equal(matching[0]!.id, current.id, 'the migrated item adopts the stable identity');
   assert.equal(matching[0]!.relation, 'Excluded', 'the owner’s decision survives the identity migration');
   assert.equal(matching[0]!.reason, ownerEdited.reason, 'the owner’s explanation survives the identity migration');
+});
+
+/** How many times the hosts' session stores are walked while `body` runs: each walk lists Claude Code's `projects` folder once. */
+function storeWalks(body: () => void): number {
+  const root = join(fakeHome, '.claude', 'projects');
+  const real = fs.readdirSync;
+  let walks = 0;
+  fs.readdirSync = ((...args: Parameters<typeof real>) => { if (typeof args[0] === 'string' && samePath(args[0], root)) walks += 1; return real(...args); }) as typeof real;
+  syncBuiltinESMExports();
+  try { body(); } finally { fs.readdirSync = real; syncBuiltinESMExports(); }
+  return walks;
+}
+
+test('a pass over changes walks the hosts’ session stores once however many session logs changed, and not at all when none did', () => {
+  const app = sessionItem(APP, 'scope_sessions_app', true);
+  const lab = sessionItem(LAB, 'scope_sessions_lab', true);
+  const project = projectWith([...directories, app, lab]);
+  const store = ProjectStore.open('p1', mkdtempSync(join(tmpdir(), 'pk-session-scope-store-')));
+  const log = (cwd: string, sessionId: string) => join(fakeHome, '.claude', 'projects', claudeProjectDirName(cwd), `${sessionId}.jsonl`);
+  const change = (kind: 'file' | 'session', ref: string) => ({ kind, ref, label: ref, since: '2026-09-10T02:00:00.000Z', lastEventAt: Date.now(), scopeItemId: '' });
+  let read = 0;
+  const walks = storeWalks(() => {
+    read = incrementalIntake(store, project, [
+      change('session', log(APP, SESSION_APP)), change('file', join(APP, 'README.md')), change('session', log(LAB, SESSION_LAB)),
+      change('session', join(fakeHome, '.claude', 'projects', 'some-other-directory', 'c3c3c3c3.jsonl')),   // a log for some other directory
+    ]).sessionsRead;
+  });
+  assert.equal(read, 2, 'both logs of the project are read; the other directory’s is not');
+  const of = (sessionId: string) => [...new Set(store.sources.filter((s) => s.anchor.kind === 'session' && s.anchor.sessionId === sessionId).map((s) => s.scopeItemId))];
+  assert.deepEqual({ app: of(SESSION_APP), lab: of(SESSION_LAB) }, { app: [app.id], lab: [lab.id] }, 'each under its own directory’s item');
+  assert.equal(walks, 1, 'three changed session logs, one walk');
+  assert.equal(storeWalks(() => { incrementalIntake(store, project, [change('file', join(APP, 'README.md'))]); }), 0, 'no session log changed, no walk');
 });

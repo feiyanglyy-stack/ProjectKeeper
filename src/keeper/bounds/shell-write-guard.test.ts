@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -248,4 +248,25 @@ test('an Excluded subtree is outside file-tool reads and shell preflight', async
   const read = boundary.tools.find((tool) => tool.name === 'read')!;
   await assert.rejects(read.execute('excluded-read', { path: excludedFile } as never, undefined, undefined, undefined as never), /Excluded/);
   await assert.rejects(run('cat _fixtures/sample.txt'), /Excluded/);
+});
+
+test('a named pipe in a directory outside version control does not stop the shell: it is left alone, and files are still restored', async (t) => {
+  const { base, projectRoot, project, run } = fixture(t);
+  // A named pipe stands for what a running server or an editor leaves in a project on macOS and Linux (a socket in
+  // tmp/, say). Windows keeps no such entry in a directory.
+  const pipe = join(projectRoot, 'src', 'server.pipe');
+  if (process.platform === 'win32' || spawnSync('mkfifo', [pipe]).status !== 0) { t.skip('no named pipe can be made in a directory on this system'); return; }
+  const isPipe = () => lstatSync(pipe).isFIFO();
+  // Any command at all: the snapshot of the project used to throw "Unsupported filesystem entry" before it ran.
+  const result = await run('cat src/a.txt');
+  assert.match(result.content.find((item) => item.type === 'text')?.text ?? '', /original/);
+  // A write beside it is still found and undone, and the pipe is still a pipe.
+  await assert.rejects(run('node -e "require(\'fs\').writeFileSync(\'src/a.txt\',\'changed\')"'), /changes were restored/);
+  assert.equal(readFileSync(join(projectRoot, 'src', 'a.txt'), 'utf8'), 'original');
+  assert.equal(isPipe(), true);
+  // Removed while a command ran: it cannot be put back, so it is named as left, not as restored.
+  const snapshot = await ShellProjectSnapshot.take(shellProjectRoots(project), join(base, 'pk-home', 'shell-guards'));
+  rmSync(pipe);
+  assert.deepEqual(await snapshot.restore(), [], 'nothing was restored');
+  assert.ok(snapshot.left.some((path) => path.endsWith('server.pipe')), `the missing pipe is reported: ${snapshot.left.join(', ')}`);
 });

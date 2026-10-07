@@ -292,7 +292,9 @@ async function scanPlain(root: string, backupDir: string | null, excluded: reado
     const st = await statIfPresent(path);
     if (!st) continue;
     const kind = kindOf(st);
-    if (kind === 'other') throw new Error(`Unsupported filesystem entry in shell guard: ${path}`);
+    // A socket or a named pipe (a server's socket in `tmp/`, an editor's) is noted as being there and nothing more: it
+    // holds no content to save, and its times move with use. Refusing the directory for holding one stopped every
+    // command in such a project.
     const entry: Entry = { path, kind, mode: st.mode, size: st.size, mtimeMs: st.mtimeMs, mtime: st.mtime, atime: st.atime };
     if (entry.kind === 'symlink') entry.target = await readlink(path);
     if (entry.kind === 'file' && backupDir && (!keep || keep(path))) {
@@ -495,6 +497,13 @@ export class ShellProjectSnapshot {
           if (this.restorable(entry.path)) { await chmod(entry.path, entry.mode); changed.push(entry.path); } else left.push(entry.path);
           continue;
         }
+      }
+      if (entry.kind === 'other') {
+        // Still a socket or a pipe: unchanged, whatever its times say. Gone or become something else: that cannot be
+        // put back, so it is reported and left.
+        const now = await statIfPresent(entry.path);
+        if (!now || kindOf(now) !== 'other') left.push(entry.path);
+        continue;
       }
       if (await same(entry, false)) continue;
       if (!this.restorable(entry.path)) { left.push(entry.path); continue; }

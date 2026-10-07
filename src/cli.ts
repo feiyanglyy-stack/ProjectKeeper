@@ -25,6 +25,7 @@ import { HttpApp } from './server/http.ts';
 import { registerRoutes } from './server/api.ts';
 import { vendorDir } from './server/vendor.ts';
 import { WorkspaceFileError } from './store/workspace.ts';
+import { gitNotice, gitVersionOutput } from './util/git-check.ts';
 import { changeBrief, factBrief, nodeBrief, relationBrief } from './context/object-brief.ts';
 import type { BriefChange, BriefFact, BriefNode } from './context/object-brief.ts';
 
@@ -54,6 +55,10 @@ async function main(): Promise<number> {
     else for (const p of app.workspace.list()) { try { if (p.lastScopedAt) app.startWatching(p.id); } catch (e) { console.warn(`[watch] ${p.id}: ${(e as Error).message}`); } }
     const server = await http.listen(port);
     console.log(`ProjectKeeper workbench: http://127.0.0.1:${server.port}/`);
+    // Without git a repository is read as a folder of files and nothing says why (a new Mac has no git until the
+    // command line tools are installed): said here, once.
+    const aboutGit = gitNotice(gitVersionOutput());
+    if (aboutGit) console.warn(`\n${aboutGit}\n`);
     const stop = async () => { app.stopAll(); await app.flushAll(); await server.close(); process.exit(0); };
     process.on('SIGINT', () => { void stop(); });
     process.on('SIGTERM', () => { void stop(); });

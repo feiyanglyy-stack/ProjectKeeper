@@ -237,3 +237,37 @@ test('git’s trace switches are not set for a command: they can print the login
   refusedTrace('$env:GIT_TRACE_REDACT = 0', 'powershell');
   for (const command of ['git status', 'git log --oneline -3', 'grep -rn GIT_TRACE_CURL=1 src', 'echo GIT_TRACE=1', 'printenv GIT_TRACE', 'GIT_PAGER=cat git log -1', 'env LANG=C git status']) ok(command);
 });
+
+test('programs whose purpose is to print a stored login are refused, by name and arguments, wherever they stand in a command', () => {
+  const refusedLogin = (command: string, shell: 'bash' | 'powershell' = 'bash') => {
+    const d = checkShellCommand(shell, command, project, boundary);
+    assert.equal(d.ok, false, `expected refused: ${command}`);
+    assert.match(d.reason ?? '', /prints or changes a login stored on this machine/, command);
+  };
+  for (const command of [
+    'gh auth token', 'gh auth token --hostname example.invalid', 'gh auth status --show-token', 'gh auth status -t', 'gh auth status --hostname example.invalid -t', 'gh.exe auth token',
+    'glab auth status --show-token', 'glab auth status -t', 'glab auth token', 'glab config get token --host example.invalid',
+    'az account get-access-token', 'az account get-access-token --resource https://example.invalid', 'az.cmd account get-access-token',
+    'gcloud auth print-access-token', 'gcloud auth print-identity-token', 'gcloud auth application-default print-access-token', 'gcloud --project heron auth print-access-token',
+    'aws configure export-credentials', 'aws configure export-credentials --format env', 'aws sts get-session-token', 'aws --profile heron sts get-session-token',
+    'docker-credential-desktop get', 'docker-credential-wincred list', 'echo https://example.invalid | docker-credential-osxkeychain get',
+    'npm token list', 'npm token', 'npm config get //registry.npmjs.org/:_authToken', 'npm config get _auth', 'npm get //registry.example.invalid/:_password', 'npm.cmd config get //registry.npmjs.org/:_authToken', 'pnpm config get //registry.npmjs.org/:_authToken',
+    'cmdkey /list', 'cmdkey /list:example.invalid', 'cmdkey',
+    'security find-generic-password -s heron -w', 'security find-internet-password -s example.invalid -g', 'security dump-keychain -d', 'security -q find-generic-password -a someone -w',
+    // …and put behind another program, a pipe, a shell or an interpreter given the command.
+    'env gh auth token', 'command gh auth token', 'timeout 5 az account get-access-token', 'xargs gh auth token', 'npx npm token list',
+    'true && gh auth token | head -c 4', 'bash -c "gcloud auth print-access-token"', "sh -c 'aws sts get-session-token'",
+    'python -c "import subprocess; subprocess.run([\'gh\', \'auth\', \'token\'])"', 'node -e "require(\'child_process\').execSync(\'az account get-access-token\')"',
+  ]) refusedLogin(command);
+  refusedLogin('gh auth token', 'powershell');
+  refusedLogin('cmdkey /list', 'powershell');
+});
+
+test('the same programs doing anything else still run, and so does text that only names those commands', () => {
+  for (const command of [
+    'gh auth status', 'gh pr list --author someone', 'gh api repos/heron/heron --jq .name', 'gh --version', 'glab auth status', 'glab mr list',
+    'az account show', 'az --version', 'gcloud auth list', 'gcloud config list', 'aws configure list', 'aws sts get-caller-identity', 'aws --version',
+    'npm test', 'npm run token', 'npm view token version', 'npm config get registry', 'npm config list', 'pnpm install --frozen-lockfile',
+    'ls security', 'grep -rn "gh auth token" src', 'echo run gh auth token yourself', 'rg "npm token" src', 'node -e "console.log(1)"',
+  ]) ok(command);
+});

@@ -395,6 +395,50 @@ function traceSwitch(words: readonly Token[], start: number): CommandDecision | 
   return words.slice(0, end).some((w) => w.kind === 'word' && TRACE_SWITCH.test(w.text)) ? TRACE_REFUSAL : null;
 }
 
+// ───────────────────────── programs that print a login stored on this machine ─────────────────────────
+//
+// One row for each: the program's name (without its directory or `.exe` / `.cmd`), and what its arguments, lower-cased
+// and joined by one space, look like when it is asked for the login. The list is by name and can miss: a tool that is
+// not here, or one that is renamed, passes. It is not meant to cover every command line of every service.
+const LOGIN_PRINTERS: readonly (readonly [program: RegExp, args: RegExp])[] = [
+  // GitHub's and GitLab's command lines: the token itself, or the status with the token shown.
+  [/^gh$/, /^auth (?:token\b|status\b.* (?:--show-token|-t)(?: |$))/],
+  [/^glab$/, /^(?:auth (?:token\b|status\b.* (?:--show-token|-t)(?: |$))|config get (?:.* )?token\b)/],
+  // Cloud command lines: an access token of the signed-in account, or its keys.
+  [/^az$/, /(?:^| )account get-access-token\b/],
+  [/^gcloud$/, /(?:^| )auth (?:application-default )?print-(?:access|identity|refresh)-token\b/],
+  [/^aws$/, /(?:^| )(?:configure export-credentials|sts get-session-token)\b/],
+  // Registries: Docker's credential helpers, npm's tokens and the auth keys of its configuration.
+  [/^docker-credential-[\w-]+$/, /^(?:get|list)\b/],
+  [/^p?npm$/, /^(?:token\b|(?:(?:config|c) )?get\b.*(?:_authtoken|_auth|_password)\b)/],
+  // Windows: the stored logins of the user (listed, added or deleted).
+  [/^cmdkey$/, /^/],
+  // macOS: the keychain.
+  [/^security$/, /(?:^| )(?:find-generic-password|find-internet-password|dump-keychain)\b/],
+];
+const LOGIN_PRINTER_REFUSAL: CommandDecision = {
+  ok: false, detail: 'a stored login',
+  reason: 'Refused: this command prints or changes a login stored on this machine (a token, a password, the keys of an account). Nothing that reads a project needs it.',
+};
+
+/**
+ * Whether one of those programs, asked for the login, is among `words`. Every word is tried as the program, like
+ * `git credential` above, so a program in front that runs the rest changes nothing; after a command that only prints
+ * or searches text, only the first is.
+ */
+function printsLogin(words: readonly string[]): boolean {
+  const first = commandName(words[0] ?? '').toLowerCase();
+  const end = PROGRAM_COMMANDS[first] || first === 'echo' || first === 'printf' ? 1 : words.length;
+  for (let i = 0; i < end; i += 1) {
+    const program = commandName(words[i]!).toLowerCase();
+    const args = words.slice(i + 1, i + 13).join(' ').toLowerCase();
+    if (LOGIN_PRINTERS.some(([name, asked]) => name.test(program) && asked.test(args))) return true;
+  }
+  return false;
+}
+/** The words of code given to an interpreter on the command line, its punctuation taken for spaces. */
+const wordsOfCode = (code: string): string[] => code.split(/[^\w/:.@=-]+/).filter(Boolean);
+
 /** `git config` reads global and system scopes unless kept to the repository; that reaches the home gitconfig. */
 function checkGitConfig(argv: Token[], cwd: string, boundary: Boundary): CommandDecision | null {
   let local = false;
@@ -490,6 +534,7 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
   const interp = INTERPRETERS[name];
   const credential = credentialCommand(argv);
   if (credential) return { decision: credential, cwd };
+  if (printsLogin(argv.filter((w) => w.kind === 'word').map((w) => w.text))) return { decision: LOGIN_PRINTER_REFUSAL, cwd };
 
   // Code piped into an interpreter runs without ever being an argument the check can see.
   if (opts.pipedInto && interp && !argv.slice(1).some((w) => interp.flags.includes(w.text))) {
@@ -644,6 +689,7 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
         if (interp.bash) { const r = checkBashCommand(code.text, cwd, boundary, opts.depth + 1, opts.writeRoots, opts.scratchDir, opts.onWrite); if (!r.ok) return { decision: r, cwd }; }
         else {
           if (CREDENTIAL_IN_CODE.test(code.text)) return { decision: CREDENTIAL_REFUSAL, cwd };
+          if (printsLogin(['', ...wordsOfCode(code.text)])) return { decision: LOGIN_PRINTER_REFUSAL, cwd };
           if (homeDerivedInCode(code.text)) return { decision: refuse('inline code', 'the inline code builds a path from the home directory, which is outside the project.'), cwd };
           const d = checkInlineCode(code.text, cwd, boundary); if (d) return { decision: d, cwd };
         }

@@ -15,6 +15,7 @@ What it includes:
 - **Change log**, **Agent context**, **Project scope**, and a bilingual **Vocabulary**.
 - **Keeper** pages: the takeover with three depths, the daily schedule, model provider and keys, a model for each step, backup keys, the project-folder authorization, usage by round and model, and every round as a tree of its steps.
 - A conversation with the Keeper (`Ask Keeper`).
+- Answers only at its own local address and, in a browser, only to its own pages: another site's page open in the same browser can neither read the workbench nor post to it.
 - Four themes.
 
 **The Keeper** — the resident agent.
@@ -44,4 +45,5 @@ Known limits:
 - On a Mac volume formatted case-sensitive, two names that differ only in case are taken for one.
 - A project whose own path is longer than 246 characters is read without its git history, and one longer than 251 cannot be organized: git and the Keeper cannot work in a directory that deep on Windows. Files deep inside a project are fine.
 - The picture has errors, and differs from run to run on the same project. See [docs/cost-and-quality.md](docs/cost-and-quality.md).
+- The workbench opens only as `127.0.0.1`, `localhost` or `[::1]` with its port, not under a hosts-file alias or behind a proxy: there it answers `403`.
 - Not published to npm; run from a clone.

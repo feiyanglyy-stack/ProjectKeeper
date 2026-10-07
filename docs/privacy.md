@@ -36,6 +36,8 @@ The demo (`npm run demo`) uses no network at all: its "provider" is a local stan
 
 It listens on `127.0.0.1` only: other machines on your network cannot open it. There is no login; anything running on your machine as you can read it, as it can read your files.
 
+A web page open in your browser is not such a program, and gets nothing: the workbench answers only requests made to its own local address (`127.0.0.1`, `localhost` or `[::1]`, with its port) and, from a browser, only those of its own pages. Another site's page can neither read it nor post to it; a link to the workbench still opens it. For the same reason it does not open under another name (a hosts-file alias, a proxy in front of it): it answers `403` with one line saying where it does. There is no setting for this.
+
 ## What it can change
 
 **In your project: nothing, unless you authorize one folder.**

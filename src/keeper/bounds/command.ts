@@ -586,11 +586,15 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
     }
     start += 1;
   }
-  const argv = words.slice(start);
+  let argv = words.slice(start);
   const trace = traceSwitch(words, start);
   if (trace) return { decision: trace, cwd };
   if (argv.length === 0) return { decision: null, cwd };
   const name = commandName(argv[0]!.text);
+  // The sed of macOS takes the backup suffix of -i as a word of its own, usually an empty one: `sed -i '' 's/a/b/' file`.
+  // That word is no operand. Counted as one, it made the expression a file sed writes — inside the project, so refused,
+  // whichever file was edited. (Git Bash's sed has no such word; there the command is read as before.)
+  if (name === 'sed' && system.platform !== 'win32') argv = argv.filter((w, i, all) => !(w.text === '' && i > 0 && /^-[A-Za-z]*i$/.test(all[i - 1]!.text)));
   const interp = INTERPRETERS[name];
   const credential = credentialCommand(argv);
   if (credential) return { decision: credential, cwd };

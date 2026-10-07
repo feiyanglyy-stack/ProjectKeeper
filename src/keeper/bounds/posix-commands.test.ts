@@ -101,9 +101,30 @@ test('on this system, when its paths start at /: the same, against the real file
   allowed("cat > \"$TMPDIR/notes.md\" <<'EOF'\nGET /pk-no-such-root/users answers with the list.\nEOF");
 });
 
+/** With the project as what the shell must not write, as the Keeper's shell has it. */
+const decideWrites = (command: string) => checkBashCommand(command, project, boundary, 0, [project], scratch);
+
+test('read as macOS: sed -i with its empty backup suffix edits the file it names, not its expression', () => asMac(() => {
+  // The sed of macOS: `sed -i '' EXPRESSION FILE`. A file in the scratch directory may be edited in place.
+  const inScratch = decideWrites("sed -i '' 's/alpha/beta/' \"$TMPDIR/notes.txt\"");
+  assert.equal(inScratch.ok, true, `editing a scratch file in place is allowed: ${inScratch.reason ?? ''}`);
+  const clustered = decideWrites("sed -Ei '' 's/(alpha)/beta/' \"$TMPDIR/notes.txt\"");
+  assert.equal(clustered.ok, true, clustered.reason ?? '');
+  // A file of the project may not, and the refusal names the file.
+  const inProject = decideWrites("sed -i '' 's/alpha/beta/' src/inside.txt");
+  assert.equal(inProject.ok, false);
+  assert.equal(inProject.detail, 'src/inside.txt', inProject.reason ?? '');
+  assert.match(inProject.reason ?? '', /shell cannot write project files/);
+  // The form without the suffix word is read as it always was.
+  assert.equal(decideWrites("sed -i 's/alpha/beta/' src/inside.txt").detail, 'src/inside.txt');
+  assert.equal(decideWrites("sed -i.bak 's/alpha/beta/' \"$TMPDIR/notes.txt\"").ok, true);
+}));
+
 test('read as Windows, nothing changed: Git Bash’s drive form is a path, a path from / is text', (t) => {
   if (process.platform !== 'win32') { t.skip('Git Bash’s drive paths are resolved on Windows only'); return; }
   const outside = toBash(join(base, 'outside', 'secret.txt'));
   refusedFor(`cat <<'EOF'\ncat '${outside}'\nEOF`, outside);
   allowed("cat <<'EOF'\n/etc/passwd is only text here\nEOF");
+  // Git Bash's sed has no suffix word: an empty word after -i is its expression, as before.
+  assert.equal(decideWrites("sed -i '' 's/alpha/beta/' \"$TMPDIR/notes.txt\"").ok, false);
 });

@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { isLocalGitSetting, stripCredentialEnv } from './boundary.ts';
+import { isLocalGitSetting, shellEnv, stripCredentialEnv } from './boundary.ts';
 
 /** An environment with nothing of git's from the machine the test runs on, and the given settings group. */
 function envWith(settings: readonly (readonly [string, string])[], extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
@@ -101,4 +101,16 @@ test('which git settings pass: the listed sections, and in core not the commands
 test('the variables that are not git settings are filtered by name as before', () => {
   const env = stripCredentialEnv({ SOMETHING_API_KEY: 'x', SERVICE_TOKEN: 'x', PATH: '/bin', GIT_DIR: '/repo/.git', GIT_AUTHOR_NAME: 'Invented Name' });
   assert.deepEqual(env, { PATH: '/bin', GIT_DIR: '/repo/.git', GIT_AUTHOR_NAME: 'Invented Name' });
+});
+
+test('the shell’s environment: the credentials gone, and core.longpaths the last of git’s settings, so git typed into the shell reads deep paths as the program’s own calls do', () => {
+  assert.deepEqual(shellEnv({ PATH: '/bin', SERVICE_TOKEN: 'x' }), { PATH: '/bin', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'core.longpaths', GIT_CONFIG_VALUE_0: 'true' });
+  const env = shellEnv(envWith([['http.extraheader', 'AUTHORIZATION: bearer invented-bearer-1234'], ['user.name', 'Invented Name'], ['core.longpaths', 'false']]));
+  assert.deepEqual(group(env), {
+    GIT_CONFIG_COUNT: '3',
+    GIT_CONFIG_KEY_0: 'user.name', GIT_CONFIG_VALUE_0: 'Invented Name',
+    GIT_CONFIG_KEY_1: 'core.longpaths', GIT_CONFIG_VALUE_1: 'false',
+    GIT_CONFIG_KEY_2: 'core.longpaths', GIT_CONFIG_VALUE_2: 'true',
+  });
+  assert.equal(gitWith(env, ['config', '--get', 'core.longpaths']).trim(), 'true', 'the last one holds');
 });

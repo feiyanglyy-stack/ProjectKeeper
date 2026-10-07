@@ -110,6 +110,18 @@ export function stripCredentialEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return out;
 }
 
+/**
+ * The environment a shell command runs in: without the credentials, and with `core.longpaths` as the last of git's
+ * settings, where it holds whatever the repository's own configuration says. The program's own git calls are given it
+ * on the command line (util/git.ts `LONG_PATHS`); git typed into the shell needs it as much — in a repository at a
+ * deep path, or with files deep inside it, `git status` and `git log` stop with "Filename too long" otherwise.
+ */
+export function shellEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out = stripCredentialEnv(env);
+  const count = Number(out.GIT_CONFIG_COUNT ?? 0);
+  return { ...out, GIT_CONFIG_COUNT: String(count + 1), [`GIT_CONFIG_KEY_${count}`]: 'core.longpaths', [`GIT_CONFIG_VALUE_${count}`]: 'true' };
+}
+
 /** A credential store must never be read even when it sits inside an allowed root (CKC-03 AC-3, §3.1). */
 function credentialFileDeny(agentDirKey: string): (canonical: string) => string | null {
   const PRIVATE_KEY = /^(\.netrc|_netrc|id_(rsa|dsa|ecdsa|ed25519))$|\.(pem|ppk|pfx|p12)$/i;
@@ -388,7 +400,7 @@ export function createReadBoundary(deps: ReadBoundaryDeps): ReadBoundary {
   // re-provided, and each keeps pi's own definition, so the offered tool set and schema are unchanged (CKC-03 AC-4).
   const activeBuiltins = new Set(deps.settingsManager.getDefaultTools() ?? ['read', 'bash', 'edit', 'write']);
   const spawnHook = (ctx: { command: string; cwd: string; env: NodeJS.ProcessEnv }) => ({
-    ...ctx, env: { ...stripCredentialEnv(ctx.env), TMPDIR: spawningScratch ?? scratchDir, TEMP: spawningScratch ?? scratchDir, TMP: spawningScratch ?? scratchDir },
+    ...ctx, env: { ...shellEnv(ctx.env), TMPDIR: spawningScratch ?? scratchDir, TEMP: spawningScratch ?? scratchDir, TMP: spawningScratch ?? scratchDir },
   });
   const protectShell = (shell: 'bash' | 'powershell', base: ToolDefinition): ToolDefinition => ({
     ...base,

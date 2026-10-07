@@ -198,6 +198,7 @@ Tools that draw a graph of code structure, such as Understand-Anything, show how
 
 - **v0.1.** It makes mistakes, and it differs from run to run; every statement links to its source so you can check it. The measured runs, and what each missed, are in [Cost and quality](docs/cost-and-quality.md).
 - **Windows only, for now.** ProjectKeeper 0.1 is supported on Windows. macOS and Linux are not supported yet: the test suite fails on Linux and has never been run on macOS. Contributions that make it work on either are welcome.
+- **A project at a very long path.** Files deep inside a project are read at any length. The project's own path is limited on Windows, and neither git's long-path setting nor Windows' own lifts the limit: at more than 246 characters git cannot open the repository (the files are read without their history, and `Project scope` says so), and at more than 251 the Keeper cannot work in the directory. Move such a project to a shorter path.
 - **It reads sessions from Claude Code and Codex.** Other agents' sessions are not read yet.
 - **The interface is English; the content is in your project's language.** The screenshots are from a Chinese-language project.
 - **The name.** ProjectKeeper was developed under the working name ContextKeeper, and the screenshots show it organizing its own project, which carries that name.

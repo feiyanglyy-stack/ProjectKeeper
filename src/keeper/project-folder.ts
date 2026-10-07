@@ -11,8 +11,8 @@ import type { Authorization, Project, ReferenceItem, Source } from '../model/typ
 import { newId } from '../model/ids.ts';
 import { anchorLabel } from '../sources/anchor.ts';
 import type { ProjectStore } from '../store/project-store.ts';
-import { git, gitToplevel, type GitResult } from '../util/git.ts';
-import { canonicalPath } from '../util/paths.ts';
+import { git, gitToplevel, LONG_PATHS, type GitResult } from '../util/git.ts';
+import { canonicalPath, gitPathLimit } from '../util/paths.ts';
 
 const FILES = ['README.md', 'semantic-patches.md', 'keeper-numbers.md', 'owner-decisions.md'] as const;
 /** The Keeper's commits name it as their author (D89: the Keeper commits the folder itself), so the ledger and `git log`
@@ -235,7 +235,7 @@ const noHooks = (): string => (noHooksDir ??= mkdtempSync(join(tmpdir(), 'pk-no-
 function gitWrite(cwd: string, args: readonly string[], env: NodeJS.ProcessEnv = {}): GitResult {
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const out = execFileSync('git', ['--no-pager', '-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${noHooks()}`, '-C', cwd, ...args], {
+      const out = execFileSync('git', ['--no-pager', '-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${noHooks()}`, ...LONG_PATHS, '-C', cwd, ...args], {
         encoding: 'utf8', env: { ...process.env, GIT_OPTIONAL_LOCKS: '1', GIT_TERMINAL_PROMPT: '0', ...env },
         timeout: 20_000, maxBuffer: 16_000_000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -283,7 +283,10 @@ export function syncProjectFolder(store: ProjectStore, project: Project): Projec
   let reason: string | null = null;
   if (authorization.projectFolder.commits) {
     const repo = gitToplevel(root);
-    if (!repo || !inside(repo, folder)) reason = 'The project folder is not in a git repository; files were written without a commit.';
+    // A repository git cannot open because its path is too long is not "no repository": the reason says which it is.
+    const tooLong = repo ? null : gitPathLimit(root);
+    if (tooLong) reason = `The project folder's files were written without a commit. ${tooLong}`;
+    else if (!repo || !inside(repo, folder)) reason = 'The project folder is not in a git repository; files were written without a commit.';
     else {
       const pathspec = relative(repo, folder).split(sep).join('/');
       const status = git(repo, ['status', '--porcelain', '--untracked-files=all', '--', pathspec]);

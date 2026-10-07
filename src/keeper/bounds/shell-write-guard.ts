@@ -24,6 +24,7 @@ import { chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readlink, readdir, rm
 import { constants } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import type { Project } from '../../model/types.ts';
+import { LONG_PATHS } from '../../util/git.ts';
 import { canonicalKey } from './paths.ts';
 
 /** How a shell step's result starts when something changed in the project while its command ran, not by it (BQ). */
@@ -83,7 +84,7 @@ async function git(cwd: string, args: string[], input?: Buffer, allowOne = false
   return new Promise((ok, fail) => {
     const env = { ...process.env };
     for (const name of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete env[name];
-    const child = spawn('git', ['--no-optional-locks', '-C', cwd, ...args], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env });
+    const child = spawn('git', ['--no-optional-locks', ...LONG_PATHS, '-C', cwd, ...args], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     child.stdout.on('data', (part: Buffer) => out.push(part));

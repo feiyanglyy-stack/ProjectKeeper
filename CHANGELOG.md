@@ -35,5 +35,6 @@ What it includes:
 Known limits:
 
 - Windows only. macOS and Linux are not supported yet: the test suite fails on Linux and has never been run on macOS.
+- A project whose own path is longer than 246 characters is read without its git history, and one longer than 251 cannot be organized: git and the Keeper cannot work in a directory that deep on Windows. Files deep inside a project are fine.
 - The picture has errors, and differs from run to run on the same project. See [docs/cost-and-quality.md](docs/cost-and-quality.md).
 - Not published to npm; run from a clone.

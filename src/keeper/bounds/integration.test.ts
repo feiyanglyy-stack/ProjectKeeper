@@ -10,6 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -64,16 +65,27 @@ function fakeProvider(): Promise<Fake> {
   }));
 }
 
-async function setup() {
+/** `deep`: the project in a directory whose path is exactly that many characters long, made a repository when asked. */
+async function setup(deep?: { length: number; repository?: boolean }) {
   const base = mkdtempSync(join(tmpdir(), 'pk-int-'));
   const home = join(base, 'home');
-  const projectDir = join(base, 'project');
+  let projectDir = join(base, 'project');
+  if (deep) {
+    while (projectDir.length + 41 < deep.length) projectDir = join(projectDir, 'd'.repeat(40));
+    projectDir = join(projectDir, 'k'.repeat(deep.length - projectDir.length - 1));
+  }
   const outside = join(base, 'outside');
   mkdirSync(join(projectDir, 'src'), { recursive: true });
   mkdirSync(outside, { recursive: true });
   writeFileSync(join(projectDir, 'README.md'), '# Demo\n\nA neutral project for the boundary test.\n');
   writeFileSync(join(projectDir, 'src', 'inside.txt'), 'in-scope content the Keeper may read');
   writeFileSync(join(outside, 'secret.txt'), 'out-of-scope content the Keeper must not read');
+  if (deep?.repository) {
+    const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=Demo Dev', '-c', 'user.email=dev@demo.invalid', '-c', 'commit.gpgsign=false', '-c', 'core.longpaths=true', '-C', projectDir, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+    git('init', '-q', '-b', 'main');
+    git('add', '-A');
+    git('commit', '-q', '-m', 'Demo: first version');
+  }
   const app = new App(home, { organizing: false });
   const project = app.addProject('Demo', [projectDir]);
   await app.intakeProject(project.id);
@@ -226,6 +238,34 @@ test('git runs in a shell the job runs when git is configured through the enviro
     for (const [k, v] of saved) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
     fake.close(); app.stopAll();
   }
+});
+
+test('in a repository at a deep path a shell command runs, and git typed into it reads the history (Windows: long paths)', { timeout: 60_000 }, async (t) => {
+  if (process.platform !== 'win32') { t.diagnostic('not on this system: the path limit is Windows’'); return; }
+  // Past 200 characters git's own files under .git pass 260: the guard's `git status` failed before any command ran,
+  // and git typed into the shell could not open its objects.
+  const { app, project, fake } = await setup({ length: 225, repository: true });
+  try {
+    const job = app.keeper.enqueue(project.id, { kind: 'Organizing', initiator: 'auto', scope: { kind: 'source', ids: [], label: 'x' }, prompt: 'Task: material organizing. DIRECTIVE bash git log --format=%s && git status --porcelain && echo end' });
+    const done = await app.keeper.waitFor(project.id, job.id);
+    const bashStep = done.steps.find((s) => s.tool === 'bash');
+    assert.ok(bashStep, 'the shell command ran as a step');
+    if (bashStep!.isError && /No bash shell|not found/i.test(bashStep!.summary)) return;   // no shell on this machine: skip
+    assert.equal(bashStep!.isError, false, bashStep!.summary);
+    assert.match(bashStep!.summary, /^Demo: first version\s+end\s*$/, 'the commit is read and the working tree is clean');
+  } finally { fake.close(); app.stopAll(); }
+});
+
+test('in a directory whose path is too long for the Keeper a job ends with the limit and what to do, not with a folder that could not be made (Windows)', { timeout: 60_000 }, async (t) => {
+  if (process.platform !== 'win32') { t.diagnostic('not on this system: the path limit is Windows’'); return; }
+  const { app, project, fake } = await setup({ length: 255 });
+  try {
+    const job = app.keeper.enqueue(project.id, { kind: 'Organizing', initiator: 'auto', scope: { kind: 'source', ids: [], label: 'x' }, prompt: 'Task: material organizing. DIRECTIVE bash echo hello' });
+    const done = await app.keeper.waitFor(project.id, job.id);
+    assert.equal(done.status, 'Failed');
+    assert.equal(done.error, 'The Keeper cannot work in this project\'s directory: its path is 255 characters long, and on Windows the Keeper can only work in a directory whose path is at most 251 characters. Move the project to a shorter path.');
+    assert.equal(fake.requests.length, 0, 'nothing is sent to the model');
+  } finally { fake.close(); app.stopAll(); }
 });
 
 test('the runtime tells the shell guard its home: another writer\'s file made during a command stays and is named on the step on a live project, and is undone on a controlled trial (BQ)', { timeout: 90_000 }, async () => {

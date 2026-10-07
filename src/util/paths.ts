@@ -1,4 +1,4 @@
-import { realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, normalize, parse, relative, resolve, sep } from 'node:path';
 
@@ -96,4 +96,39 @@ export function expandHome(path: string): string {
  */
 export function claudeProjectDirName(cwd: string): string {
   return normalizePath(cwd).replace(/[^A-Za-z0-9-]/g, '-');
+}
+
+// ───────────────────────── Windows: how long a project's own path can be ─────────────────────────
+//
+// Files deep inside a project are no trouble: Node opens them at any length, and every git call is given
+// `core.longpaths` (util/git.ts `LONG_PATHS`). The length of the project's own path is another matter, and no setting
+// helps there, neither git's nor Windows' own for long paths. Both limits were measured (Git for Windows 2.53, pi
+// 0.87.1, Windows 11 with long paths enabled).
+
+/**
+ * The longest path of a repository Git for Windows can open. Before it reads any setting it looks for
+ * `<repository>\.git\objects`, which has to stay under 260 characters: one character more and it answers "not a git
+ * repository"; from 259 on it cannot enter the directory at all.
+ */
+export const GIT_ROOT_MAX = 246;
+
+/**
+ * The longest path of a directory the Keeper can work in. pi keeps a job's session in a folder named after the working
+ * directory, with two dashes before and after, and a folder's name is at most 255 characters. A few characters
+ * further, at 259, Windows starts no process in the directory, so no shell command could run there either.
+ */
+export const KEEPER_CWD_MAX = 251;
+
+/** What to say of a repository at `dir` that git cannot open because its path is too long; null when that is not the case. */
+export function gitPathLimit(dir: string): string | null {
+  const path = normalizePath(dir);
+  if (!WIN || path.length <= GIT_ROOT_MAX || !existsSync(join(path, '.git'))) return null;
+  return `This directory holds a git repository, but its path is ${path.length} characters long, and git on Windows cannot open a repository whose path is longer than ${GIT_ROOT_MAX} characters: its history, worktrees and ignore rules are not read. Move the project to a shorter path.`;
+}
+
+/** What to say of a directory the Keeper cannot work in because its path is too long; null when it can. */
+export function keeperPathLimit(dir: string): string | null {
+  const path = normalizePath(dir);
+  if (!WIN || path.length <= KEEPER_CWD_MAX) return null;
+  return `The Keeper cannot work in this project's directory: its path is ${path.length} characters long, and on Windows the Keeper can only work in a directory whose path is at most ${KEEPER_CWD_MAX} characters. Move the project to a shorter path.`;
 }

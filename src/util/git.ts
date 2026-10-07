@@ -13,6 +13,14 @@ export interface GitResult {
   readonly err: string;
 }
 
+/**
+ * Given to every git call ProjectKeeper makes. Without it Git for Windows stops at any path of 260 characters or more,
+ * its own files included: `<repository>\.git\objects\…` is that long once the repository's own path passes about
+ * 200. Then `status` fails, a tracked file deep in the tree reads as deleted, and nothing there can be hashed or added.
+ * (What no setting helps, a repository whose own path is too long, is util/paths.ts `gitPathLimit`.)
+ */
+export const LONG_PATHS: readonly string[] = ['-c', 'core.longpaths=true'];
+
 function env(): NodeJS.ProcessEnv {
   const copy: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) {
@@ -24,7 +32,7 @@ function env(): NodeJS.ProcessEnv {
 
 export function git(cwd: string, args: readonly string[], timeoutMs = 8000, maxBuffer = 16_000_000): GitResult {
   try {
-    const out = execFileSync('git', ['--no-pager', '-c', 'core.fsmonitor=false', '-C', cwd, ...args], {
+    const out = execFileSync('git', ['--no-pager', '-c', 'core.fsmonitor=false', ...LONG_PATHS, '-C', cwd, ...args], {
       encoding: 'utf8', env: env(), timeout: timeoutMs, maxBuffer, windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -118,7 +126,7 @@ export interface GitStatus {
 /** The same read-only git call without blocking the event loop (used where the workbench must keep answering). */
 export function gitAsync(cwd: string, args: readonly string[], timeoutMs = 8000): Promise<GitResult> {
   return new Promise((resolve) => {
-    execFile('git', ['--no-pager', '-c', 'core.fsmonitor=false', '-C', cwd, ...args], {
+    execFile('git', ['--no-pager', '-c', 'core.fsmonitor=false', ...LONG_PATHS, '-C', cwd, ...args], {
       encoding: 'utf8', env: env(), timeout: timeoutMs, maxBuffer: 16_000_000, windowsHide: true,
     }, (error, stdout, stderr) => {
       if (error) resolve({ ok: false, out: String(stdout ?? ''), err: String(stderr || error.message) });
@@ -192,7 +200,7 @@ export function gitShow(dir: string, commit: string, path: string): string | nul
 /** The same read-only call with room for a long history: a larger buffer and time limit, raw path names. */
 export function gitRead(cwd: string, args: readonly string[], options: { readonly timeoutMs?: number; readonly maxBuffer?: number } = {}): GitResult {
   try {
-    const out = execFileSync('git', ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'core.quotePath=false', '-C', cwd, ...args], {
+    const out = execFileSync('git', ['--no-pager', '-c', 'core.fsmonitor=false', '-c', 'core.quotePath=false', ...LONG_PATHS, '-C', cwd, ...args], {
       encoding: 'utf8', env: env(), timeout: options.timeoutMs ?? 30_000, maxBuffer: options.maxBuffer ?? 64_000_000, windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });

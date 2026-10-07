@@ -21,7 +21,7 @@ import type { ProjectRule, ScopeClassification, ScopeItem, ScopeJudgement, Scope
 import type { ScopeRelation, SessionHost } from '../model/vocab.ts';
 import { stableId } from '../model/ids.ts';
 import { git, gitCommonDir, gitDir, gitRemotes, gitRootCommits, gitToplevel, gitWorktrees } from '../util/git.ts';
-import { canonicalPath, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
+import { canonicalPath, gitPathLimit, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
 import { locateSessionsForHomes, type LocatedSession } from '../sources/sessions/locate.ts';
 import { sameSessionItem } from '../sources/sessions/scope.ts';
 import { discoverToolchain, type ToolchainRoot } from './toolchain.ts';
@@ -432,6 +432,10 @@ export function discoverBase(
     const toplevel = gitToplevel(location);
     const isRepo = toplevel !== null && samePath(toplevel, location);
     const insideRepo = toplevel !== null && !isRepo && isWithin(toplevel, location);
+    // A repository git cannot open because its path is too long is said to be one, with the limit and what to do; it
+    // is read as its files, and must not pass for a directory nobody put under version control.
+    const tooLong = toplevel === null ? gitPathLimit(location) : null;
+    if (tooLong) missing.push({ kind: 'Git history', reason: `${tooLong} (${location})` });
     // An answered copy question is the owner's word on the copy's source and outlives rescans.
     const answered = options.existingQuestions?.find((q) => q.id === stableId('scopeq', 'copy-source', pathKey(location)) && q.answer)?.answer?.text.trim() ?? null;
     const detected = detectCopy(location, isRepo);
@@ -448,7 +452,8 @@ export function discoverBase(
         ? `Copy of ${copy.source || 'another project'} (${copy.how}); the original stays read-only and is not merged in`
         : isRepo ? 'Owner-given location; git repository'
           : insideRepo ? `Owner-given location; a subdirectory of the repository at ${toplevel}`
-            : 'Owner-given location; no version control (the project is read as its files and running processes)',
+            : tooLong ? `Owner-given location; read as its files only. ${tooLong}`
+              : 'Owner-given location; no version control (the project is read as its files and running processes)',
       reasonSourceIds: [], sessionHost: null, readOnly: false, copyOf: copy?.source || null, worktreeOf: null,
       versionControl: isRepo || insideRepo ? 'git' : 'none', missing: null, addedBy: 'owner',
       reasonRef: copy?.reason ?? null,

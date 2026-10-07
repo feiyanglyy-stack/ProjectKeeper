@@ -199,6 +199,7 @@ flowchart LR
 
 - **v0.1。** 它会出错，同一个项目每次跑出来也不完全一样；每句话都连着出处，你可以自己核对。四次实测以及各自漏了什么，见 [Cost and quality](docs/cost-and-quality.md)。
 - **目前只支持 Windows。** ProjectKeeper 0.1 只在 Windows 上受支持。macOS 和 Linux 暂不支持：测试套件在 Linux 上通不过，在 macOS 上从未跑过。欢迎为这两个系统贡献修复。
+- **路径很长的项目。** 项目里再深的文件都能读。但在 Windows 上，项目自身的路径有上限，git 和 Windows 的长路径设置都解除不了：超过 246 个字符，git 打不开这个仓库（文件照读，历史读不到，`Project scope` 里会写明）；超过 251 个字符，Keeper 无法在这个目录里工作。请把这样的项目挪到短一些的路径下。
 - **会话只读 Claude Code 和 Codex 的。** 其他 agent 的会话暂时不读。
 - **界面是英文的，内容跟着你项目的语言走。** 截图来自一个中文项目。
 - **名字。** ProjectKeeper 开发期间的名字是 ContextKeeper；截图里它整理的正是它自己的项目，那个项目用的还是这个名字。

@@ -56,6 +56,7 @@ import { createReadBoundary, type ReadBoundary } from './bounds/boundary.ts';
 import { READING_TOOLS, stepReads } from './bounds/reads.ts';
 import { isAbsolute } from 'node:path';
 import { gitStatusAsync } from '../util/git.ts';
+import { keeperPathLimit } from '../util/paths.ts';
 import { linkPutOutDeliveries } from '../process/delivery-links.ts';
 import { unlightUnchecked } from '../process/breakpoint-candidates.ts';
 
@@ -1296,6 +1297,10 @@ export class KeeperRuntime extends EventEmitter {
         session = liveEntry.session;
         liveEntry.turns += 1;
       } else {
+        // A directory whose path is too long for pi's session folder and for any process started in it: said as that,
+        // with what to do, before pi fails on a folder it cannot make (util/paths.ts `keeperPathLimit`).
+        const tooLong = keeperPathLimit(cwd);
+        if (tooLong) throw new Error(tooLong);
         const settingsManager = SettingsManager.create(cwd, getAgentDir());
         // Every pi built-in tool is on in every step, the judging ones included (CKC-03 AC-25, D87). They are turned on
         // through the default-tool setting, not the `tools` option: an allowlist there drops every pk_* tool, and the

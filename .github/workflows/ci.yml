@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    # `macos` is the branch the macOS work is done on; it leaves this list when that work is merged.
-    branches: [main, macos]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

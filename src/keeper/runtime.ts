@@ -14,6 +14,7 @@
 import { guardTurn, keeperBuiltinTools, RefusalStreak, REPEATED_REFUSAL_LIMIT, StepTimer, type RepeatedRefusal } from './step-timing.ts';
 import { EventEmitter } from 'node:events';
 import { organizingHeld } from './held.ts';
+import { openInPiOffWindows } from './open-in-pi.ts';
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import {
@@ -1792,13 +1793,12 @@ export class KeeperRuntime extends EventEmitter {
   /** Launch native pi in the project directory, resuming a Keeper session when one is given. */
   openInPi(project: Project, sessionFile: string | null): { message: string } {
     const cwd = project.locations[0]!;
+    // Off Windows: Terminal on macOS, and elsewhere the command to run — never a claim that something opened when
+    // nothing did (open-in-pi.ts).
+    if (process.platform !== 'win32') return openInPiOffWindows(cwd, sessionFile);
     const args = ['pi', ...(sessionFile ? ['--session', sessionFile] : [])];
     try {
-      if (process.platform === 'win32') {
-        spawn('cmd.exe', ['/c', 'start', '"ProjectKeeper · pi"', 'cmd', '/k', ...args], { cwd, detached: true, stdio: 'ignore', windowsHide: false, shell: false }).unref();
-      } else {
-        spawn('sh', ['-c', `${args.join(' ')}`], { cwd, detached: true, stdio: 'ignore' }).unref();
-      }
+      spawn('cmd.exe', ['/c', 'start', '"ProjectKeeper · pi"', 'cmd', '/k', ...args], { cwd, detached: true, stdio: 'ignore', windowsHide: false, shell: false }).unref();
       return { message: `Opened pi in ${cwd}${sessionFile ? ' with the Keeper session' : ''}` };
     } catch (e) {
       return { message: `Could not open pi: ${(e as Error).message}` };

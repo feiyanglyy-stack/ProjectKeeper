@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { canonicalKey, makeBoundary, realExisting, toAbsolute, type AllowedRoot } from './paths.ts';
@@ -32,18 +32,21 @@ test('a path inside a root is allowed; a sibling directory under the same parent
   assert.match(denied.reason ?? '', /Out of the project's read boundary/);
 });
 
-test('case differences and both separators resolve to the same in-bounds path on Windows', () => {
+test('another case of an in-bounds path is the same path where the file system says it is, and both separators are on Windows', () => {
   const base = mkdtempSync(join(tmpdir(), 'pk-b-'));
   const project = join(base, 'Project');
   mkdirSync(join(project, 'src'), { recursive: true });
   writeFileSync(join(project, 'src', 'a.ts'), 'x');
   const b = boundaryOn([{ path: project, label: 'the project directory' }]);
-  if (WIN) {
+  assert.equal(b.decide(join(project, 'src', 'a.ts'), project).ok, true);
+  // Asked of the file system, not of the system's name: Windows and a Mac's usual volume take another case for the same
+  // file; Linux and a case-sensitive Mac volume do not, and there the other case names a file that is not there.
+  if (existsSync(join(base, 'PROJECT', 'SRC', 'A.TS'))) {
     assert.equal(b.decide(join(project, 'src', 'a.ts').toLowerCase(), project).ok, true, 'lower-cased path is the same file');
-    assert.equal(b.decide(`${project}/src/a.ts`, project).ok, true, 'forward slashes are the same file');
-  } else {
-    assert.equal(b.decide(join(project, 'src', 'a.ts'), project).ok, true);
+    assert.equal(b.decide(join(base, 'PROJECT', 'SRC', 'A.TS'), project).ok, true, 'upper-cased path is the same file');
+    assert.equal(canonicalKey(join(base, 'PROJECT', 'SRC', 'A.TS'), project), canonicalKey(join(project, 'src', 'a.ts'), project), 'one key for both spellings');
   }
+  if (WIN) assert.equal(b.decide(`${project}/src/a.ts`, project).ok, true, 'forward slashes are the same file');
 });
 
 test('a relative escape (..) that climbs out of the project is refused; a relative path staying inside is allowed', () => {

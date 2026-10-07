@@ -32,7 +32,10 @@ export const ORCHARD_ID = 'p_orchard';
 export const ORCHARD_AT = '2026-09-12T08:00:00.000Z';
 const READ_AT = '2026-09-11T20:00:00.000Z';
 const HEAD = 'c0ffee5a1b2c3d4e5f60718293a4b5c6d7e8f901';
-const ROOT = 'D:\\orchard';
+/** Where the invented project lies: a rooted path of the system the tests run on, so that what is under it is under it
+ *  there too. `D:\orchard` is a path on Windows and one odd file name anywhere else. */
+export const ORCHARD_ROOT = process.platform === 'win32' ? 'D:\\orchard' : '/orchard';
+const ROOT = ORCHARD_ROOT;
 
 /** What the owner said, word for word, as the sessions hold it. */
 export const WORDS = {
@@ -79,7 +82,7 @@ export const orchardProject: Project = {
 };
 
 function fileSource(id: string, rel: string, heading: readonly string[], lines: readonly [number, number], excerpt: string, over: Partial<Source> = {}): Source {
-  const path = `${ROOT}\\${rel.replace(/\//g, '\\')}`;
+  const path = join(ROOT, ...rel.split('/'));
   return {
     id, projectId: ORCHARD_ID, title: heading.length ? heading[heading.length - 1]! : rel.split('/').pop()!,
     anchor: { kind: 'file', path, headingPath: heading, lineStart: lines[0], lineEnd: lines[1] }, ids: [],

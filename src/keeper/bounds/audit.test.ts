@@ -25,7 +25,8 @@ mkdirSync(join(outside, 'repo'), { recursive: true });
 writeFileSync(join(project, 'src', 'inside.txt'), 'INSIDE');
 writeFileSync(join(outside, 'secret.txt'), 'SECRET');
 writeFileSync(join(outside, 'config.ini'), '[a]\n b = 1\n');
-const toBash = (p: string) => `/${p[0]!.toLowerCase()}${p.slice(2).replaceAll('\\', '/')}`;
+/** The path as a bash user writes it: `/c/…` for a Windows drive path (Git Bash), the path itself anywhere else. */
+const toBash = (p: string) => { const fwd = p.replaceAll('\\', '/'); return /^[A-Za-z]:\//.test(fwd) ? `/${fwd[0]!.toLowerCase()}${fwd.slice(2)}` : fwd; };
 const outsideBash = toBash(outside);
 const secretBash = `${outsideBash}/secret.txt`;
 writeFileSync(join(project, 'reader.sh'), `cat '${secretBash}'\n`);

@@ -11,7 +11,8 @@
  * tests hand it the other spellings on purpose, each naming a directory that was built under its real name:
  *
  * - through a directory junction (a link, on other systems);
- * - in another case, drive letter included (Windows);
+ * - in another case, drive letter included (where the file system takes another case for the same name: Windows, and
+ *   a Mac's usual volume);
  * - by a real 8.3 short name, where one can be set (`fsutil file setshortname`, which needs an elevated shell: a
  *   GitHub runner has one);
  * - as the environment spells the temporary directory, where that is not the file system's spelling.
@@ -83,10 +84,12 @@ const SPELLINGS: Spelling[] = [
   {
     name: 'in another case',
     make: () => {
-      if (!WIN) return null;   // names differing in case are different names there
       const real = fresh(`Case-${made += 1}`);
       const flipped = real.toUpperCase();
-      return { real, given: (/^[A-Z]:/.test(real) ? real[0]!.toLowerCase() : real[0]!.toUpperCase()) + flipped.slice(1) };
+      const given = (/^[A-Z]:/.test(real) ? real[0]!.toLowerCase() : real[0]!.toUpperCase()) + flipped.slice(1);
+      // Asked of the file system: on Linux, and on a case-sensitive volume of a Mac, names differing in case are
+      // different names, and the other case names nothing.
+      return existsSync(given) ? { real, given } : null;
     },
   },
   {

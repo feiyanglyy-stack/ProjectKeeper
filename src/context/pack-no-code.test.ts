@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { assembleContext } from './assemble.ts';
 import { nodeBrief } from './object-brief.ts';
 import type { BriefNode } from './object-brief.ts';
-import { CODE_LINES, QC_BLOCK_LINE, orchardProject, orchardStore, sectionOf } from './pack-fixture.ts';
+import { CODE_LINES, ORCHARD_ROOT, QC_BLOCK_LINE, orchardProject, orchardStore, sectionOf } from './pack-fixture.ts';
 import { registerRoutes } from '../server/api.ts';
 import { nodeDetail } from '../server/graph-view.ts';
 import { deriveGraph } from '../keeper/organize/graph.ts';
@@ -91,8 +91,10 @@ test('no line of a code file reaches an agent: not in a pack, an original fetche
 
 test('Code entry and recent changes gives where the code is, what changed and why, and what the code check found — no code (CKC-12 AC-4, AC-43)', () => {
   const code = sectionOf(workPack(orchardStore(), 'thread_r7'), 'Code entry and recent changes');
-  assert.match(code, /- D:\\orchard · app\/src\/report\/build\.ts, lines 1–6, as read at commit c0ffee5a1b[^\n]*implements this work: builds the season report PDF \(buildSeasonReport\)/, 'repository, file, lines, commit and the function by name');
-  assert.match(code, /- D:\\orchard · app\/report\.config\.json, lines 1–4[^\n]*sets the batch size and whether counts are rounded \(batchSize, roundCounts\)/, 'a config file by its settings’ names');
+  // The repository as the fixture places it on this system (`D:\orchard` on Windows), then the file inside it with `/`.
+  const repo = ORCHARD_ROOT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(code, new RegExp(`- ${repo} · app/src/report/build\\.ts, lines 1–6, as read at commit c0ffee5a1b[^\\n]*implements this work: builds the season report PDF \\(buildSeasonReport\\)`), 'repository, file, lines, commit and the function by name');
+  assert.match(code, new RegExp(`- ${repo} · app/report\\.config\\.json, lines 1–4[^\\n]*sets the batch size and whether counts are rounded \\(batchSize, roundCounts\\)`), 'a config file by its settings’ names');
   assert.match(code, /- commit a1b2c3d4e5 · 2026-09-09 · R-7: build the PDF season report — files: app\/src\/report\/build\.ts, app\/src\/report\/pdf\.ts/);
   assert.match(code, /- 2026-09-09 · The PDF season report is built \(`chg_code_r7`\) — why: R-7 needs the PDF path/);
   assert.doesNotMatch(code, /T-1: move the build/, 'a commit of other work is not this work’s recent change');

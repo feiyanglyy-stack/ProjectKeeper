@@ -23,7 +23,8 @@ import { deriveGraph } from './graph.ts';
 import type { FactRecord, GraphRelation, KeeperJob, OrganizingPlan, Project, ProjectRule, ScopeItem, Source, WorkThread } from '../../model/types.ts';
 
 const AT = '2026-09-18T00:00:00.000Z';
-const ROOT = 'D:\\orchard';
+// A rooted path of the system the tests run on: what lies under a directory is told by the system's own separator.
+const ROOT = process.platform === 'win32' ? 'D:\\orchard' : '/orchard';
 const M = materials as unknown as Record<string, (...a: unknown[]) => unknown>;
 const T = takeover as unknown as Record<string, (...a: unknown[]) => unknown>;
 
@@ -31,7 +32,7 @@ const store = () => ProjectStore.open('p1', mkdtempSync(join(tmpdir(), 'pk-metho
 const project = (scope: readonly Partial<ScopeItem>[] = [{ id: 'scope_main', path: ROOT, relation: 'Main project', category: 'Repository' }]) =>
   ({ id: 'p1', name: 'Orchard', locations: [ROOT], createdAt: AT, scope, roles: [], language: 'en' }) as unknown as Project;
 const src = (s: ProjectStore, id: string, rel: string, extra: Partial<Source> = {}) =>
-  s.sources.put({ id, projectId: 'p1', title: rel, anchor: { kind: 'file', path: `${ROOT}\\${rel.replace(/\//g, '\\')}`, headingPath: [], lineStart: 1, lineEnd: 9 }, ids: [], version: { fingerprint: 'f', readAt: AT, commit: null }, excerpt: `text of ${rel}`, usedAs: null, usedAsBy: null, availability: null, movedTo: null, scopeItemId: 'scope_main', hasCredential: false, bytes: 10, ...extra } as Source);
+  s.sources.put({ id, projectId: 'p1', title: rel, anchor: { kind: 'file', path: join(ROOT, ...rel.split('/')), headingPath: [], lineStart: 1, lineEnd: 9 }, ids: [], version: { fingerprint: 'f', readAt: AT, commit: null }, excerpt: `text of ${rel}`, usedAs: null, usedAsBy: null, availability: null, movedTo: null, scopeItemId: 'scope_main', hasCredential: false, bytes: 10, ...extra } as Source);
 const rule = (s: ProjectStore, id: string, over: Partial<ProjectRule> = {}) =>
   s.rules.put({ id, projectId: 'p1', group: 'Material rules', category: 'Recovery only', summary: 'attic/ keeps old files for recovery only.', excerpt: 'attic/ keeps old files for recovery only', sourceIds: ['src_readme'], appliesTo: ['attic/'], basis: 'Explicit', validity: 'Current', replacedBy: null, ownerSystem: null, differsInPractice: [], ownerConfirmation: null, jobId: 'job_frame', asOf: AT, updatedAt: AT, ...over } as ProjectRule);
 const plan = (s: ProjectStore, byRule: OrganizingPlan['byRule']) =>
@@ -65,7 +66,7 @@ test('material a rule took out of what is organized is counted as settled by rul
   const s = store();
   const scope: Partial<ScopeItem>[] = [
     { id: 'scope_main', path: ROOT, relation: 'Main project', category: 'Repository', addedBy: 'keeper' },
-    { id: 'scope_attic', path: `${ROOT}\\attic`, relation: 'Excluded', category: 'Directory', addedBy: 'keeper', coveredBy: [{ ruleId: 'rule_attic', category: 'Recovery only', summary: 'attic', excerpt: 'attic', sourceIds: ['src_readme'], basis: 'Explicit', target: 'attic/' }] },
+    { id: 'scope_attic', path: join(ROOT, 'attic'), relation: 'Excluded', category: 'Directory', addedBy: 'keeper', coveredBy: [{ ruleId: 'rule_attic', category: 'Recovery only', summary: 'attic', excerpt: 'attic', sourceIds: ['src_readme'], basis: 'Explicit', target: 'attic/' }] },
   ];
   src(s, 'src_readme', 'README.md');
   src(s, 'src_old', 'attic/plan-2025.md', { scopeItemId: 'scope_attic' });
@@ -98,8 +99,8 @@ test('material is what the scope reads: nothing from a place left out or kept fo
   const s = store();
   const scope: Partial<ScopeItem>[] = [
     { id: 'scope_main', path: ROOT, relation: 'Main project', category: 'Repository', addedBy: 'keeper' },
-    { id: 'scope_gen', path: `${ROOT}\\exports`, relation: 'Generated', category: 'Directory', addedBy: 'keeper' },
-    { id: 'scope_lib', path: `${ROOT}\\libs\\chart`, relation: 'Third-party material', category: 'Directory', addedBy: 'keeper', classification: { by: 'keeper', basis: 'Inferred', kind: 'vendored code', evidence: [], sourceIds: [], ruleId: null, jobId: null, at: AT } },
+    { id: 'scope_gen', path: join(ROOT, 'exports'), relation: 'Generated', category: 'Directory', addedBy: 'keeper' },
+    { id: 'scope_lib', path: join(ROOT, 'libs', 'chart'), relation: 'Third-party material', category: 'Directory', addedBy: 'keeper', classification: { by: 'keeper', basis: 'Inferred', kind: 'vendored code', evidence: [], sourceIds: [], ruleId: null, jobId: null, at: AT } },
   ];
   src(s, 'src_plan', 'docs/PLAN.md');
   src(s, 'src_export', 'exports/report.md');
@@ -116,7 +117,7 @@ test('material that is only history, only for reference or settled by rule leave
   const proj = app.addProject('Orchard', [mkdtempSync(join(tmpdir(), 'pk-orchard-'))]);
   const s = app.store(proj.id);
   const root = app.project(proj.id).locations[0]!;
-  const at = (rel: string) => `${root}\\${rel.replace(/\//g, '\\')}`;
+  const at = (rel: string) => join(root, ...rel.split('/'));
   const put = (id: string, rel: string, extra: Partial<Source> = {}) => s.sources.put({ id, projectId: proj.id, title: rel, anchor: { kind: 'file', path: at(rel), headingPath: [], lineStart: 1, lineEnd: 9 }, ids: [], version: { fingerprint: 'f', readAt: AT, commit: null }, excerpt: 'x', usedAs: null, usedAsBy: null, availability: null, movedTo: null, scopeItemId: app.project(proj.id).scope[0]?.id ?? 'scope', hasCredential: false, bytes: 1, ...extra } as Source);
   put('src_plan', 'docs/PLAN.md');
   put('src_ref', 'guides/style.md', { usedAs: 'Reference only', usedAsBy: 'keeper' });

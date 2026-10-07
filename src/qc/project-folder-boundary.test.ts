@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import type { ClerkRound } from '../model/k-types.ts';
 import type { Project } from '../model/types.ts';
@@ -18,6 +18,13 @@ const WORKTREE = resolve(import.meta.dirname, '../..');
 
 function git(root: string, ...args: string[]): string {
   return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', windowsHide: true }).trim();
+}
+
+/** A hook git will run: on every system but Windows git passes over a hook file that is not executable, and a test that
+ *  says a hook did not run would then pass whatever the program did. */
+function writeHook(path: string, script: string): void {
+  writeFileSync(path, script);
+  chmodSync(path, 0o755);
 }
 
 function fixture(repository = true) {
@@ -119,10 +126,13 @@ test('a junction substituted after authorization is rejected before any write', 
   } finally { h.cleanup(); }
 });
 
-test('a differently cased spelling of an existing folder must be rejected', () => {
+test('a differently cased spelling of an existing folder must be rejected', (t) => {
   const h = fixture(false);
   try {
     mkdirSync(join(h.root, 'projectkeeper'));
+    // Asked of the file system itself: where names that differ only in case are different names (Linux, a case-sensitive
+    // volume on macOS), PROJECTKEEPER is no spelling of the folder and there is nothing to reject.
+    if (!existsSync(join(h.root, 'PROJECTKEEPER'))) { t.skip('names that differ only in case are different names on this file system'); return; }
     assert.equal(realpathSync(join(h.root, 'PROJECTKEEPER')).toLowerCase(), realpathSync(join(h.root, 'projectkeeper')).toLowerCase());
     assert.throws(() => projectFolderPath(h.project, 'PROJECTKEEPER'), /folder|path/i);
   } finally { h.cleanup(); }
@@ -213,8 +223,8 @@ test('the project’s pre-commit and commit-msg hooks do not run for the Keeper�
   const h = fixture();
   try {
     const hooks = join(h.root, '.git', 'hooks');
-    writeFileSync(join(hooks, 'pre-commit'), '#!/bin/sh\nprintf "pre\\n" >> hook.log\nprintf "pre changed\\n" >> project.md\n');
-    writeFileSync(join(hooks, 'commit-msg'), '#!/bin/sh\nprintf "msg\\n" >> hook.log\nprintf "msg changed\\n" >> project.md\n');
+    writeHook(join(hooks, 'pre-commit'), '#!/bin/sh\nprintf "pre\\n" >> hook.log\nprintf "pre changed\\n" >> project.md\n');
+    writeHook(join(hooks, 'commit-msg'), '#!/bin/sh\nprintf "msg\\n" >> hook.log\nprintf "msg changed\\n" >> project.md\n');
     grantProjectFolderAuthorization(h.store, h.project, { quote: 'Write and commit folder' });
     const result = syncProjectFolder(h.store, h.project);
     assert.match(result.commit ?? '', /^[0-9a-f]{40}$/);
@@ -228,7 +238,7 @@ test('a failing pre-commit or commit-msg hook of the project does not stop the K
   for (const hook of ['pre-commit', 'commit-msg']) {
     const h = fixture();
     try {
-      writeFileSync(join(h.root, '.git', 'hooks', hook), `#!/bin/sh\necho ${hook}-denied >&2\nexit 41\n`);
+      writeHook(join(h.root, '.git', 'hooks', hook), `#!/bin/sh\necho ${hook}-denied >&2\nexit 41\n`);
       grantProjectFolderAuthorization(h.store, h.project, { quote: 'Write and commit folder' });
       const before = git(h.root, 'rev-parse', 'HEAD');
       const result = syncProjectFolder(h.store, h.project);
@@ -247,7 +257,7 @@ test('a post-commit hook of the project does not run for the Keeper’s commit, 
     const remote = join(h.temporary, 'remote.git');
     git(h.root, 'init', '--bare', '-q', remote);
     git(h.root, 'remote', 'add', 'origin', remote);
-    writeFileSync(join(h.root, '.git', 'hooks', 'post-commit'), '#!/bin/sh\ngit push -q origin HEAD:refs/heads/hook-pushed\n');
+    writeHook(join(h.root, '.git', 'hooks', 'post-commit'), '#!/bin/sh\ngit push -q origin HEAD:refs/heads/hook-pushed\n');
     grantProjectFolderAuthorization(h.store, h.project, { quote: 'Write and commit folder' });
     const result = syncProjectFolder(h.store, h.project);
     assert.match(result.commit ?? '', /^[0-9a-f]{40}$/);
@@ -260,7 +270,7 @@ test('Git --no-verify still runs prepare-commit-msg and post-commit hooks', () =
   try {
     const hooks = join(h.root, '.git', 'hooks');
     for (const hook of ['pre-commit', 'prepare-commit-msg', 'commit-msg', 'post-commit']) {
-      writeFileSync(join(hooks, hook), `#!/bin/sh\nprintf "${hook}\\n" >> hook.log\n`);
+      writeHook(join(hooks, hook), `#!/bin/sh\nprintf "${hook}\\n" >> hook.log\n`);
     }
     mkdirSync(join(h.root, 'projectkeeper'));
     writeFileSync(join(h.root, 'projectkeeper', 'probe.md'), 'probe\n');

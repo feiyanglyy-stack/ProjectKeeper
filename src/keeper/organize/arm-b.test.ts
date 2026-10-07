@@ -56,13 +56,17 @@ test('objects that are never judged leave what is pending; items on hold and cur
 test('material under an excluded directory is not organized, even when it was read before the exclusion', () => {
   const s = ProjectStore.open('p1', mkdtempSync(join(tmpdir(), 'pk-armb-')));
   const source = (id: string, path: string) => s.sources.put({ id, anchor: { kind: 'file', path }, title: path, excerpt: 'text', availability: 'Available', scopeItemId: 'scope_main', version: { readAt: at } } as unknown as Source);
-  source('src_doc', 'D:\\proj\\docs\\plan.md');
-  source('src_run', 'D:\\proj\\subagent\\runs\\AE\\start.md');
-  source('src_runs_sibling', 'D:\\proj\\subagent\\runs-notes.md');
-  const project = { id: 'p1', name: 'P', locations: ['D:\\proj'], createdAt: at, scope: [
-    { id: 'scope_main', path: 'D:\\proj', relation: 'Main project', category: 'Directory' },
-    { id: 'scope_runs', path: 'D:\\proj\\subagent\\runs', relation: 'Excluded', category: 'Directory' },
+  // A rooted path of the system the test runs on (`D:\proj\docs\plan.md` on Windows): what lies under a directory is
+  // told by the system's own separator.
+  const root = process.platform === 'win32' ? 'D:\\proj' : '/proj';
+  const at_ = (...parts: string[]) => join(root, ...parts);
+  source('src_doc', at_('docs', 'plan.md'));
+  source('src_run', at_('subagent', 'runs', 'AE', 'start.md'));
+  source('src_runs_sibling', at_('subagent', 'runs-notes.md'));
+  const project = { id: 'p1', name: 'P', locations: [root], createdAt: at, scope: [
+    { id: 'scope_main', path: root, relation: 'Main project', category: 'Directory' },
+    { id: 'scope_runs', path: at_('subagent', 'runs'), relation: 'Excluded', category: 'Directory' },
   ] } as unknown as Project;
   const keys = listMaterials(s, project).map((m) => m.key).sort();
-  assert.deepEqual(keys, ['file:D:\\proj\\docs\\plan.md', 'file:D:\\proj\\subagent\\runs-notes.md'], 'the excluded directory is out; a sibling whose name only starts the same is not');
+  assert.deepEqual(keys, [`file:${at_('docs', 'plan.md')}`, `file:${at_('subagent', 'runs-notes.md')}`], 'the excluded directory is out; a sibling whose name only starts the same is not');
 });

@@ -55,7 +55,7 @@ The workbench is at `http://127.0.0.1:4870/`. `npm start -- --port 4871` serves 
 
 ## Add your first project
 
-1. Press **Add project**. Give it a name and the folder of your project. If the project has more than one location — worktrees outside the main folder, say — put one on each line.
+1. Press **Add project**. Give it a name and the folder of your project. If the project has more than one location — worktrees outside the main folder, say — put one on each line. `Browse…` beside the field opens a list of folders to pick each one from instead of typing its path.
 2. The project opens on its **Takeover** page. Adding a project starts nothing.
 
 From a terminal the same is `npx pk add <name> <folder>`.

@@ -16,6 +16,10 @@ const KEYS = {
   Tab: { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 },
   Space: { key: ' ', code: 'Space', windowsVirtualKeyCode: 32, text: ' ' },
   ArrowDown: { key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40 },
+  ArrowUp: { key: 'ArrowUp', code: 'ArrowUp', windowsVirtualKeyCode: 38 },
+  Backspace: { key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 },
+  Home: { key: 'Home', code: 'Home', windowsVirtualKeyCode: 36 },
+  End: { key: 'End', code: 'End', windowsVirtualKeyCode: 35 },
 };
 
 export async function launch({ width = 1280, height = 800, mobile = false } = {}) {

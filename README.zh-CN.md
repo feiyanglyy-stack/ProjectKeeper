@@ -96,7 +96,7 @@ npm start
 
 打开 `http://127.0.0.1:4870/`，然后点四下：
 
-1. **Add project**——起个名字，填上项目所在的文件夹。这时什么都还没开始跑。
+1. **Add project**——起个名字，填上项目所在的文件夹（直接输入路径，或点 `Browse…` 从列表里选）。这时什么都还没开始跑。
 2. **加一把 key**——在随后打开的 Keeper 页上，`Model provider` 里：选服务商，粘贴 key，`Save`。
 3. **选一个深度**——`Full`、`Focused` 或 `First picture only`。
 4. **Start。**

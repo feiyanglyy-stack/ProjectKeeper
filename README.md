@@ -96,7 +96,7 @@ npm start
 
 Open `http://127.0.0.1:4870/`. Then four clicks:
 
-1. **Add project** — a name and the folder of your project. Nothing runs yet.
+1. **Add project** — a name and the folder of your project, typed or picked with `Browse…`. Nothing runs yet.
 2. **Add a key** — on the Keeper page that opens, under `Model provider`: choose the provider, paste the key, `Save`.
 3. **Choose a depth** — `Full`, `Focused` or `First picture only`.
 4. **Start.**

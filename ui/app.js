@@ -6,6 +6,7 @@ import { openGlossary } from './glossary.js';
 import { createPopover } from './popover.js';
 import { createFlyout } from './flyout.js';
 import { standBeside } from './popover-place.js';
+import { createFolderChooser, locationLines, withLocation } from './folder-chooser.js';
 import { initTheme, themePicker } from './theme.js';
 import { updateCounts } from './k-process.js';
 import { failuresOf, reasonText, shortRef, skippedOf, skippedText } from './failures.js';
@@ -962,10 +963,16 @@ function addProjectDialog() {
       toast('Project added — choose a depth and press Start');
     } catch (e) { err.textContent = e.message; }
   };
+  // `Browse…` walks to a folder instead of typing its path; what is chosen becomes a line of the field, which stays
+  // a field: typed and pasted paths are taken as before (folder-chooser.js).
+  const chooser = createFolderChooser({
+    h, api, added: () => locationLines(loc.value), start: () => locationLines(loc.value).pop() ?? '',
+    onAdd: (path) => { loc.value = withLocation(loc.value, path); err.textContent = ''; },
+  });
   openDialog('Add project', [
     h('p', { class: 'muted' }, 'Give the project a name and at least one location. Adding it starts nothing: on its Takeover page you choose the key, the model and a depth, and press Start. The Keeper then works out what belongs to it (repositories, worktrees, copies, session logs) and asks only when an ambiguity would change the result.'),
     h('div', { class: 'field' }, h('label', {}, 'Name'), name),
-    h('div', { class: 'field' }, h('label', {}, 'Locations'), loc),
+    h('div', { class: 'field' }, h('div', { class: 'row spread' }, h('label', {}, 'Locations'), chooser.button), loc, chooser.panel),
     err,
     h('div', { class: 'dialog-foot' }, h('button', { class: 'btn primary', onClick: submit }, 'Add project')),
   ]);

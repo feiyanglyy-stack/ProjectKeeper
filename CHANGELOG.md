@@ -15,6 +15,7 @@ What it includes:
 - **Change log**, **Agent context**, **Project scope**, and a bilingual **Vocabulary**.
 - **Keeper** pages: the takeover with three depths, the daily schedule, model provider and keys, a model for each step, backup keys, the project-folder authorization, usage by round and model, and every round as a tree of its steps.
 - A conversation with the Keeper (`Ask Keeper`).
+- A folder chooser where a location is typed (`Add project`, a scope item's path): `Browse…` lists folders to walk and pick from, with repositories and worktrees marked; a typed or pasted path works as before.
 - Answers only at its own local address and, in a browser, only to its own pages: another site's page open in the same browser can neither read the workbench nor post to it.
 - Four themes.
 

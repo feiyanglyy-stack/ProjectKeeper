@@ -480,3 +480,13 @@ body.maximised .keeper-panel.docked{top:var(--pk-gap)}
 .cov-failed:hover{border-color:var(--pk-red,#dca6a0)}
 .failed-list .failed-item{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--pk-line-soft,#2b2b26);border-radius:var(--pk-radius-sm,5px);background:var(--pk-well-bg,var(--pk-surface,#1c1c1a))}
 .failed-list .failed-item .mono{overflow-wrap:anywhere}
+/* ── The folder chooser: a panel under the field a location is typed in (folder-chooser.js). The field stays a field;
+   the panel is a list of folders to walk, in the dialog's own controls. ── */
+.fc{display:flex;flex-direction:column;gap:8px;padding:10px;border:1px solid var(--pk-well-border,var(--pk-line,#35352f));border-radius:var(--pk-radius,6px)}.fc[hidden]{display:none}
+.fc-bar{display:flex;gap:6px;align-items:center}.fc-bar .fc-path{flex:1;min-width:0;padding:5px 8px}.fc-sub{justify-content:space-between;align-items:flex-start;gap:10px}
+.fc-starts{display:flex;flex-wrap:wrap;gap:4px;min-width:0}.fc-hidden{display:inline-flex;align-items:center;gap:5px;min-height:26px;font-size:11px;color:var(--pk-text-muted,#a5a59b);white-space:nowrap;cursor:pointer}
+.fc-list{display:flex;flex-direction:column;height:232px;overflow:auto;background:var(--pk-well-bg,var(--pk-surface,#1c1c1a));border:1px solid var(--pk-well-border,var(--pk-line-soft,#2b2b26));border-radius:var(--pk-radius-sm,5px);box-shadow:var(--pk-well-shadow,none)}
+.fc-row{display:flex;flex:none;gap:8px;align-items:center;width:100%;padding:5px 9px;text-align:left;border-bottom:1px solid var(--pk-line-soft,#2b2b26)}.fc-row:hover,.fc-row:focus-visible{background:var(--pk-raised,#242420)}.fc-row:focus-visible{outline-offset:-2px}
+.fc-icon{display:inline-flex;flex:none;color:var(--pk-text-muted,#a5a59b)}.fc-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fc-row.dim .fc-name,.fc-row.dim .fc-icon{color:var(--pk-text-faint,#85857b)}
+.fc-empty{padding:14px 12px}.fc-more:empty{display:none}
+.fc-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.fc-here{flex:1;min-width:0;display:flex;gap:6px;align-items:center;font-size:12px}.fc-here-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

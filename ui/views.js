@@ -18,6 +18,7 @@ import { renderScopeK } from './k/scope-k.js';
 import { openDraft } from './k/draft-view.js';
 import { openInside } from './k-fold.js';
 import { createListFold, PLATE_KEY, CROSS_KEY, blockKey, generationKey } from './list-fold.js';
+import { createFolderChooser } from './folder-chooser.js';
 
 const P = () => encodeURIComponent(state.projectId);
 /** Replace a rendered block only when it actually differs: an unconditional swap on every asset event made the
@@ -237,7 +238,14 @@ const scope = {
       const relation = h('select', { class: 'input' }, ...(d.scopeVocab?.relations ?? ['Main project', 'Worktree of main repo', 'Copy of another project', 'Nested repository', 'Experiment', 'Third-party material', 'Generated', 'Excluded', 'Session source']).map((v) => h('option', { value: v }, v)));
       const reason = h('input', { class: 'input', placeholder: 'Why it belongs (or does not)' });
       const err = h('small');
-      openDialog('Add scope item', [h('div', { class: 'field' }, h('label', {}, 'Path'), path), h('div', { class: 'row' }, h('div', { class: 'field grow' }, h('label', {}, 'Category'), category), h('div', { class: 'field grow' }, h('label', {}, 'Relation'), relation)), h('div', { class: 'field' }, h('label', {}, 'Reason'), reason), err,
+      // `Browse…` walks to the folder instead of typing its path (folder-chooser.js); the field stays a field.
+      const chooser = createFolderChooser({
+        // A folder already in scope is marked and can still be chosen: an item added for it again replaces the one there.
+        h, api, single: true, chooseAdded: true, addLabel: 'Use this folder', addedWord: 'in scope',
+        added: () => d.scope.map((i) => i.path), start: () => path.value.trim() || state.project?.locations?.[0] || '',
+        onAdd: (chosen) => { path.value = chosen; err.textContent = ''; },
+      });
+      openDialog('Add scope item', [h('div', { class: 'field' }, h('div', { class: 'row spread' }, h('label', {}, 'Path'), chooser.button), path, chooser.panel), h('div', { class: 'row' }, h('div', { class: 'field grow' }, h('label', {}, 'Category'), category), h('div', { class: 'field grow' }, h('label', {}, 'Relation'), relation)), h('div', { class: 'field' }, h('label', {}, 'Reason'), reason), err,
         h('div', { class: 'dialog-foot' }, h('button', { class: 'btn primary', onClick: async () => { try { await api(`/api/projects/${P()}/scope/items`, { method: 'POST', body: { path: path.value, category: category.value, relation: relation.value, reason: reason.value } }); document.querySelector('#dialog').close(); await refreshProject(); } catch (e) { err.textContent = e.message; } } }, 'Add'))]);
     };
     append(main, 

@@ -105,7 +105,7 @@ const CODEX_EXEC = [
 
 function located(host: 'claude' | 'codex', file: string, sessionId: string, isSubagent = false): LocatedSession {
   const st = statSync(file);
-  return { host, file, cwd: CWD, sessionId, bytes: st.size, mtimeMs: st.mtimeMs, isSubagent, home: fakeHome };
+  return { host, file, cwd: CWD, matchedCwd: CWD, sessionId, bytes: st.size, mtimeMs: st.mtimeMs, isSubagent, home: fakeHome };
 }
 
 function setUp() {

@@ -6,7 +6,7 @@
 import type { PendingWait, Project } from '../model/types.ts';
 import type { ProjectStore } from '../store/project-store.ts';
 import { anchorLabel } from '../sources/anchor.ts';
-import { isWithin, normalizePath } from '../util/paths.ts';
+import { canonicalPath, isWithin } from '../util/paths.ts';
 
 function terms(question: string): string[] {
   const out = new Set<string>();
@@ -79,9 +79,13 @@ export function knownPart(store: ProjectStore, question: string): KnownPart {
   return { text: top.length ? `${lines.join('\n')}${sources.length ? `\n\nSources:\n${sources.join('\n')}` : ''}` : '', sourceIds, hits: top.length, pendingSourceIds };
 }
 
-/** The project a working directory belongs to (§7.2): its scope, including worktrees and subdirectories. */
+/**
+ * The project a working directory belongs to (§7.2): its scope, including worktrees and subdirectories. The directory
+ * is taken in the file system's own spelling, the one every location is kept in: an agent that works in the project
+ * through a junction or a `subst` drive asks from there.
+ */
 export function resolveProject(projects: readonly Project[], cwd: string): Project | null {
-  const path = normalizePath(cwd);
+  const path = canonicalPath(cwd);
   for (const p of projects) {
     for (const item of p.scope) {
       if (item.relation === 'Excluded' || item.category === 'Session source' || item.missing) continue;

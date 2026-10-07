@@ -220,6 +220,8 @@ const REASON_CWD = /sessions whose working directory is (.+?)(?: \(the original 
  * compared as paths, with the case and slashes the system allows. It used to look for the directory inside each item's
  * reason text, so of `D:\x` and `D:\x-y` a session of the first went to whichever item came first, and a directory the
  * log spelt otherwise matched nothing. A session no item names goes to its host's first item, as before.
+ * `cwd` is the directory of the scope the session was located for (`LocatedSession.matchedCwd`): the log itself may
+ * record that directory in another spelling — through a junction, a `subst` drive, a short name.
  */
 function sessionScopeItem(project: Project, host: string, cwd: string | null): string {
   const byHost = project.scope.filter((i) => i.sessionHost === host);
@@ -270,7 +272,7 @@ export async function fullIntake(store: ProjectStore, project: Project): Promise
   let segments = 0;
   for (const s of located) {
     try {
-      const read = sessionSources(project.id, s, sessionScopeItem(project, s.host, s.cwd));
+      const read = sessionSources(project.id, s, sessionScopeItem(project, s.host, s.matchedCwd));
       const r = upsert(store, read.sources, `Read ${s.host} session ${s.sessionId.slice(0, 8)}`);
       upserted += r.upserted;
       changed += r.changed.length;
@@ -317,7 +319,6 @@ export function incrementalIntake(store: ProjectStore, project: Project, changes
   let sessionsRead = 0;
   let segments = 0;
   let commits = 0;
-  const cwds = scopeCwds(project).map(pathKey);
   const vanishedPaths: string[] = [];
   const returned: string[] = [];
   /** Files this pass read, or found gone: what was recorded about one of them before no longer stands. */
@@ -346,9 +347,9 @@ export function incrementalIntake(store: ProjectStore, project: Project, changes
     } else if (c.kind === 'session') {
       const located = locateSessionsForHomes(scopeCwds(project), (host, cwd) => sessionStoreRootOf(project.scope, host, cwd)).find((s) => samePath(s.file, c.ref));
       if (!located) continue;   // a log for some other directory
-      if (located.cwd && !cwds.includes(pathKey(located.cwd))) continue;
+      if (located.cwd && !located.matchedCwd) continue;
       try {
-        const read = sessionSources(project.id, located, sessionScopeItem(project, located.host, located.cwd));
+        const read = sessionSources(project.id, located, sessionScopeItem(project, located.host, located.matchedCwd));
         const r = upsert(store, read.sources, `Re-read ${located.host} session ${located.sessionId.slice(0, 8)}`);
         upserted += r.upserted; changed += r.changed.length; segments += read.sources.length; sessionsRead += 1;
       } catch (error) { skipped.push({ path: c.ref, reason: `session unreadable: ${(error as Error).message}` }); }

@@ -53,6 +53,25 @@ export function samePath(a: string, b: string): boolean {
   return pathKey(a) === pathKey(b);
 }
 
+/** A path that says where it is in full, drive included on Windows; any other would be completed from wherever this process runs. */
+const FULL_PATH = WIN ? /^(?:[A-Za-z]:[\\/]|[\\/]{2})/ : /^\//;
+
+/**
+ * Comparison key of the directory a path names: `pathKey` of its `canonicalPath`, so two spellings of one directory
+ * give one key. For a path somebody else wrote down — the working directory in an agent's session log — which is in
+ * whatever spelling that program ran under. A directory that no longer exists has no real spelling to ask for: its
+ * missing part is compared as text, on top of the real spelling of the part that exists. So a session recorded through
+ * a junction or a `subst` drive that is gone since is not recognised.
+ */
+export function directoryKey(path: string): string {
+  return pathKey(FULL_PATH.test(path) ? canonicalPath(path) : path);
+}
+
+/** Two paths name one directory: the same text, or two spellings of it by the file system's own judgement. */
+export function sameDirectory(a: string, b: string): boolean {
+  return samePath(a, b) || directoryKey(a) === directoryKey(b);
+}
+
 /** `path` is `root` or lives under it. */
 export function isWithin(root: string, path: string): boolean {
   const r = pathKey(root);

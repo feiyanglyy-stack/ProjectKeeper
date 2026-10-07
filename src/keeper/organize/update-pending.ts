@@ -54,7 +54,7 @@ import { diffSections, keyedSections, sectionBase } from '../../ledger/docs.ts';
 import { familyOf, mentionMatcher, nameMatcher, type Rule } from '../../ledger/numbering.ts';
 import { within } from '../../codemap/facts.ts';
 import { isDocumentPath } from '../../scope/skip.ts';
-import { isWithin, normalizePath, pathKey, samePath } from '../../util/paths.ts';
+import { canonicalPath, isWithin, normalizePath, pathKey, samePath } from '../../util/paths.ts';
 import { clerkPending, takenInAt, type ClerkPending } from './clerk-coverage.ts';
 import { projectRelPath } from './materials.ts';
 
@@ -247,10 +247,14 @@ function sessionView(input: UpdatePendingInput, entry: PendingMaterial, fresh: r
   const { project, ledger } = input;
   const texts = fresh.map((s) => ({ text: s.excerpt, where: partLabel(project, s), sourceIds: [s.id] }));
   const names: { name: string; where: string }[] = [];
-  const cwd = fresh.map((s) => (s.anchor.kind === 'session' ? s.anchor.cwd : null)).find((c): c is string => Boolean(c)) ?? null;
-  if (cwd && !project.locations.some((l) => samePath(l, cwd))) {
+  const recorded = fresh.map((s) => (s.anchor.kind === 'session' ? s.anchor.cwd : null)).find((c): c is string => Boolean(c)) ?? null;
+  // The log records its directory in the spelling the agent ran under (through a junction, say): it is told from the
+  // project's locations as the file system spells both, or the project's own directory would pass for a worktree.
+  const cwd = recorded ? canonicalPath(recorded) : null;
+  const locations = project.locations.map(canonicalPath);
+  if (cwd && !locations.some((l) => samePath(l, cwd))) {
     // A session in a worktree named after the work (`.worktrees/AB-byok`), on a branch named after it (`wip/AB-byok`).
-    const home = project.locations.filter((l) => isWithin(l, cwd)).sort((a, b) => b.length - a.length)[0];
+    const home = locations.filter((l) => isWithin(l, cwd)).sort((a, b) => b.length - a.length)[0];
     const dir = home ? slash(relative(normalizePath(home), normalizePath(cwd))) : slash(normalizePath(cwd)).split('/').slice(-2).join('/');
     names.push({ name: dir, where: `its working directory ${dir}` });
     const branch = ledger?.worktreeBranch(cwd) ?? null;

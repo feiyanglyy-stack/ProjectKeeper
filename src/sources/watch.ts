@@ -10,9 +10,9 @@ import { existsSync, statSync, watch, type FSWatcher } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import type { PendingMaterial, Project, ScopeItem } from '../model/types.ts';
-import { claudeProjectDirName, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
+import { isWithin, normalizePath, pathKey } from '../util/paths.ts';
 import { gitHead } from '../util/git.ts';
-import { codexSessionRoots, readCodexSessionHeader } from './sessions/locate.ts';
+import { claudeSessionFolders, codexSessionRoots, cwdMatcher, readCodexSessionHeader } from './sessions/locate.ts';
 import { sessionItemForCwd, sessionStoreRootOf } from './sessions/scope.ts';
 import { isDocumentPath, isReadRoot, overridesIgnoreRules, readingOf, skippedSegment, treatmentOf } from '../scope/skip.ts';
 import { isIgnored } from '../scope/ignore.ts';
@@ -104,9 +104,21 @@ export class ScopeWatcher extends EventEmitter {
     for (const item of roots) cwds.add(item.path);
     for (const item of p.scope) if (item.copyOf) cwds.add(item.copyOf);
     const home = homedir();
-    for (const cwd of cwds) {
-      const dir = join(sessionStoreRootOf(p.scope, 'claude', cwd, home), '.claude', 'projects', claudeProjectDirName(cwd));
-      if (existsSync(dir)) {
+    /** The directories whose sessions one host keeps in the same native home, home by home. */
+    const byHome = (host: 'claude' | 'codex'): { home: string; cwds: string[] }[] => {
+      const groups = new Map<string, { home: string; cwds: string[] }>();
+      for (const cwd of cwds) {
+        const selected = sessionStoreRootOf(p.scope, host, cwd, home);
+        const key = pathKey(selected);
+        const group = groups.get(key) ?? { home: selected, cwds: [] };
+        group.cwds.push(cwd);
+        groups.set(key, group);
+      }
+      return [...groups.values()];
+    };
+    for (const group of byHome('claude')) {
+      // The folder named after the directory, and any named after another spelling of it (through a junction, say).
+      for (const { dir, cwd } of claudeSessionFolders(group.cwds, group.home)) {
         // The full normalised path is the identity. A substring lets D:\x steal events from D:\x-y, depending on order.
         const item = sessionItemForCwd(p.scope, 'claude', cwd);
         // Removing a discovered session source records an owner exclusion. Keep watching a cwd with no item so its
@@ -118,22 +130,17 @@ export class ScopeWatcher extends EventEmitter {
         });
       }
     }
-    const codexHomes = new Map<string, { home: string; cwds: string[] }>();
-    for (const cwd of cwds) {
-      const selected = sessionStoreRootOf(p.scope, 'codex', cwd, home);
-      const key = pathKey(selected);
-      const group = codexHomes.get(key) ?? { home: selected, cwds: [] };
-      group.cwds.push(cwd);
-      codexHomes.set(key, group);
-    }
-    for (const group of codexHomes.values()) {
+    for (const group of byHome('codex')) {
+      const matched = cwdMatcher(group.cwds);
       for (const rootDir of codexSessionRoots(group.home)) {
         this.watchDir(rootDir, (file) => {
           if (!file.endsWith('.jsonl')) return;
-          // A native home can contain every project. Only the header's complete cwd selects its session source.
+          // A native home can contain every project. Only the header's complete cwd selects its session source: one of
+          // these directories, in whatever spelling the log records it.
           const header = readCodexSessionHeader(file);
-          if (!header || !group.cwds.some((cwd) => samePath(cwd, header.cwd))) return;
-          const item = sessionItemForCwd(p.scope, 'codex', header.cwd);
+          const cwd = header ? matched(header.cwd) : null;
+          if (!cwd) return;
+          const item = sessionItemForCwd(p.scope, 'codex', cwd);
           if (item?.relation === 'Excluded') return;
           this.note({ kind: 'session', ref: file, label: `Codex session ${file.split(/[\\/]/).pop()}`, since: new Date().toISOString(), lastEventAt: Date.now(), scopeItemId: item?.id ?? '' });
         });

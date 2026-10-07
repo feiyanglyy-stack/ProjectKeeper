@@ -16,6 +16,10 @@
  *   GitHub runner has one);
  * - as the environment spells the temporary directory, where that is not the file system's spelling.
  *
+ * An agent that works in the project through one of those spellings has its sessions recorded under it (Claude Code
+ * names the folder of its logs after it; both hosts write it into the log), and asks `pk` from it. Those sessions are
+ * the project's all the same.
+ *
  * The project is invented ("Kestrel", a bird-count sheet).
  */
 import { after, test } from 'node:test';
@@ -25,7 +29,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { createServer } from 'node:net';
 import { tmpdir as systemTmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { canonicalPath } from '../util/paths.ts';
+import { canonicalPath, claudeProjectDirName, samePath } from '../util/paths.ts';
+import type { ScopeItem } from '../model/types.ts';
 
 const WIN = process.platform === 'win32';
 
@@ -49,6 +54,11 @@ const { Workspace } = await import('../store/workspace.ts');
 const { discoverScope } = await import('../scope/discover.ts');
 const { grantProjectFolderAuthorization, syncProjectFolder } = await import('../keeper/project-folder.ts');
 const { seedUiFixture } = await import('../../scripts/seed-ui-fixture.ts');
+const { incrementalIntake } = await import('../intake/intake.ts');
+const { resolveProject } = await import('../context/ask.ts');
+const { openLedgerForWrite } = await import('../ledger/schema.ts');
+const { scanSessions } = await import('../ledger/sessions.ts');
+const { sessionInputOf } = await import('../ledger/rebuild.ts');
 
 // ───────────────────────── the spellings ─────────────────────────
 
@@ -213,6 +223,113 @@ forEachSpelling('a project added by another spelling is kept under its real name
     assert.equal(synced.path, join(k.repo, 'projectkeeper'));
     assert.match(synced.commit ?? '', /^[0-9a-f]{40}$/, 'the folder is committed');
     assert.equal(git(k.repo, 'log', '-1', '--format=%an|%s').split('|')[0], 'ProjectKeeper');
+  } finally {
+    app.stopAll();
+    await app.flushAll();
+  }
+});
+
+// ───────────────────────── the sessions agents recorded under the other spelling ─────────────────────────
+
+const LOG_LINES = (records: readonly unknown[]): string => `${records.map((r) => JSON.stringify(r)).join('\n')}\n`;
+/** A Claude Code log as the host keeps it for an agent that ran in `cwd`, spelled as its shell spelled it: the folder is named after that spelling. */
+function claudeSession(cwd: string, sessionId: string, words: string): string {
+  const dir = join(machine, '.claude', 'projects', claudeProjectDirName(cwd));
+  mkdirSync(dir, { recursive: true });
+  const common = { sessionId, cwd, isSidechain: false, userType: 'external', entrypoint: 'cli', version: '2.1.0' };
+  writeFileSync(join(dir, `${sessionId}.jsonl`), LOG_LINES([
+    { ...common, uuid: `${sessionId}-0`, type: 'user', timestamp: '2026-09-10T01:00:00.000Z', origin: { kind: 'human' }, message: { role: 'user', content: words } },
+    { ...common, uuid: `${sessionId}-1`, type: 'assistant', timestamp: '2026-09-10T01:01:00.000Z', message: { role: 'assistant', model: 'claude-test', content: [{ type: 'text', text: 'Noted.' }] } },
+  ]));
+  return join(dir, `${sessionId}.jsonl`);
+}
+/** The same for Codex: one store for every directory, the directory in the log's first record. */
+function codexSession(cwd: string, sessionId: string, words: string): string {
+  const day = join(machine, '.codex', 'sessions', '2026', '09', '22');
+  mkdirSync(day, { recursive: true });
+  writeFileSync(join(day, `rollout-2026-09-22T10-00-00-${sessionId}.jsonl`), LOG_LINES([
+    { timestamp: '2026-09-22T10:00:00.000Z', type: 'session_meta', payload: { id: sessionId, cwd, originator: 'codex-test', source: 'cli', thread_source: 'user' } },
+    { timestamp: '2026-09-22T10:01:00.000Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: words }] } },
+    { timestamp: '2026-09-22T10:02:00.000Z', type: 'response_item', payload: { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'Noted.' }] } },
+  ]));
+  return join(day, `rollout-2026-09-22T10-00-00-${sessionId}.jsonl`);
+}
+
+forEachSpelling('the sessions agents recorded while they worked through another spelling are the project’s: listed, read, watched, each with the spelling its log records', async ({ real, given }) => {
+  const k = kestrel(real);
+  const n = made;
+  // Where the agents ran, as their shells spelled it: the repository, its worktree, and another project beside them.
+  const at = join(given, 'kestrel');
+  const atWorktree = join(given, 'kestrel-tally');
+  mkdirSync(join(real, 'heron'));
+  claudeSession(at, `claude-main-${n}`, 'Count swifts and swallows apart.');
+  codexSession(at, `codex-main-${n}`, 'Keep the dusk count on a sheet of its own.');
+  claudeSession(atWorktree, `claude-tally-${n}`, 'One row per species in the tally.');
+  claudeSession(join(given, 'heron'), `claude-heron-${n}`, 'Tide tables first.');
+  codexSession(join(given, 'heron'), `codex-heron-${n}`, 'Tide tables first.');
+  mkdirSync(join(real, 'home'));
+  const app = new App(join(real, 'home'), { organizing: false });
+  try {
+    app.workspace.setSettings({ watchProjects: false });
+    const added = app.addProject('Kestrel', [at]);
+    await app.intakeProject(added.id);
+    const project = app.project(added.id);
+    const store = app.store(added.id);
+
+    // Project scope: a session source for each host and directory, under the directory's real name; where the logs
+    // spell the directory otherwise (more than in case), the item says so.
+    const items = project.scope.filter((i) => i.category === 'Session source');
+    assert.deepEqual(items.map((i) => `${i.sessionHost} ${i.sessionCwd}`).sort(), [`claude ${k.repo}`, `claude ${k.worktree}`, `codex ${k.repo}`], items.map((i) => i.reason).join('\n'));
+    const itemFor = (host: string, dir: string): ScopeItem => items.find((i) => i.sessionHost === host && i.sessionCwd === dir)!;
+    for (const [item, recorded] of [[itemFor('claude', k.repo), at], [itemFor('codex', k.repo), at], [itemFor('claude', k.worktree), atWorktree]] as const) {
+      assert.match(item.reason, /: 1 found/);
+      assert.equal(item.reason.includes(`, 1 recorded under another spelling of it (${recorded})`), !samePath(recorded, item.sessionCwd!), item.reason);
+    }
+
+    // Read: each session is filed under its own directory's item, and keeps the directory as its log records it.
+    const sessions = store.sources.filter((s) => s.anchor.kind === 'session');
+    const of = (id: string) => sessions.filter((s) => s.anchor.kind === 'session' && s.anchor.sessionId === id);
+    for (const [id, host, recorded, dir] of [[`claude-main-${n}`, 'claude', at, k.repo], [`codex-main-${n}`, 'codex', at, k.repo], [`claude-tally-${n}`, 'claude', atWorktree, k.worktree]] as const) {
+      assert.ok(of(id).length > 0, `${id} is read`);
+      assert.deepEqual([...new Set(of(id).map((s) => s.scopeItemId))], [itemFor(host, dir).id], `${id} is filed under its directory's item`);
+      assert.deepEqual([...new Set(of(id).map((s) => (s.anchor.kind === 'session' ? s.anchor.cwd : null)))], [recorded], `${id} keeps the spelling its log records`);
+    }
+    assert.deepEqual(sessions.filter((s) => s.anchor.kind === 'session' && s.anchor.sessionId.includes('heron')), [], 'the sessions of the project beside it are not this project’s');
+
+    // The ledger reads the same sessions, each with the directory as recorded.
+    const db = openLedgerForWrite(join(store.dir, 'ledger-of-sessions.sqlite'));
+    try {
+      scanSessions(db, sessionInputOf(project), '2026-09-23T00:00:00.000Z');
+      const rows = db.prepare('SELECT session_id, cwd FROM sessions ORDER BY session_id').all() as { session_id: string; cwd: string }[];
+      assert.deepEqual(rows.map((r) => [r.session_id, r.cwd]), [[`claude-main-${n}`, at], [`claude-tally-${n}`, atWorktree], [`codex-main-${n}`, at]]);
+    } finally { db.close(); }
+
+    // Watched: a log written later under that spelling is reported, for its directory's item.
+    const watcher = app.startWatching(added.id);
+    await new Promise((r) => setTimeout(r, 300));
+    const laterClaude = claudeSession(at, `claude-later-${n}`, 'And the owls?');
+    const laterCodex = codexSession(at, `codex-later-${n}`, 'And the owls?');
+    const pending = (file: string) => watcher.list().find((c) => samePath(c.ref, file));
+    for (let i = 0; i < 50 && !(pending(laterClaude) && pending(laterCodex)); i += 1) await new Promise((r) => setTimeout(r, 100));
+    assert.equal(pending(laterClaude)?.scopeItemId, itemFor('claude', k.repo).id, 'a new Claude Code log in the folder named after that spelling');
+    assert.equal(pending(laterCodex)?.scopeItemId, itemFor('codex', k.repo).id, 'a new Codex log whose header records that spelling');
+    watcher.stop();
+    incrementalIntake(store, project, [pending(laterClaude)!, pending(laterCodex)!]);
+    for (const [id, host] of [[`claude-later-${n}`, 'claude'], [`codex-later-${n}`, 'codex']] as const) {
+      const read = store.sources.filter((s) => s.anchor.kind === 'session' && s.anchor.sessionId === id);
+      assert.deepEqual([...new Set(read.map((s) => s.scopeItemId))], [itemFor(host, k.repo).id], `${id} is read when it is reported, under its directory's item`);
+    }
+
+    // An agent working there asks from there: `pk` gives its working directory as its shell spells it.
+    assert.equal(resolveProject(app.workspace.list(), at)?.id, added.id);
+    assert.equal(resolveProject(app.workspace.list(), join(atWorktree, 'docs'))?.id, added.id);
+    assert.equal(resolveProject(app.workspace.list(), join(given, 'heron')), null, 'the project beside it is not this one');
+
+    // What the owner decided about a session source while it went by that spelling still holds for the directory.
+    const decided: ScopeItem = { ...itemFor('claude', k.repo), id: 'scope_recorded_before', sessionCwd: at, relation: 'Excluded', addedBy: 'owner', reason: `Excluded by the owner (was: Claude Code sessions whose working directory is ${at}: 1 found)` };
+    const again = discoverScope({ id: added.id, name: 'Kestrel', locations: [at] }, { home: machine, projectKeeperHome: app.home, ownerItems: [decided] });
+    const claudeMain = again.items.filter((i) => i.sessionHost === 'claude' && i.sessionCwd && samePath(canonicalPath(i.sessionCwd), k.repo));
+    assert.deepEqual(claudeMain.map((i) => [i.sessionCwd, i.relation]), [[k.repo, 'Excluded']], 'one item for the directory, as the owner left it');
   } finally {
     app.stopAll();
     await app.flushAll();

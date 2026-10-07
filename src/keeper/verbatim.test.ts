@@ -219,7 +219,7 @@ test('an owner’s long message is whole in its session source, so its words can
   writeFileSync(file, [record(0, 'user', '先看一下预约页面。'), record(1, 'assistant', '好的。'), record(2, 'user', long), record(3, 'assistant', '明白。')].join('\n'));
   const st = statSync(file);
   const h = harness();
-  const { sources } = sessionSources('p1', { host: 'claude', file, cwd: 'D:\\kiln', sessionId: 'a1b2c3d4-0000-4000-8000-00000000000a', bytes: st.size, mtimeMs: st.mtimeMs, isSubagent: false, home: dir }, 'scope_sessions');
+  const { sources } = sessionSources('p1', { host: 'claude', file, cwd: 'D:\\kiln', matchedCwd: 'D:\\kiln', sessionId: 'a1b2c3d4-0000-4000-8000-00000000000a', bytes: st.size, mtimeMs: st.mtimeMs, isSubagent: false, home: dir }, 'scope_sessions');
   h.store.sources.putMany(sources);
   assert.ok(long.length > 20_000, 'longer than a segment and far longer than an agent’s trimmed text');
 

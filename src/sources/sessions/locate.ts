@@ -8,17 +8,27 @@
  *
  * Reading is by peeking at the head of each file; results are cached per file identity so a
  * rescan only touches new or changed files. Nothing here writes anywhere.
+ *
+ * Both hosts record the working directory in the spelling the agent ran under — through a junction or a link, a
+ * `subst` drive, an 8.3 short name, another case — while the directories asked for are in the file system's own
+ * (util/paths.ts `canonicalPath`). A log belongs to a directory asked for when the two are one directory by the file
+ * system's judgement (`directoryKey`), not only when they are one text. For Claude Code that means looking past the
+ * folder named after the directory: the head of one log in each other folder is read once for the directory it
+ * records, and nothing else of it is kept.
  */
 import { closeSync, existsSync, openSync, readSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, join, resolve } from 'node:path';
+import { basename, delimiter, join, resolve } from 'node:path';
 import type { SessionHost } from '../../model/vocab.ts';
-import { claudeProjectDirName, normalizePath, pathKey } from '../../util/paths.ts';
+import { claudeProjectDirName, directoryKey, normalizePath, pathKey } from '../../util/paths.ts';
 
 export interface LocatedSession {
   readonly host: SessionHost;
   readonly file: string;
+  /** The working directory as the log records it, in the spelling the agent ran under; the directory asked for when a Claude Code log names none. */
   readonly cwd: string | null;
+  /** The one of the directories asked for that `cwd` is — the same text, or another spelling of that directory; null when it is none of them. */
+  readonly matchedCwd: string | null;
   readonly sessionId: string;
   readonly bytes: number;
   readonly mtimeMs: number;
@@ -105,6 +115,39 @@ export function readCodexSessionHeader(file: string): CodexSessionHeader | null 
   return header;
 }
 
+/**
+ * For a set of directories asked for: which of them a directory a log records is, or null. The text is compared first
+ * (case and slashes as the system allows); a directory spelled otherwise is asked of the file system, once. Most of
+ * the directories an agent's history records are gone (worktrees, mostly), and one that is gone is rarely worth
+ * asking about: it cannot be another spelling of a directory that is there, and of one that is gone too only under the
+ * same last name, which is compared as text either way.
+ */
+export function cwdMatcher(cwds: readonly string[]): (recorded: string | null) => string | null {
+  const byText = new Map<string, string>();
+  for (const cwd of cwds) if (!byText.has(pathKey(cwd))) byText.set(pathKey(cwd), normalizePath(cwd));
+  let byDirectory: Map<string, string> | null = null;
+  const goneNames = new Set<string>();
+  const asked = new Map<string, string | null>();
+  return (recorded) => {
+    if (!recorded) return null;
+    const key = pathKey(recorded);
+    const text = byText.get(key);
+    if (text !== undefined) return text;
+    if (asked.has(key)) return asked.get(key)!;
+    if (!byDirectory) {
+      byDirectory = new Map();
+      for (const [cwdKey, cwd] of byText) {
+        if (!byDirectory.has(directoryKey(cwd))) byDirectory.set(directoryKey(cwd), cwd);
+        if (!existsSync(cwd)) goneNames.add(basename(cwdKey));
+      }
+    }
+    const worthAsking = existsSync(recorded) || goneNames.has(basename(key));
+    const hit = worthAsking ? byDirectory.get(directoryKey(recorded)) ?? null : null;
+    asked.set(key, hit);
+    return hit;
+  };
+}
+
 export function claudeProjectsRoot(home = homedir()): string {
   return join(home, '.claude', 'projects');
 }
@@ -122,28 +165,65 @@ export function codexSessionRoots(home = homedir()): string[] {
   return codexHomes(home).map((d) => join(d, 'sessions')).filter((p) => existsSync(p));
 }
 
-/** Claude Code sessions for the given working directories (exact directory match). */
+/** How many logs of a Claude Code folder are asked which directory the folder is for, before it is passed over. */
+const FOLDER_PEEKS = 8;
+/** The directory each Claude Code folder is for, once one of its logs has said: a folder is named after it, so it stays. */
+const folderCwdCache = new Map<string, string>();
+
+/**
+ * The directory a Claude Code folder holds the sessions of, in the spelling its logs record. The folder's name is that
+ * directory's, encoded, so a log that records a directory with another name does not speak for the folder.
+ */
+function folderCwd(folder: string, name: string): string | null {
+  const known = folderCwdCache.get(folder);
+  if (known !== undefined) return known;
+  let entries: string[] = [];
+  try { entries = readdirSync(folder); } catch { return null; }
+  for (const entry of entries.filter((e) => e.endsWith('.jsonl')).slice(0, FOLDER_PEEKS)) {
+    let cwd: string | null = null;
+    try { cwd = peek(join(folder, entry)).cwd; } catch { continue; }
+    if (cwd && claudeProjectDirName(cwd).toLowerCase() === name.toLowerCase()) { folderCwdCache.set(folder, cwd); return cwd; }
+  }
+  return null;
+}
+
+/**
+ * The folders under a home's `.claude/projects` that hold the sessions of the given working directories, each with
+ * the directory it is for: the folder named after the directory, and any folder named after another spelling of it.
+ */
+export function claudeSessionFolders(cwds: readonly string[], home = homedir()): { readonly dir: string; readonly cwd: string }[] {
+  const root = claudeProjectsRoot(home);
+  let names: string[] = [];
+  try { names = readdirSync(root); } catch { return []; }
+  const named = new Map<string, string>();
+  for (const cwd of cwds) named.set(claudeProjectDirName(cwd).toLowerCase(), normalizePath(cwd));
+  const matched = cwdMatcher(cwds);
+  const out: { dir: string; cwd: string }[] = [];
+  for (const name of names) {
+    const dir = join(root, name);
+    const cwd = named.get(name.toLowerCase()) ?? matched(folderCwd(dir, name));
+    if (cwd) out.push({ dir, cwd });
+  }
+  return out;
+}
+
+/** Claude Code sessions for the given working directories (the directory itself, under any spelling; not what lies in it). */
 export function locateClaudeSessions(cwds: readonly string[], home = homedir()): LocatedSession[] {
   const root = claudeProjectsRoot(home);
-  if (!existsSync(root)) return [];
-  const wanted = new Map<string, string>();
-  for (const cwd of cwds) wanted.set(claudeProjectDirName(cwd).toLowerCase(), normalizePath(cwd));
+  const matched = cwdMatcher(cwds);
   const out: LocatedSession[] = [];
-  for (const dir of readdirSync(root)) {
-    const cwd = wanted.get(dir.toLowerCase());
-    if (!cwd) continue;
-    const full = join(root, dir);
+  for (const { dir, cwd } of claudeSessionFolders(cwds, home)) {
     let entries: string[] = [];
-    try { entries = readdirSync(full); } catch { continue; }
+    try { entries = readdirSync(dir); } catch { continue; }
     for (const name of entries) {
       if (!name.endsWith('.jsonl')) continue;
-      const file = join(full, name);
+      const file = join(dir, name);
       let st;
       try { st = statSync(file); } catch { continue; }
       if (!st.isFile()) continue;
       const info = peek(file);
       out.push({
-        host: 'claude', file, cwd: info.cwd ?? cwd, sessionId: name.slice(0, -'.jsonl'.length),
+        host: 'claude', file, cwd: info.cwd ?? cwd, matchedCwd: info.cwd ? matched(info.cwd) : cwd, sessionId: name.slice(0, -'.jsonl'.length),
         bytes: st.size, mtimeMs: st.mtimeMs, isSubagent: info.sub, home: root,
       });
     }
@@ -164,21 +244,22 @@ function walkJsonl(dir: string, depth: number, into: string[]): void {
   }
 }
 
-/** Codex sessions (every home) whose recorded cwd is one of the given directories. */
+/** Codex sessions (every home) whose recorded cwd is one of the given directories, under any spelling. */
 export function locateCodexSessions(cwds: readonly string[], home = homedir()): LocatedSession[] {
-  const wanted = new Set(cwds.map((c) => pathKey(c)));
+  const matched = cwdMatcher(cwds);
   const out: LocatedSession[] = [];
   for (const root of codexSessionRoots(home)) {
     const files: string[] = [];
     walkJsonl(root, 0, files);
     for (const file of files) {
       const info = readCodexSessionHeader(file);
-      if (!info || !wanted.has(pathKey(info.cwd))) continue;
+      const matchedCwd = info ? matched(info.cwd) : null;
+      if (!info || !matchedCwd) continue;
       let st;
       try { st = statSync(file); } catch { continue; }
       const stem = file.split(/[\\/]/).pop()!.replace(/\.jsonl$/, '');
       out.push({
-        host: 'codex', file, cwd: normalizePath(info.cwd),
+        host: 'codex', file, cwd: normalizePath(info.cwd), matchedCwd,
         sessionId: info.sessionId ?? stem.replace(/^rollout-\d{4}-\d{2}-\d{2}T[\d-]+-/, ''),
         bytes: st.size, mtimeMs: st.mtimeMs, isSubagent: info.sub, home: root,
       });

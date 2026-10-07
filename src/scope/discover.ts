@@ -605,7 +605,8 @@ export function discoverBase(
   const located = locateSessionsForHomes(cwds, (_host, cwd) => sessionHomes.get(pathKey(cwd)) ?? home);
   const byCwd = new Map<string, { claude: LocatedSession[]; codex: LocatedSession[] }>();
   for (const cwd of cwds) byCwd.set(pathKey(cwd), { claude: [], codex: [] });
-  for (const s of located) if (s.host !== 'pi') byCwd.get(pathKey(s.cwd ?? ''))?.[s.host].push(s);
+  // A session is filed under the directory it was recorded in, whatever spelling its log gives that directory.
+  for (const s of located) if (s.host !== 'pi') byCwd.get(pathKey(s.matchedCwd ?? ''))?.[s.host].push(s);
   for (const cwd of cwds) {
     const found = byCwd.get(pathKey(cwd))!;
     const isOriginalOfCopy = items.some((i) => i.copyOf && samePath(i.copyOf, cwd));
@@ -617,9 +618,12 @@ export function discoverBase(
     ];
     for (const [host, sessions, where] of pairs) {
       if (sessions.length === 0 && !isOriginalOfCopy) continue;
+      // The spelling a log records its directory in is a fact about the session: said here where it is not this one.
+      const otherwise = sessions.filter((s) => s.cwd && !samePath(s.cwd, cwd));
+      const spelled = otherwise.length ? `, ${otherwise.length} recorded under another spelling of it (${[...new Set(otherwise.map((s) => normalizePath(s.cwd!)))].join(', ')})` : '';
       push({
         id: sessionItemId(host, cwd), path: where, category: 'Session source', relation: 'Session source',
-        reason: `${host === 'claude' ? 'Claude Code' : 'Codex'} sessions whose working directory is ${cwd}${isOriginalOfCopy ? ' (the original of a copy; read-only)' : ''}: ${sessions.length} found${sessions.some((s) => s.isSubagent) ? `, ${sessions.filter((s) => s.isSubagent).length} sub-agent` : ''}; read from ${sessionStoreRoot ? `frozen session storage ${sessionStoreRoot}` : `host session storage ${home}`}`,
+        reason: `${host === 'claude' ? 'Claude Code' : 'Codex'} sessions whose working directory is ${cwd}${isOriginalOfCopy ? ' (the original of a copy; read-only)' : ''}: ${sessions.length} found${sessions.some((s) => s.isSubagent) ? `, ${sessions.filter((s) => s.isSubagent).length} sub-agent` : ''}${spelled}; read from ${sessionStoreRoot ? `frozen session storage ${sessionStoreRoot}` : `host session storage ${home}`}`,
         reasonSourceIds: [], sessionHost: host, readOnly: true, copyOf: null, worktreeOf: null,
         versionControl: 'unknown', missing: sessions.length === 0 ? { reason: 'No sessions found for this directory' } : null,
         addedBy: 'keeper', reasonRef: null, sessions, sessionCwd: cwd,

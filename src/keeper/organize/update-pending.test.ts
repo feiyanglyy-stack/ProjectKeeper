@@ -20,7 +20,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Breakpoint, ClerkRound, CodeTerritory, ProcessLink } from '../../model/k-types.ts';
@@ -174,6 +174,14 @@ store.sources.put(makeSessionSource({
   projectId: pid, host: 'claude', sessionId: 'b6b6c7c7-1111-4222-8333-444455556666', file: join(scratch, 'session-w6.jsonl'), cwd: join(dir, '.worktrees', 'W-6-sketch'),
   messageStart: 0, messageEnd: 1, at: now, excerpt: '[0] OWNER 2026-09-27 10:00\nLet us move W-5 to next week.\n\n[1] AGENT 2026-09-27 10:01\nNoted.', title: 'Claude Code session b6b6c7c7', scopeItemId: repoItem.id, readAt: now,
 }));
+// A session in the project's own directory, as an agent's shell spelled it: through a junction that happens to be named
+// after W-2. The log records that spelling; the directory is the project's, not a worktree named after a work.
+const desk = join(scratch, 'W-2-desk');
+symlinkSync(dir, desk, 'junction');
+store.sources.put(makeSessionSource({
+  projectId: pid, host: 'claude', sessionId: 'c7c7d8d8-1111-4222-8333-444455556666', file: join(scratch, 'session-desk.jsonl'), cwd: desk,
+  messageStart: 0, messageEnd: 1, at: now, excerpt: '[0] OWNER 2026-09-27 11:00\nThe hide needs a new roof.\n\n[1] AGENT 2026-09-27 11:01\nNoted.', title: 'Claude Code session c7c7d8d8', scopeItemId: repoItem.id, readAt: now,
+}));
 app.refreshCoverage(pid);
 
 const waitsOf = (id: string): readonly PendingWait[] => store.threads.get(id)?.waitsFor ?? store.reference.get(id)?.waitsFor ?? [];
@@ -209,6 +217,10 @@ test('Number: a changed file’s path names W-4; and the clue of a mark on W-4 i
 test('Number: a session names W-5 in its messages, and W-6 in the worktree it runs in', () => {
   assert.ok(details('thread_w5', 'claude session b6b6c7c7').includes('Number: names W-5 in claude session b6b6c7c7 · messages 0–1'), JSON.stringify(waitsOf('thread_w5')));
   assert.ok(details('thread_w6', 'claude session b6b6c7c7').includes('Number: names W-6 in its working directory .worktrees/W-6-sketch'), JSON.stringify(waitsOf('thread_w6')));
+});
+
+test('a session recorded in the project’s own directory through a junction names no work by the junction’s name', () => {
+  assert.equal(waitFor('thread_w2', 'claude session c7c7d8d8'), undefined, JSON.stringify(waitsOf('thread_w2')));
 });
 
 test('Cited source: a statement cites the changed section, a relation ties the work to changed code, a work was written from a section the change removed', () => {

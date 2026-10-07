@@ -2,7 +2,7 @@
 import type { ScopeItem } from '../../model/types.ts';
 import type { SessionHost } from '../../model/vocab.ts';
 import { homedir } from 'node:os';
-import { samePath } from '../../util/paths.ts';
+import { sameDirectory, samePath } from '../../util/paths.ts';
 
 /**
  * Session items recorded before `sessionCwd` named the directory in their reason. An owner edit wraps the old reason
@@ -29,10 +29,14 @@ export function sessionStoreRootOf(scope: readonly ScopeItem[], host: 'claude' |
   return sessionItemForCwd(scope, host, cwd)?.sessionStoreRoot ?? defaultHome;
 }
 
-/** Same session-source identity across the pre-D5 and current persisted shapes. */
+/**
+ * Same session-source identity across the pre-D5 and current persisted shapes. An item recorded before locations were
+ * kept in the file system's spelling names its directory the way the project was given then — through a junction,
+ * say — and is still that directory's item: what the owner decided about it holds for the item discovery finds now.
+ */
 export function sameSessionItem(a: ScopeItem, b: ScopeItem): boolean {
   if (a.category !== 'Session source' || b.category !== 'Session source' || a.sessionHost !== b.sessionHost) return false;
   const aCwd = sessionCwdOf(a);
   const bCwd = sessionCwdOf(b);
-  return aCwd !== null && bCwd !== null && samePath(aCwd, bCwd);
+  return aCwd !== null && bCwd !== null && sameDirectory(aCwd, bCwd);
 }

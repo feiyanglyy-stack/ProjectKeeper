@@ -5,7 +5,7 @@ What ProjectKeeper reads, what it keeps, what leaves your machine, and what it c
 ## What it reads
 
 - **The folders you add** as a project's locations: files and, for a git repository, the whole history, including deleted documents and side branches.
-- **Your agent sessions for those folders**: the Claude Code and Codex session logs on this machine whose working directory is one of the project's folders. Sessions for other folders are not read.
+- **Your agent sessions for those folders**: the Claude Code and Codex session logs on this machine whose working directory is one of the project's folders, in whatever spelling the log records it (through a junction or a `subst` drive, say). To tell which folder a log belongs to, the start of the log is looked at for the directory it records; sessions for other folders are not read beyond that, and nothing of them is kept.
 - **What it leaves alone inside those folders:** what your ignore rules exclude is listed, not organized (if such a folder holds documents, it asks you). Third-party and generated material is listed and set aside. Where it recognises a credential in a text, the value is redacted before the text is stored, and the source is flagged as containing one. Recognition is by pattern and can miss; keep secrets out of the folders you add.
 
 `Project scope` in the workbench shows every item it treats as the project, with the reason.

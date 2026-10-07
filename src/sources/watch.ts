@@ -8,9 +8,9 @@
 import { EventEmitter } from 'node:events';
 import { existsSync, statSync, watch, type FSWatcher } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { PendingMaterial, Project, ScopeItem } from '../model/types.ts';
-import { isWithin, normalizePath, pathKey } from '../util/paths.ts';
+import { isWithin, nameForm, normalizePath, pathKey, relativeDisplay } from '../util/paths.ts';
 import { gitHead } from '../util/git.ts';
 import { claudeSessionFolders, codexSessionRoots, cwdMatcher, readCodexSessionHeader } from './sessions/locate.ts';
 import { sessionItemForCwd, sessionStoreRootOf } from './sessions/scope.ts';
@@ -65,7 +65,7 @@ export class ScopeWatcher extends EventEmitter {
     const scope = this.project.scope;
     const { item, treatment } = readingOf(scope, file);
     if (!item || treatment === 'none' || !isReadRoot(scope, item)) return null;
-    const rel = relative(item.path, file).split('\\').join('/');
+    const rel = relativeDisplay(item.path, file);
     if (skippedSegment(rel) !== null) return null;
     if (treatment === 'documents' && !isDocumentPath(file)) return null;
     let inIgnoredPlace = this.placeCache.get(item.id);
@@ -165,7 +165,7 @@ export class ScopeWatcher extends EventEmitter {
     try {
       const w = watch(dir, { recursive: true, persistent: false }, (_event, filename) => {
         if (!filename) return;
-        const file = normalizePath(join(dir, String(filename)));
+        const file = normalizePath(join(dir, nameForm(String(filename))));
         onFile(file);
       });
       w.on('error', () => { /* a vanished directory just stops being watched */ });

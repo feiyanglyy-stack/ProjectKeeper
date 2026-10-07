@@ -9,8 +9,8 @@
  * Reading goes through a read-only connection; a rebuild on its worker thread never blocks it (WAL).
  */
 import type { DatabaseSync } from 'node:sqlite';
-import { join, relative, sep } from 'node:path';
-import { normalizePath, pathKey } from '../util/paths.ts';
+import { join, sep } from 'node:path';
+import { nameForm, normalizePath, pathKey, relativeDisplay } from '../util/paths.ts';
 import { openLedgerReadOnly, blobTextKey } from './schema.ts';
 import { catBlobs, isText, ledgerGit } from './git-read.ts';
 import { boundMs, dayOf, materialTime, msOf, occurred, undated, type Occurred } from './time.ts';
@@ -184,7 +184,7 @@ export class Ledger {
   repoId(input?: string | null): string | null {
     const all = this.repos();
     if (!input) return all[0]?.id ?? null;
-    const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    const norm = (p: string) => nameForm(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
     return all.find((r) => r.id === input)?.id ?? all.find((r) => norm(r.path) === norm(input))?.id ?? all.find((r) => norm(r.path).endsWith(`/${norm(input)}`))?.id ?? null;
   }
   private repoPath(id: string): string | null { return this.repos().find((r) => r.id === id)?.path ?? null; }
@@ -348,7 +348,7 @@ export class Ledger {
     const where: string[] = ['1 = 1'];
     const params: (string | number)[] = [...rf.params];
     if (q.path) {
-      const p = q.path.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
+      const p = nameForm(q.path).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
       where.push("EXISTS (SELECT 1 FROM commit_files cf WHERE cf.repo = c.repo AND cf.hash = c.hash AND (cf.path = ? OR cf.path LIKE ? ESCAPE '\\' OR cf.old_path = ?))");
       params.push(p, `${likeEscape(p)}/%`, p);
     }
@@ -449,7 +449,7 @@ export class Ledger {
   private docVersionsRead(pathInput: string, opts: { repo?: string } = {}) {
     const rf = this.repoFilter(opts.repo, 'd.repo');
     if (typeof rf === 'string') return rf;
-    const path = pathInput.replace(/\\/g, '/').replace(/^\.\//, '');
+    const path = nameForm(pathInput).replace(/\\/g, '/').replace(/^\.\//, '');
     // The document's names over time: this path and every path it was moved from.
     const names = new Set([path]);
     for (let i = 0; i < 20; i++) {
@@ -493,7 +493,7 @@ export class Ledger {
     if (typeof rf === 'string') return rf;
     const where = ['1 = 1'];
     const params: (string | number)[] = [];
-    if (q.dir) { where.push("d.path LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(q.dir.replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
+    if (q.dir) { where.push("d.path LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(nameForm(q.dir).replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
     const since = boundMs(q.since, false);
     const until = boundMs(q.until, true);
     if (since !== null) { where.push('d.at_ms >= ?'); params.push(since); }
@@ -513,7 +513,7 @@ export class Ledger {
     else if (input.path && input.commit) {
       const c = this.findCommit(input.commit, input.repo);
       if (typeof c === 'string') return c;
-      const path = input.path.replace(/\\/g, '/');
+      const path = nameForm(input.path).replace(/\\/g, '/');
       row = this.one('SELECT * FROM docs WHERE repo = ? AND path = ? AND commit_hash = ?', String(c.repo), path, String(c.hash));
       if (!row) {
         // Not a version the commit made: the version its tree has is the latest version up to it on its history.
@@ -563,7 +563,7 @@ export class Ledger {
     const code = new Map<string, number>();
     const commits = new Set<string>();
     for (const raw of input.paths) {
-      const p = raw.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
+      const p = nameForm(raw).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
       if (!p) continue;
       for (const d of this.all<{ key: string; path: string }>(`SELECT key, path FROM docs WHERE path = ? OR path LIKE ? ESCAPE '\\'`, p, `${likeEscape(p)}/%`)) versions.set(d.key, d.path);
       for (const f of this.all<{ repo: string; path: string; lines: number }>(`SELECT repo, path, lines FROM code_files WHERE generated = 0 AND classification IS NULL AND lines IS NOT NULL
@@ -712,7 +712,7 @@ export class Ledger {
    */
   namedSessions(paths: readonly string[], ids: readonly string[] = []): string[] {
     const rows = this.all<{ key: string; file: string; session_id: string }>('SELECT key, file, session_id FROM sessions');
-    const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    const norm = (p: string) => nameForm(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
     const roots = paths.map(norm).filter((p) => /^([a-z]:\/|\/)/.test(p));
     const prefixes = ids.map((i) => i.toLowerCase()).filter((i) => i.length >= 8);
     return rows.filter((r) => {
@@ -727,7 +727,7 @@ export class Ledger {
     if (typeof rf === 'string') return rf;
     const where = ['NOT EXISTS (SELECT 1 FROM code_files f WHERE f.repo = d.repo AND f.path = d.path)'];
     const params: (string | number)[] = [];
-    if (q.dir) { where.push("d.path LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(q.dir.replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
+    if (q.dir) { where.push("d.path LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(nameForm(q.dir).replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
     if (q.cleanupsOnly) where.push('d.cleanup = 1');
     const w = `WHERE ${where.join(' AND ')}${rf.sql}`;
     const total = this.one<{ c: number }>(`SELECT count(*) c FROM deleted_docs d ${w}`, ...params, ...rf.params)!.c;
@@ -778,7 +778,7 @@ export class Ledger {
     if (typeof rf === 'string') return rf;
     const where = ['1 = 1'];
     const params: (string | number)[] = [];
-    if (q.path) { const p = q.path.replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `${likeEscape(p.replace(/\/+$/, ''))}/%`); }
+    if (q.path) { const p = nameForm(q.path).replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `${likeEscape(p.replace(/\/+$/, ''))}/%`); }
     if (q.pattern) { where.push('pattern = ?'); params.push(q.pattern); }
     if (q.obsoleteOnly) where.push('obsolete_list = 1');
     if (q.currentOnly) where.push('current = 1');
@@ -804,7 +804,7 @@ export class Ledger {
   definitionsIn(repo: string, path: string): { readonly num: string; readonly rule: string; readonly position: string; readonly line: number; readonly context: string; readonly path: string }[] {
     const id = this.repoId(repo);
     if (!id) return [];
-    const p = path.replace(/\\/g, '/').replace(/\/+$/, '');
+    const p = nameForm(path).replace(/\\/g, '/').replace(/\/+$/, '');
     return this.currentLines(this.all<{ key: string; repo: string | null; num: string; rule: string; position: string | null; line: number | null; context: string; path: string }>(
       `SELECT key, repo, num, rule, position, line, context, path FROM nums WHERE repo = ? AND kind IN ('doc', 'loose') AND place = 'definition' AND current = 1
         AND (path = ? OR path LIKE ? ESCAPE '\\')`, id, p, `${likeEscape(p)}/%`,
@@ -876,7 +876,7 @@ export class Ledger {
 
   /** What the arrangement files at a path are, in any version: `prompt`, `receipt` … with the work id each is about. */
   arrangementKinds(path: string): { readonly kind: string; readonly ident: string | null }[] {
-    return this.all<{ kind: string; ident: string | null }>('SELECT DISTINCT kind, ident FROM plans WHERE path = ?', path.replace(/\\/g, '/'));
+    return this.all<{ kind: string; ident: string | null }>('SELECT DISTINCT kind, ident FROM plans WHERE path = ?', nameForm(path).replace(/\\/g, '/'));
   }
 
   /** The numbering rules the project uses, each with the basis the program recognised it by (AC-5). */
@@ -902,7 +902,7 @@ export class Ledger {
     if (q.rule) { where.push('rule = ?'); params.push(q.rule); }
     if (q.kind) { where.push('kind = ?'); params.push(q.kind); }
     if (q.place) { where.push('place = ?'); params.push(q.place); }
-    if (q.path) { const p = q.path.replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `${likeEscape(p.replace(/\/+$/, ''))}/%`); }
+    if (q.path) { const p = nameForm(q.path).replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `${likeEscape(p.replace(/\/+$/, ''))}/%`); }
     if (q.currentOnly) where.push('current = 1');
     const since = boundMs(q.since, false);
     const until = boundMs(q.until, true);
@@ -923,7 +923,7 @@ export class Ledger {
     if (typeof rf === 'string') return rf;
     const where = ['1 = 1'];
     const params: (string | number)[] = [];
-    if (q.path) { const p = q.path.replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `%${likeEscape(p)}%`); }
+    if (q.path) { const p = nameForm(q.path).replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `%${likeEscape(p)}%`); }
     if (q.verdict) { where.push('verdict = ?'); params.push(q.verdict); }
     if (q.kind) { where.push('kind = ?'); params.push(q.kind); }
     if (q.confidence) { where.push('confidence = ?'); params.push(q.confidence); }
@@ -945,7 +945,7 @@ export class Ledger {
     const params: (string | number)[] = [];
     if (q.kind) { where.push('kind = ?'); params.push(q.kind); }
     if (q.ident) { where.push('ident = ?'); params.push(q.ident); }
-    if (q.path) { const p = q.path.replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `%${likeEscape(p)}%`); }
+    if (q.path) { const p = nameForm(q.path).replace(/\\/g, '/'); where.push("(path = ? OR path LIKE ? ESCAPE '\\')"); params.push(p, `%${likeEscape(p)}%`); }
     if (q.currentOnly) where.push('current = 1');
     if (q.unparsedOnly) where.push('parsed = 0');
     if (q.status) { where.push("json_extract(data, '$.status') LIKE ? ESCAPE '\\'"); params.push(`%${likeEscape(q.status)}%`); }
@@ -1091,7 +1091,7 @@ export class Ledger {
   fileRefs(pathInput: string, opts: { repo?: string } = {}) {
     const rf = this.repoFilter(opts.repo);
     if (typeof rf === 'string') return rf;
-    const path = pathInput.replace(/\\/g, '/').replace(/^\.\//, '');
+    const path = nameForm(pathInput).replace(/\\/g, '/').replace(/^\.\//, '');
     const f = this.one<{ repo: string; path: string; lines: number | null; lang: string | null; generated: number; classification: string | null; last_commit: string | null; last_at: string | null; reader?: string | null; named_by?: string | null }>(`SELECT * FROM code_files WHERE path = ?${rf.sql}`, path, ...rf.params);
     if (!f) return `${path} is not in the current version${opts.repo ? ` of ${opts.repo}` : ''}. (File-level references cover the checkout's current version; pk_ledger_ref_history follows a reference back through history.)`;
     const by = this.all<{ src: string; kind: string }>('SELECT src, kind FROM code_deps WHERE repo = ? AND dst = ? AND external = 0 ORDER BY src', f.repo, path);
@@ -1125,7 +1125,7 @@ export class Ledger {
       'NOT EXISTS (SELECT 1 FROM code_deps d WHERE d.repo = f.repo AND d.dst = f.path AND d.external = 0)'];
     const params: (string | number)[] = [];
     if (!q.includeTests) where.push('f.test = 0');
-    if (q.dir) { where.push("f.path LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(q.dir.replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
+    if (q.dir) { where.push("f.path LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(nameForm(q.dir).replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
     const w = `WHERE ${where.join(' AND ')}${rf.sql}`;
     const total = this.one<{ c: number }>(`SELECT count(*) c FROM code_files f ${w}`, ...params, ...rf.params)!.c;
     const rows = this.all<{ repo: string; path: string; lang: string; ref_lang?: string | null; lines: number | null; last_commit: string | null; last_at: string | null; named_by?: string | null }>(`SELECT f.* FROM code_files f ${w} ORDER BY f.path LIMIT ? OFFSET ?`, ...params, ...rf.params, lim(q, 1000), off(q));
@@ -1153,8 +1153,8 @@ export class Ledger {
   refHistory(srcInput: string, dstInput: string, opts: { repo?: string } = {}) {
     const rf = this.repoFilter(opts.repo);
     if (typeof rf === 'string') return rf;
-    const src = srcInput.replace(/\\/g, '/');
-    const dstName = dstInput.replace(/\\/g, '/').split('/').pop() ?? dstInput;
+    const src = nameForm(srcInput).replace(/\\/g, '/');
+    const dstName = nameForm(dstInput).replace(/\\/g, '/').split('/').pop() ?? dstInput;
     const repo = rf.params[0] ?? this.repoId(null);
     if (!repo) return 'No repository in this ledger.';
     const root = this.repoPath(repo)!;
@@ -1199,7 +1199,7 @@ export class Ledger {
     if (typeof rf === 'string') return rf;
     const where = ['1 = 1'];
     const params: (string | number)[] = [];
-    if (q.under) { where.push("dir LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(q.under.replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
+    if (q.under) { where.push("dir LIKE ? ESCAPE '\\'"); params.push(`${likeEscape(nameForm(q.under).replace(/\\/g, '/').replace(/\/+$/, ''))}/%`); }
     if (q.depth) { where.push("(length(dir) - length(replace(dir, '/', ''))) < ?"); params.push(Math.max(1, Math.floor(q.depth))); }
     const w = `WHERE ${where.join(' AND ')}${rf.sql}`;
     const total = this.one<{ c: number }>(`SELECT count(*) c FROM dir_stats ${w}`, ...params, ...rf.params)!.c;
@@ -1217,7 +1217,7 @@ export class Ledger {
     const where = ['1 = 1'];
     const params: (string | number)[] = [];
     if (q.trunkOnly) where.push('m.on_trunk = 1');
-    if (q.dir) { where.push("m.dirs LIKE ? ESCAPE '\\'"); params.push(`%"${likeEscape(q.dir.replace(/\\/g, '/').replace(/\/+$/, ''))}%`); }
+    if (q.dir) { where.push("m.dirs LIKE ? ESCAPE '\\'"); params.push(`%"${likeEscape(nameForm(q.dir).replace(/\\/g, '/').replace(/\/+$/, ''))}%`); }
     const w = `WHERE ${where.join(' AND ')}${rf.sql}`;
     const total = this.one<{ c: number }>(`SELECT count(*) c FROM merge_dirs m ${w}`, ...params, ...rf.params)!.c;
     const rows = this.all<{ repo: string; commit_hash: string; at: string; on_trunk: number; dirs: string }>(`SELECT m.* FROM merge_dirs m ${w} ORDER BY m.at DESC LIMIT ? OFFSET ?`, ...params, ...rf.params, lim(q), off(q));
@@ -1235,7 +1235,7 @@ export class Ledger {
   symbol(kind: SymbolQueryKind, input: { file: string; line?: number; character?: number; name?: string }, opts: { repo?: string } = {}): SymbolAnswer | string {
     const rf = this.repoFilter(opts.repo);
     if (typeof rf === 'string') return rf;
-    const file = input.file.replace(/\\/g, '/').replace(/^\.?\//, '');
+    const file = nameForm(input.file).replace(/\\/g, '/').replace(/^\.?\//, '');
     const row = this.one<{ repo: string; path: string; reader?: string | null }>(`SELECT * FROM code_files WHERE path = ?${rf.sql} LIMIT 1`, file, ...rf.params);
     const repo = row?.repo ?? rf.params[0] ?? this.repoId(null);
     if (!repo) return 'No repository in this ledger.';
@@ -1376,7 +1376,7 @@ export class Ledger {
     if (typeof repoSql === 'string') return { steps: [], notes: [repoSql] };
 
     for (const raw of input.paths ?? []) {
-      const path = raw.replace(/\\/g, '/').replace(/^\.\//, '');
+      const path = nameForm(raw).replace(/\\/g, '/').replace(/^\.\//, '');
       const v = this.docVersions(path, { repo: input.repo });
       if (typeof v !== 'string') {
         v.versions.forEach((ver, i) => {
@@ -1632,7 +1632,7 @@ export class Ledger {
     // A repository by id or path; a directory outside version control by its scope item id.
     const repo = this.one<{ repo: string }>('SELECT repo FROM code_files WHERE repo = ? LIMIT 1', repoInput)?.repo ?? this.repoId(repoInput);
     if (!repo) return { complete: false, languages: [], gaps: [`${repoInput} is not a repository of this ledger`] };
-    const under = (p: string) => paths.some((raw) => { const x = raw.replace(/\\/g, '/').replace(/\/+$/, '').replace(/^\.\//, ''); return x === '' || p === x || p.startsWith(`${x}/`); });
+    const under = (p: string) => paths.some((raw) => { const x = nameForm(raw).replace(/\\/g, '/').replace(/\/+$/, '').replace(/^\.\//, ''); return x === '' || p === x || p.startsWith(`${x}/`); });
     const files = this.all<{ path: string; lang: string | null; reader?: string | null; ref_lang?: string | null; named_by?: string | null }>('SELECT * FROM code_files WHERE repo = ? AND generated = 0 AND classification IS NULL', repo).filter((f) => under(f.path));
     const code = files.filter((f) => this.readerOf(f) !== null || (f.lang !== null && !NOT_CODE.has(f.lang)));
     const languages = [...new Set(code.map((f) => f.ref_lang ?? f.lang ?? '(no extension)'))].sort();
@@ -1676,7 +1676,7 @@ export class Ledger {
     const key = pathKey(absPath);
     const repo = this.repos().filter((r) => key === pathKey(r.path) || key.startsWith(`${pathKey(r.path)}${sep}`)).sort((a, b) => b.path.length - a.path.length)[0];
     if (repo) {
-      const rel = relative(normalizePath(repo.path), normalizePath(absPath)).split(sep).join('/');
+      const rel = relativeDisplay(repo.path, absPath);
       const f = this.one<{ blob: string | null }>('SELECT blob FROM code_files WHERE repo = ? AND path = ?', repo.id, rel);
       const text = f?.blob ? this.blobText(repo.id, f.blob) : null;
       if (text !== null) return text;
@@ -1696,7 +1696,7 @@ export class Ledger {
    * session's log. Null for what names no place (a commit, a cleanup, a rule) and for an id the ledger does not have.
    */
   entryPlace(rawId: string): { readonly file: string } | { readonly sessionFile: string } | null {
-    const id = rawId.trim();
+    const id = nameForm(rawId.trim());   // an id that holds a path may have been typed from a listing
     const colon = id.indexOf(':');
     if (colon <= 0) return null;
     const kind = id.slice(0, colon);
@@ -1730,7 +1730,7 @@ export class Ledger {
 
   /** Read an entry back by its id: its label, when it happened, and its text (for a cited line to be checked against). */
   resolve(rawId: string): LedgerEntry | null {
-    const id = rawId.trim();
+    const id = nameForm(rawId.trim());   // an id that holds a path may have been typed from a listing
     const colon = id.indexOf(':');
     if (colon <= 0) return null;
     const kind = id.slice(0, colon);

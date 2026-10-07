@@ -54,7 +54,7 @@ import { diffSections, keyedSections, sectionBase } from '../../ledger/docs.ts';
 import { familyOf, mentionMatcher, nameMatcher, type Rule } from '../../ledger/numbering.ts';
 import { within } from '../../codemap/facts.ts';
 import { isDocumentPath } from '../../scope/skip.ts';
-import { canonicalPath, isWithin, normalizePath, pathKey, samePath } from '../../util/paths.ts';
+import { canonicalPath, isWithin, normalizePath, pathKey, relativeDisplay, samePath } from '../../util/paths.ts';
 import { clerkPending, takenInAt, type ClerkPending } from './clerk-coverage.ts';
 import { projectRelPath } from './materials.ts';
 
@@ -429,7 +429,7 @@ export function updatePendingMarks(input: UpdatePendingInput): UpdatePendingMark
           if (!root || !doers?.length) continue;
           for (const f of code) {
             if (!isWithin(root, f)) continue;
-            const rel = slash(relative(normalizePath(root), normalizePath(f)));
+            const rel = relativeDisplay(root, f);
             if (!within(t.paths, rel)) continue;
             for (const w of doers) reach(THREAD(w), entry, 'Code territory', `${rel} is in the code territory “${t.name}”, which it changed`, parts);
           }

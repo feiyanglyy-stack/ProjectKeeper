@@ -101,6 +101,27 @@ export function isWithin(root: string, path: string): boolean {
   return p === r || p.startsWith(r + sep);
 }
 
+/**
+ * A name, or a path below a project's location, in the one Unicode form ProjectKeeper keeps such names in on a system.
+ *
+ * On macOS that is the composed form (NFC), which is the form git reports names in there. The file system lists a
+ * name in the form it was written in — decomposed (NFD) when Finder or a Cocoa application wrote it — and takes either
+ * form for the same file; git, with `core.precomposeunicode` (which `git init` and `git clone` set on a Mac), composes
+ * every name it lists and every name it is given. A document found by the file walk and the same document in the
+ * history then had two names, and what joined them by name — the ledger's text and versions of a file, the ignore
+ * rules, a material rule, a removal — missed. So a name is composed where it enters from outside git: a directory
+ * listing, a change the watcher reports, a path a person or the model wrote (which may be copied from a listing), and
+ * every path made relative to a location. This is what git itself does at the same two places. What git says is kept
+ * as git says it, so what is said back to git is in its own words. (A repository whose history holds decomposed
+ * names — made by a git without that setting — is not covered: there git and the walk still differ.)
+ *
+ * Elsewhere a name is the characters it was written with, and stays so.
+ */
+export function nameForm(text: string, platform: NodeJS.Platform = process.platform): string {
+  return platform === 'darwin' ? text.normalize('NFC') : text;
+}
+
+/** The path of `path` below `root` (or from it, with `..`), written with `/` and in the form names are kept in (`nameForm`). */
 export function relativeDisplay(root: string, path: string): string {
   const from = normalizePath(root);
   const to = normalizePath(path);
@@ -108,9 +129,9 @@ export function relativeDisplay(root: string, path: string): string {
   // root in another case or Unicode form would come back as `../../…`. (On Windows `relative` folds case itself.)
   if (MAC) {
     const under = partUnder(from, to, sep, foldForSystem);
-    if (under !== null) return under;
+    if (under !== null) return nameForm(under);
   }
-  return relative(from, to).split(sep).join('/');
+  return nameForm(relative(from, to).split(sep).join('/'));
 }
 
 /**

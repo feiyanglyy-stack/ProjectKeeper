@@ -25,6 +25,7 @@
  */
 import { readdirSync, readFileSync, statSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
+import { nameForm } from '../util/paths.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { preProcessFile } from 'typescript';
 import { isSkippedName } from '../scope/skip.ts';
@@ -574,8 +575,9 @@ export function scanLooseCode(db: DatabaseSync, itemId: string, root: string, sk
     try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       if (e.isSymbolicLink()) continue;
-      const full = join(dir, e.name);
-      if (e.isDirectory()) { if (!isSkippedName(e.name) && e.name !== '.git' && !skip(full)) walk(full, depth + 1); continue; }
+      const name = nameForm(e.name);
+      const full = join(dir, name);
+      if (e.isDirectory()) { if (!isSkippedName(name) && name !== '.git' && !skip(full)) walk(full, depth + 1); continue; }
       if (!e.isFile()) continue;
       try { const st = statSync(full); found.push({ abs: full, rel: full.slice(root.length + 1).split('\\').join('/'), size: st.size, mtimeMs: st.mtimeMs }); } catch { continue; }
     }

@@ -21,7 +21,7 @@ import type { ProjectRule, ScopeClassification, ScopeItem, ScopeJudgement, Scope
 import type { ScopeRelation, SessionHost } from '../model/vocab.ts';
 import { stableId } from '../model/ids.ts';
 import { git, gitCommonDir, gitDir, gitRemotes, gitRootCommits, gitToplevel, gitWorktrees } from '../util/git.ts';
-import { canonicalPath, expandHome, gitPathLimit, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
+import { canonicalPath, expandHome, gitPathLimit, isWithin, nameForm, normalizePath, pathKey, relativeDisplay, samePath } from '../util/paths.ts';
 import { locateSessionsForHomes, type LocatedSession } from '../sources/sessions/locate.ts';
 import { sameSessionItem } from '../sources/sessions/scope.ts';
 import { discoverToolchain, type ToolchainRoot } from './toolchain.ts';
@@ -119,7 +119,8 @@ function reasonText(ref: ReasonRef | null, fallback: string): string {
   return `${basename(dirname(ref.path))}/${basename(ref.path)}: ${first.slice(0, 200)}`;
 }
 
-const entriesOf = (dir: string): Dirent[] => { try { return readdirSync(dir, { withFileTypes: true }); } catch { return []; } };
+/** A directory's entries, each under the name names are kept in (`nameForm`): the listing of a Mac may give another Unicode form than git does. */
+const entriesOf = (dir: string): Dirent[] => { try { return readdirSync(dir, { withFileTypes: true }).map((e) => { e.name = nameForm(e.name); return e; }); } catch { return []; } };
 
 /** Subdirectories, not following links (a link is listed by the candidates walk, never entered). */
 function listDirs(dir: string): string[] {
@@ -136,7 +137,9 @@ function findNestedRepos(root: string, maxDepth = 4): string[] {
       const full = join(dir, name);
       const dotGit = join(full, '.git');
       if (existsSync(dotGit)) {
-        out.push(normalizePath(full));
+        // A repository's own location, like every location, in the file system's spelling (the names a listing gives
+        // are composed on a Mac; the directory may be stored otherwise, and an agent that worked there recorded that).
+        out.push(canonicalPath(full));
         continue;   // a repository's inside is its own business
       }
       if (isSkippedName(name) && !isVendoredName(name)) continue;   // each library in a vendored directory is told apart
@@ -149,7 +152,7 @@ function findNestedRepos(root: string, maxDepth = 4): string[] {
 
 /** A tracked gitlink is a submodule, not a nested independent repository. */
 function isGitlink(root: string, nested: string): boolean {
-  const rel = relative(root, nested).split('\\').join('/');
+  const rel = relativeDisplay(root, nested);
   const listed = git(root, ['ls-files', '--stage', '--', rel]);
   return listed.ok && /^160000\s/m.test(listed.out);
 }
@@ -291,7 +294,7 @@ function countFiles(dir: string, root: string): { files: number; documents: numb
       if (e.isDirectory()) { walk(full); continue; }
       if (!e.isFile()) continue;
       files += 1;
-      if (isDocumentPath(e.name)) { documents += 1; if (names.length < 6) names.push(relative(root, full).split('\\').join('/')); }
+      if (isDocumentPath(e.name)) { documents += 1; if (names.length < 6) names.push(relativeDisplay(root, full)); }
     }
   };
   walk(dir);
@@ -343,7 +346,7 @@ export function discoverBase(
   const listIgnored = (root: string, keep: readonly string[]): ((rel: string) => boolean) | null => {
     const entries = ignoredEntries(root);
     if (!entries) return null;
-    const relOf = (p: string) => relative(root, p).split('\\').join('/');
+    const relOf = (p: string) => relativeDisplay(root, p);
     const listDir = (full: string, rule: IgnoreRule | null) => {
       const count = countFiles(full, root);
       const cls = classifyName(basename(full));
@@ -494,7 +497,7 @@ export function discoverBase(
     const inIgnoredDir = parentIgnored ? predicateFrom(parentIgnored) : null;
     const nestedPaths = findNestedRepos(location).filter((nested) => !isGitlink(location, nested)).filter((nested) => {
       if (!inIgnoredDir) return true;
-      const parentRel = relative(location, dirname(nested)).split('\\').join('/');
+      const parentRel = relativeDisplay(location, dirname(nested));
       return parentRel === '' || !inIgnoredDir(parentRel);
     });
     // What the project's own ignore rules leave out (none without version control).
@@ -567,7 +570,7 @@ export function discoverBase(
 
     // Archived or moved-out material: listed with the reason its own file gives. Looked for at
     // the top level and one level down (e.g. `design/archive/`).
-    const relOf = (p: string) => relative(location, p).split('\\').join('/');
+    const relOf = (p: string) => relativeDisplay(location, p);
     const candidates: { name: string; full: string }[] = [];
     for (const name of listDirs(location)) {
       const full = normalizePath(join(location, name));

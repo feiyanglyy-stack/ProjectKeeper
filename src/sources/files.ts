@@ -9,12 +9,12 @@
  * and a registered worktree gives only what it adds to the trunk (E60).
  */
 import { readFileSync, readdirSync, statSync, type Dirent } from 'node:fs';
-import { dirname, extname, join, relative } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
 import type { ScopeItem, Source } from '../model/types.ts';
 import type { UsedAs } from '../model/vocab.ts';
 import { fingerprint } from '../model/ids.ts';
-import { isWithin, normalizePath, pathKey } from '../util/paths.ts';
+import { isWithin, nameForm, normalizePath, pathKey, relativeDisplay } from '../util/paths.ts';
 import { extractIds, makeFileSource } from './anchor.ts';
 import { isDocumentPath, isReadRoot, isSkippedName, overridesIgnoreRules, readingOf, treatmentOf } from '../scope/skip.ts';
 import { ignoredPredicate } from '../scope/ignore.ts';
@@ -131,12 +131,13 @@ function walkRegion(root: string, scopeItemId: string, opts: {
     try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       if (e.isSymbolicLink()) continue;
-      const full = join(dir, e.name);
+      const name = nameForm(e.name);   // as git names it, where the listing gives another Unicode form (macOS)
+      const full = join(dir, name);
       if (opts.separate?.has(pathKey(full))) continue;
-      if (opts.ignored && opts.ignored(relative(root, full).split('\\').join('/')) && !opts.keep?.has(pathKey(full))) continue;
-      if (e.isDirectory()) { if (!isSkippedName(e.name)) walk(full, depth + 1); continue; }
+      if (opts.ignored && opts.ignored(relativeDisplay(root, full)) && !opts.keep?.has(pathKey(full))) continue;
+      if (e.isDirectory()) { if (!isSkippedName(name)) walk(full, depth + 1); continue; }
       if (!e.isFile()) continue;
-      if (opts.documentsOnly && !isDocumentPath(e.name)) continue;
+      if (opts.documentsOnly && !isDocumentPath(name)) continue;
       let st;
       try { st = statSync(full); } catch { continue; }
       out.push({ path: normalizePath(full), scopeItemId, bytes: st.size, mtimeMs: st.mtimeMs, usedAs: opts.usedAs ?? null });
@@ -262,5 +263,5 @@ export function fileFingerprint(path: string): string | null {
 }
 
 export function displayPath(root: string, path: string): string {
-  return relative(root, path).split('\\').join('/');
+  return relativeDisplay(root, path);
 }

@@ -6,9 +6,9 @@
  * library's release plan is not taken for the project's plan while the judgement is pending.
  */
 import { existsSync, readFileSync, readdirSync, statSync, type Dirent } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
 import { git } from '../util/git.ts';
-import { canonicalPath, isWithin, normalizePath } from '../util/paths.ts';
+import { canonicalPath, isWithin, nameForm, normalizePath, relativeDisplay } from '../util/paths.ts';
 import { LICENSE_FILE, NEVER_WALKED, classifyName } from './skip.ts';
 
 export interface Candidate {
@@ -29,7 +29,8 @@ export interface CandidateWalk {
   readonly git: boolean;
 }
 
-const read = (dir: string): Dirent[] => { try { return readdirSync(dir, { withFileTypes: true }); } catch { return []; } };
+/** A directory's entries, each under the name names are kept in (`nameForm`): the listing of a Mac may give another Unicode form than git does. */
+const read = (dir: string): Dirent[] => { try { return readdirSync(dir, { withFileTypes: true }).map((e) => { e.name = nameForm(e.name); return e; }); } catch { return []; } };
 const squash = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase();
 
 export function licenseIn(dir: string, entries: readonly Dirent[] = read(dir)): string | null {
@@ -49,7 +50,7 @@ export function findCandidates(root: string, walk: CandidateWalk): Candidate[] {
   const inProject = (p: string) => walk.locations.some((l) => isWithin(l, p));
   const trackedNote = (full: string) => {
     if (!walk.git) return [];
-    const n = tracked(root, relative(root, full));
+    const n = tracked(root, relativeDisplay(root, full));
     return n === null ? [] : [n === 0 ? 'none of its files are tracked in git' : `${n} of its files are tracked in git`];
   };
   const visit = (dir: string, depth: number) => {
@@ -57,7 +58,7 @@ export function findCandidates(root: string, walk: CandidateWalk): Candidate[] {
     for (const e of read(dir)) {
       if (NEVER_WALKED.has(e.name.toLowerCase())) continue;
       const full = normalizePath(join(dir, e.name));
-      const rel = relative(root, full).split('\\').join('/');
+      const rel = relativeDisplay(root, full);
       if (walk.ignored?.(rel)) continue;
       if (walk.separate.some((s) => isWithin(s, full))) continue;
       if (e.isSymbolicLink()) {

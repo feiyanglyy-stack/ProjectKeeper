@@ -20,7 +20,7 @@ import {
   gitCommitMeta, gitDeletedPaths, gitHashWorkingFile, gitPathHistory, gitResolveCommit, gitShow, gitTrackedPaths,
   gitTreeEntry, gitUncommittedDeletions, isSafeRef, type CommitMeta,
 } from '../util/git.ts';
-import { isWithin, normalizePath, samePath } from '../util/paths.ts';
+import { isWithin, nameForm, normalizePath, samePath } from '../util/paths.ts';
 import { extractIds, redactCredentials, revisionSourceId } from './anchor.ts';
 
 /** Material that exists only in history: read from version history, or judged `History only` (a recovery-only place). */
@@ -73,7 +73,8 @@ export function resolveTarget(project: Project, input: { readonly path?: string;
     if (!isWithin(root, raw)) return `${raw} is not inside ${root}.`;
     rel = relative(normalizePath(root), normalizePath(raw));
   }
-  rel = rel.split('\\').join('/').replace(/^\.\/+/, '').replace(/\/+$/, '');
+  // In the form names are kept in: a path copied from a directory listing on a Mac is in another one than git's.
+  rel = nameForm(rel).split('\\').join('/').replace(/^\.\/+/, '').replace(/\/+$/, '');
   if (rel === '.') rel = '';
   if (rel.split('/').some((seg) => seg === '..') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/')) return `${raw} leaves the repository; give a path inside ${root}.`;
   const repo = item.category === 'Worktree' && item.relation === 'Worktree of main repo' && item.worktreeOf ? item.worktreeOf : root;

@@ -26,7 +26,7 @@ import { anchorLabel } from '../sources/anchor.ts';
 import { MAX_REVISION_BYTES } from '../sources/history.ts';
 import { parseClaudeSession, parseCodexSession, type ParsedSession } from '../sources/sessions/read.ts';
 import { gitCommitMeta, gitRead, gitResolveCommit, gitTreeEntry } from '../util/git.ts';
-import { isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
+import { isWithin, nameForm, normalizePath, pathKey, samePath } from '../util/paths.ts';
 import { resolveMergedId } from './merge.ts';
 import { checkVerbatim, findWords } from './verbatim.ts';
 
@@ -159,7 +159,8 @@ export function resolvePath(project: Project, input: { readonly path: string; re
     if (!isWithin(root.path, raw)) return `${raw} is not inside ${root.path}. Give the path relative to the repository root.`;
     rel = relative(normalizePath(root.path), normalizePath(raw));
   }
-  rel = rel.split('\\').join('/').replace(/^\.\/+/, '').replace(/\/+$/, '');
+  // In the form names are kept in: a path copied from a directory listing on a Mac is in another one than git's.
+  rel = nameForm(rel).split('\\').join('/').replace(/^\.\/+/, '').replace(/\/+$/, '');
   if (rel === '.') rel = '';
   if (rel.split('/').some((seg) => seg === '..') || /^[A-Za-z]:/.test(rel) || rel.startsWith('/')) return `${raw} leaves ${root.path}; give a path inside it.`;
   return { root, rel };

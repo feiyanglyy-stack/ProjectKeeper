@@ -14,9 +14,8 @@
  *
  * Read-only: `git check-ignore` through `git()`.
  */
-import { relative } from 'node:path';
 import type { ScopeItem } from '../model/types.ts';
-import { isWithin, pathKey } from '../util/paths.ts';
+import { isWithin, pathKey, relativeDisplay } from '../util/paths.ts';
 import { ignoreRules, type IgnoreRule } from './ignore.ts';
 import { overridesIgnoreRules, treatmentOf } from './skip.ts';
 
@@ -60,7 +59,7 @@ export function ignoredPlaceOf(scope: readonly ScopeItem[], item: ScopeItem, now
   for (const o of around) {
     if (standsApart(scope, o)) return null;
     if (o.versionControl !== 'none') {
-      const rule = ruleFor(o.path, relative(o.path, item.path).split('\\').join('/'), now);
+      const rule = ruleFor(o.path, relativeDisplay(o.path, item.path), now);
       if (rule) return { rule, by: o };
     }
     if (o.category === 'Repository') return null;

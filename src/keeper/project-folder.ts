@@ -12,7 +12,7 @@ import { newId } from '../model/ids.ts';
 import { anchorLabel } from '../sources/anchor.ts';
 import type { ProjectStore } from '../store/project-store.ts';
 import { git, gitToplevel, LONG_PATHS, type GitResult } from '../util/git.ts';
-import { canonicalPath, gitPathLimit } from '../util/paths.ts';
+import { canonicalPath, gitPathLimit, nameForm } from '../util/paths.ts';
 
 const FILES = ['README.md', 'semantic-patches.md', 'keeper-numbers.md', 'owner-decisions.md'] as const;
 /** The Keeper's commits name it as their author (D89: the Keeper commits the folder itself), so the ledger and `git log`
@@ -66,7 +66,8 @@ export function projectFolderPath(project: Project, requested = 'projectkeeper')
     if (!stat) continue;
     // An existing name is used exactly as it is on disk: another case or an 8.3 short alias would name the same folder
     // under a spelling the grant never showed (QC AW-2).
-    if (!readdirSync(parent).includes(part)) throw new Error(`Invalid project folder path: ${part} names an existing folder spelled differently on disk`);
+    // (Asked in the form names are kept in: on a Mac the listing may give the other Unicode form of the same name.)
+    if (!readdirSync(parent).map((name) => nameForm(name)).includes(nameForm(part))) throw new Error(`Invalid project folder path: ${part} names an existing folder spelled differently on disk`);
     if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error(`Unsafe project folder component: ${cursor}`);
     if (!inside(root, realpathSync(cursor))) throw new Error(`Project folder escapes through a link: ${cursor}`);
   }

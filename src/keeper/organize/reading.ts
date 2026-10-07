@@ -11,12 +11,12 @@
  * no longer places, sizes, packs, queues or chases a deepening's reading, so that machinery is gone (git keeps it).
  */
 import { existsSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, sep } from 'node:path';
 import type { ClerkRound, ReadingAssignment, ReadingCategory, ReadingMaterial, RoundReading, RoundReadingPath } from '../../model/k-types.ts';
 import type { KeeperJob, OrganizingPlan, OrganizingPlanContent, PathReading, Project } from '../../model/types.ts';
 import type { ProjectStore } from '../../store/project-store.ts';
 import type { Ledger } from '../../ledger/index.ts';
-import { isWithin, pathKey } from '../../util/paths.ts';
+import { isWithin, nameForm, pathKey, relativeDisplay } from '../../util/paths.ts';
 import { coversAll, mergeRanges } from '../bounds/reads.ts';
 import { tallyReads, type FileReads, type ReadTally } from './clerk-coverage.ts';
 import { DEEPENING_PATHS, type SweepKind } from './clerk-prompts.ts';
@@ -32,7 +32,7 @@ export const KIND_CATEGORY: Readonly<Record<SweepKind, ReadingCategory>> = {
 export function settlingDirs(store: ProjectStore): string[] {
   const settling = new Set(['Obsolete', 'Reference only', 'Recovery only']);
   return [...new Set(store.rules.filter((r) => r.group === 'Material rules' && r.validity === 'Current' && settling.has(r.category ?? ''))
-    .flatMap((r) => r.appliesTo).map((a) => a.trim().replace(/\\/g, '/')).filter((a) => /^[\w.-]+(\/[\w.-]+)*\/?$/.test(a) && !/\.\w+$/.test(a)))];
+    .flatMap((r) => r.appliesTo).map((a) => nameForm(a.trim()).replace(/\\/g, '/')).filter((a) => /^[\w.-]+(\/[\w.-]+)*\/?$/.test(a) && !/\.\w+$/.test(a)))];
 }
 export const underAny = (dirs: readonly string[], path: string): boolean => dirs.some((d) => { const x = d.replace(/\/+$/, ''); return path === x || path.startsWith(`${x}/`); });
 
@@ -98,7 +98,8 @@ export interface ReadClosely extends NamedMaterials {
 }
 
 const NO_MATERIALS: NamedMaterials = { versions: [], codeFiles: [], commits: [], sessions: [] };
-const slashed = (p: string): string => p.trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
+/** A path the plan or a brief names, written one way: with `/`, and in the form names are kept in (a name copied from a listing on a Mac is in another). */
+const slashed = (p: string): string => nameForm(p.trim()).replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
 const isAbsolutePath = (p: string): boolean => /^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/') || p.startsWith('\\\\');
 /** A relative path at or under a directory (or the file itself), whatever its slashes and case. */
 const atOrUnder = (path: string, dir: string): boolean => {
@@ -136,7 +137,7 @@ function targetPaths(repos: readonly { readonly path: string }[], root: string |
   const absolute = isAbsolutePath(target);
   if (!absolute) out.add(slashed(target));
   const abs = absolute ? target : root ? join(root, ...slashed(target).split('/')) : null;
-  if (abs) for (const r of repos) if (isWithin(r.path, abs)) { const rel = slashed(relative(r.path, abs)); if (rel) out.add(rel); }
+  if (abs) for (const r of repos) if (isWithin(r.path, abs)) { const rel = relativeDisplay(r.path, abs); if (rel) out.add(rel); }
   return [...out].filter(Boolean);
 }
 

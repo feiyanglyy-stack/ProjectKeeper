@@ -31,7 +31,7 @@ import type { ProjectStore } from '../store/project-store.ts';
 import { innermostItem, readingOf } from '../scope/skip.ts';
 import { gitBranch } from '../util/git.ts';
 import { sep } from 'node:path';
-import { isWithin, relativeDisplay } from '../util/paths.ts';
+import { isWithin, nameForm, relativeDisplay } from '../util/paths.ts';
 
 const TREATMENT: Partial<Record<string, UsedAs>> = { 'Recovery only': 'History only', 'Reference only': 'Reference only' };
 
@@ -45,7 +45,7 @@ interface Entry { readonly kind: 'path' | 'branch' | 'absolute'; readonly value:
 function entriesOf(rule: ProjectRule, locations: readonly string[]): Entry[] {
   const out: Entry[] = [];
   for (const raw of rule.appliesTo) {
-    let v = raw.trim().replace(/^[`'"“”‘’]+|[`'"“”‘’]+$/g, '').trim();
+    let v = nameForm(raw.trim().replace(/^[`'"“”‘’]+|[`'"“”‘’]+$/g, '').trim());
     if (!v) continue;
     const branch = /^(?:(?:branch(?:es)?|分支)\s*[:：]?\s*|refs\/heads\/)(.+)$/i.exec(v);
     if (branch) { const name = branch[1]!.trim().replace(/^[`'"“”‘’]+|[`'"“”‘’]+$/g, '').toLowerCase(); out.push({ kind: 'branch', value: name, glob: globOf(name) }); continue; }

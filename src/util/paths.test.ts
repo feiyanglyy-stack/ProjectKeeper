@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { claudeProjectDirName, endsWithPath, foldForSystem, isWithin, partUnder, pathKey, placeUnder, relativeDisplay, samePath } from './paths.ts';
+import { claudeProjectDirName, endsWithPath, foldForSystem, isWithin, nameForm, partUnder, pathKey, placeUnder, relativeDisplay, samePath } from './paths.ts';
 import { tmpdir } from './tmp.test-helpers.ts';
 
 const WIN = process.platform === 'win32';
@@ -93,4 +93,15 @@ test('the name Claude Code gives a project’s session folder is made from the d
   const under = (name: string) => claudeProjectDirName(join(WIN ? 'D:\\' : sep, 'work', name)).split('-').slice(-3).join('-');
   assert.equal(under('caf\u00e9'), 'work-caf-');
   assert.equal(under('caf\u00e9'.normalize('NFD')), 'work-cafe-');
+});
+
+test('a name is kept in one Unicode form: composed on macOS, where a listing and git give two, and as it was written elsewhere', () => {
+  assert.equal(nameForm(DECOMPOSED, 'darwin'), COMPOSED, 'a listing’s decomposed name, as git reports it');
+  assert.equal(nameForm(COMPOSED, 'darwin'), COMPOSED);
+  assert.equal(nameForm(`docs/${DECOMPOSED}/plan.md`, 'darwin'), `docs/${COMPOSED}/plan.md`, 'every name of a path');
+  assert.equal(nameForm('docs/plan.md', 'darwin'), 'docs/plan.md');
+  for (const platform of ['win32', 'linux'] as const) assert.equal(nameForm(DECOMPOSED, platform), DECOMPOSED, `on ${platform} a name is the characters it was written with`);
+  // On this system: a path made relative to a location is in that form.
+  const root = join(tmpdir(), 'pk-paths-forms');
+  assert.equal(relativeDisplay(root, join(root, 'docs', DECOMPOSED)), `docs/${nameForm(DECOMPOSED)}`);
 });

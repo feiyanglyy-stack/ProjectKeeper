@@ -7,6 +7,7 @@
  * Read-only: every call goes through `git()` (no optional locks, so not even the index's timestamps are refreshed).
  */
 import { git } from '../util/git.ts';
+import { nameForm } from '../util/paths.ts';
 
 export interface IgnoreRule {
   readonly file: string;
@@ -106,10 +107,11 @@ export function predicateFrom(entries: readonly IgnoredEntry[]): (rel: string) =
 }
 
 function predicateOf(dirList: readonly string[], fileList: readonly string[]): (rel: string) => boolean {
-  const dirs = new Set(dirList);
-  const files = new Set(fileList);
+  // Both sides in the form names are kept in: what git lists and what a walk asks about are compared, nothing more.
+  const dirs = new Set(dirList.map((d) => nameForm(d)));
+  const files = new Set(fileList.map((f) => nameForm(f)));
   return (rel: string) => {
-    const p = rel.split('\\').join('/');
+    const p = nameForm(rel).split('\\').join('/');
     if (files.has(p) || dirs.has(p)) return true;
     const segs = p.split('/');
     for (let i = 1; i < segs.length; i += 1) if (dirs.has(segs.slice(0, i).join('/'))) return true;

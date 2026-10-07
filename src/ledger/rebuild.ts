@@ -24,7 +24,7 @@ import { projectDir } from '../store/paths.ts';
 import { isSkippedName, treatmentOf } from '../scope/skip.ts';
 import { sessionCwdOf, sessionStoreRootOf } from '../sources/sessions/scope.ts';
 import { isDocumentPath } from '../sources/history.ts';
-import { isWithin, normalizePath, pathKey } from '../util/paths.ts';
+import { isWithin, nameForm, normalizePath, pathKey } from '../util/paths.ts';
 import { getState, openLedgerForWrite, putText, redact, setState, tx } from './schema.ts';
 import { scanRepo, type RepoHandle, type RepoScanStats } from './repo-scan.ts';
 import { MAX_DOC_BYTES, scanDocs, type DocScanStats } from './docs.ts';
@@ -187,9 +187,10 @@ function walkDocs(root: string, skip: (abs: string) => boolean, into: LooseFile[
   try { entries = readdirSync(join(root, rel), { withFileTypes: true }); } catch { return; }
   for (const e of entries) {
     if (e.isSymbolicLink()) continue;
-    const r = rel ? `${rel}/${e.name}` : e.name;
+    const name = nameForm(e.name);
+    const r = rel ? `${rel}/${name}` : name;
     const abs = join(root, ...r.split('/'));
-    if (e.isDirectory()) { if (!isSkippedName(e.name) && e.name !== '.git' && !skip(abs)) walkDocs(root, skip, into, r, depth + 1); continue; }
+    if (e.isDirectory()) { if (!isSkippedName(name) && name !== '.git' && !skip(abs)) walkDocs(root, skip, into, r, depth + 1); continue; }
     if (!e.isFile() || !(isDocumentPath(r) || arrangementKind(r) !== null)) continue;
     try { const st = statSync(abs); into.push({ abs, rel: r, size: st.size, mtimeMs: st.mtimeMs }); } catch { continue; }
   }

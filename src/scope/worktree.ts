@@ -12,7 +12,8 @@
  * project is read as. Read-only throughout; `hash-object` runs without `-w`.
  */
 import { existsSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join } from 'node:path';
+import { relativeDisplay } from '../util/paths.ts';
 import type { ScopeItem, Source, WorktreeSummary, WorktreeTaken } from '../model/types.ts';
 import { git } from '../util/git.ts';
 import { skippedSegment } from './skip.ts';
@@ -165,7 +166,7 @@ export function worktreeOrigin(scope: readonly ScopeItem[], source: Source): Wor
   const branch = w.branch ?? 'detached';
   const a = source.anchor;
   const kind = a.kind === 'commit' ? 'Commit the trunk does not have'
-    : a.kind === 'file' ? w.taken.find((t) => t.path === relative(item.path, a.path).split('\\').join('/'))?.kind ?? 'Uncommitted change'
+    : a.kind === 'file' ? w.taken.find((t) => t.path === relativeDisplay(item.path, a.path))?.kind ?? 'Uncommitted change'
       : 'Worktree status';
   const label = w.merged === false
     ? `In progress in worktree ${item.path} (branch ${branch}): ${kind.toLowerCase()}; not the trunk (${trunk}), not its current state`

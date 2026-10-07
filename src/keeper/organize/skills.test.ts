@@ -387,7 +387,7 @@ test('the skills folder resolves from the install, whatever the working director
 test('isClerkSkillPath: the install’s skill files, not a project’s copy of them', () => {
   assert.equal(isClerkSkillPath(clerkSkillFile('lane-plan')), true);
   assert.equal(isClerkSkillPath(clerkSkillsDir()), true);
-  assert.equal(isClerkSkillPath(clerkSkillFile('lane-plan').toUpperCase()), process.platform === 'win32', 'case-folded where the file system is');
+  assert.equal(isClerkSkillPath(clerkSkillFile('lane-plan').toUpperCase()), process.platform === 'win32' || process.platform === 'darwin', 'case-folded where the system’s file system folds it: Windows and macOS (util/paths.ts `foldForSystem`)');
   assert.equal(isClerkSkillPath('skills/clerk/lane-plan/SKILL.md'), false, 'a relative path with no cwd is project material');
   assert.equal(isClerkSkillPath('skills/clerk/lane-plan/SKILL.md', appRoot), true, 'taken against the install it is the install’s');
   assert.equal(isClerkSkillPath('app/skills/clerk/lane-plan/SKILL.md', mkdtempSync(join(tmpdir(), 'pk-project-'))), false, 'a project’s own copy is its material');

@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, normalize, parse, relative, resolve, sep } from 'node:path';
 
 const WIN = process.platform === 'win32';
+const MAC = process.platform === 'darwin';
 
 /** Absolute, normalised, without a trailing separator. Display form keeps the original case. */
 export function normalizePath(path: string): string {
@@ -43,10 +44,31 @@ export function canonicalPath(path: string): string {
   }
 }
 
-/** Comparison key: case-folded on Windows. Never shown to the user. */
+/**
+ * A normalised path folded into the key two spellings of one file share on a system:
+ *
+ * - Windows: case folded. Its file systems take another case for the same name.
+ * - macOS: case folded and the Unicode form composed (NFC). The usual Mac volume takes another case for the same name,
+ *   and a name in either Unicode form: Finder and Cocoa applications write `é` and Korean and Japanese syllables
+ *   decomposed (NFD), a shell tool writes them as typed, and git reports them composed. A Mac volume formatted
+ *   case-sensitive is treated the same way, as a directory made case-sensitive is on Windows: two names there that
+ *   differ only in case are one name to ProjectKeeper.
+ * - anywhere else: as it is.
+ *
+ * Only keys are folded. A path that is opened, shown or handed to git keeps its spelling (`canonicalPath` does not
+ * fold, and must not: the name Claude Code gives a project's session folder is made from the directory's own
+ * characters), and the shell guard's keys (keeper/bounds/paths.ts `canonicalKey`) are not folded on macOS because the
+ * guard also opens them.
+ */
+export function foldForSystem(normalised: string, platform: NodeJS.Platform = process.platform): string {
+  if (platform === 'win32') return normalised.toLowerCase();
+  if (platform === 'darwin') return normalised.normalize('NFC').toLowerCase();
+  return normalised;
+}
+
+/** Comparison key: folded as the system's file system folds names (`foldForSystem`). Never shown to the user, never opened. */
 export function pathKey(path: string): string {
-  const normalised = normalizePath(path);
-  return WIN ? normalised.toLowerCase() : normalised;
+  return foldForSystem(normalizePath(path));
 }
 
 export function samePath(a: string, b: string): boolean {
@@ -80,8 +102,28 @@ export function isWithin(root: string, path: string): boolean {
 }
 
 export function relativeDisplay(root: string, path: string): string {
-  const rel = relative(normalizePath(root), normalizePath(path));
-  return rel.split(sep).join('/');
+  const from = normalizePath(root);
+  const to = normalizePath(path);
+  // On macOS `relative` compares names exactly while `isWithin` folds them, as the file system does: a path under the
+  // root in another case or Unicode form would come back as `../../…`. (On Windows `relative` folds case itself.)
+  if (MAC) {
+    const under = partUnder(from, to, sep, foldForSystem);
+    if (under !== null) return under;
+  }
+  return relative(from, to).split(sep).join('/');
+}
+
+/**
+ * The part of `path` below `root`, its names as `path` spells them and joined with `/` — `''` when they are the same
+ * place, null when `path` is not under `root`. Names are compared through `fold`, one by one.
+ */
+export function partUnder(root: string, path: string, separator: string, fold: (name: string) => string): string | null {
+  const above = root.split(separator);
+  while (above.length > 1 && above[above.length - 1] === '') above.pop();   // a root directory ends in its separator
+  const names = path.split(separator);
+  if (names.length < above.length) return null;
+  for (let i = 0; i < above.length; i += 1) if (fold(above[i]!) !== fold(names[i]!)) return null;
+  return names.slice(above.length).filter((name) => name !== '').join('/');
 }
 
 export function expandHome(path: string): string {

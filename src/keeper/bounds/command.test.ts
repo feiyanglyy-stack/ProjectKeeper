@@ -136,8 +136,12 @@ test('running a script by an out-of-scope path is refused', () => {
   denied(`${outsideBash}/x.sh`, /read boundary/);
   ok('bash src/build.sh');
 });
-test('a heredoc body is data, not a command or path', () => {
-  ok('cat <<EOF\n/etc/passwd is only text here\nEOF');
+test('a heredoc body is data, not a command or its operands', () => {
+  // As a command, each line would be refused: its first word reads outside the project. As a body it is text, searched
+  // only for absolute paths as the system writes them (posix-commands.test.ts) — which `/etc/passwd` is on macOS and
+  // Linux, and is not on Windows.
+  ok('cat <<EOF\ncat ../outside/secret.txt\n../outside/secret.txt is only text here\nEOF');
+  if (process.platform === 'win32') ok('cat <<EOF\n/etc/passwd is only text here\nEOF');
 });
 
 // ---- what a command says it writes (BQ) ----

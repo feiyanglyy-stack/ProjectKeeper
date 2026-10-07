@@ -18,7 +18,7 @@
  * theirs (tee, cp and mv, rm, touch, mkdir, rmdir, truncate, sed -i) — through `onWrite`. That
  * never changes a decision; on a live project the write guard undoes only those (BQ).
  */
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { sep } from 'node:path';
 import { canonicalKey, toAbsolute, type Boundary } from './paths.ts';
 
@@ -47,6 +47,36 @@ const REDIRECTS = new Set(['<', '>', '>>', '<<', '<<<', '<<-', '&>', '&>>', '2>'
 const CWD_UNTRACKABLE = 'PK_CWD_UNTRACKABLE';
 const MAX_SCAN_DEPTH = 3;
 const MAX_SCAN_BYTES = 512_000;
+
+/**
+ * The system whose shell a command runs in, where reading a command depends on it: how an absolute path is written in
+ * free text, which tools the system has. Everything else is read the same everywhere.
+ */
+interface CommandSystem {
+  readonly platform: NodeJS.Platform;
+  /** Whether a name exists at the file system's root (`/etc`, `/Users`): what makes `/name/…` in free text a path. */
+  readonly atRoot: (name: string) => boolean;
+}
+const rootNames = new Map<string, boolean>();
+const THIS_SYSTEM: CommandSystem = {
+  platform: process.platform,
+  atRoot: (name) => {
+    let there = rootNames.get(name);
+    if (there === undefined) { there = existsSync(`/${name}`); rootNames.set(name, there); }
+    return there;
+  },
+};
+let system: CommandSystem = THIS_SYSTEM;
+
+/**
+ * For tests: read commands as `platform` reads them, with `names` the names at the file system's root, until the
+ * function returned is called. Paths are still resolved by the system the test runs on.
+ */
+export function readCommandsAs(platform: NodeJS.Platform, names: readonly string[] = []): () => void {
+  const before = system;
+  system = { platform, atRoot: (name) => names.includes(name) };
+  return () => { system = before; };
+}
 
 /** Split off here-document bodies so command structure tokenises cleanly, but keep the bodies to scan for paths. */
 export function extractHeredocs(command: string): { stripped: string; bodies: string[] } {
@@ -305,11 +335,41 @@ function checkPath(text: string, cwd: string, boundary: Boundary): CommandDecisi
   return d.ok ? null : outOfBounds(text, d.reason ?? 'out of bounds');
 }
 
-/** Scan free text (a here-document body, an unknown script) for absolute or home path references. */
+/** Device files every program may name: reading them shows nothing of the machine. */
+const HARMLESS_DEVICE = /^\/dev\/(?:null|zero|stdin|stdout|stderr|tty|u?random|fd\/\d+)$/;
+
+/**
+ * The absolute paths free text names on a system whose paths start at `/` (macOS, Linux): a `/` that starts a word —
+ * not one inside a relative path, a URL, a variable's expansion or a glob — followed by a first name that exists at the
+ * file system's root (`atRoot`), so `/etc/passwd`, `/Users/sam/x` and `/tmp/out` are paths and `/api/users` or the
+ * expression `/^## Plan/` are text. A `file:///…` address is one too. Left out: the interpreter line a script starts
+ * with (`#!/usr/bin/env python3`) and the device files every program may name.
+ */
+export function posixAbsolutePaths(text: string, atRoot: (name: string) => boolean): string[] {
+  const out: string[] = [];
+  // A path ends at white space, a quote, or a character that separates things on a command line or in a list.
+  for (const m of text.replace(/^#![^\n]*/, '').matchAll(/file:\/\/\/[^\s'"`]*|(?<![\w.~})\]$*?\\/])\/(?![/\s])[^\s'"`;|&<>(),:]*/g)) {
+    if (m[0].startsWith('file:')) { out.push(m[0]); continue; }
+    const path = m[0].replace(/[.\]}]+$/, '');
+    const first = /^\/([^/]+)/.exec(path)?.[1];
+    if (first === undefined || HARMLESS_DEVICE.test(path) || !atRoot(first)) continue;
+    out.push(path);
+  }
+  return out;
+}
+
+/**
+ * Scan free text (a here-document body, a script that is not shell) for absolute or home path references, as the
+ * system the command runs on writes them: on Windows a drive path, Git Bash's `/c/…` for one, a network path; on macOS
+ * and Linux a path from `/`. (Read with the Windows expression alone, `/etc/passwd` or `/Users/sam/…` in a script was
+ * no path at all, and one directory name of a single letter anywhere in a path made the rest of it one.)
+ */
 function scanTextForPaths(text: string, cwd: string, boundary: Boundary): CommandDecision | null {
-  const re = /(?:\/(?:mnt\/|cygdrive\/)?[A-Za-z]\/[^\s'"`]*|[A-Za-z]:[\\/][^\s'"`]*|\\\\[^\s'"`]+|~[^\s'"`]*[\\/][^\s'"`]*)/g;
-  for (const m of text.matchAll(re)) {
-    const d = checkPath(m[0], cwd, boundary);
+  const named = system.platform === 'win32'
+    ? [...text.matchAll(/(?:\/(?:mnt\/|cygdrive\/)?[A-Za-z]\/[^\s'"`]*|[A-Za-z]:[\\/][^\s'"`]*|\\\\[^\s'"`]+|~[^\s'"`]*[\\/][^\s'"`]*)/g)].map((m) => m[0])
+    : [...[...text.matchAll(/~[^\s'"`]*\/[^\s'"`]*/g)].map((m) => m[0]), ...posixAbsolutePaths(text, system.atRoot)];
+  for (const path of named) {
+    const d = checkPath(path, cwd, boundary);
     if (d) return d;
   }
   return null;

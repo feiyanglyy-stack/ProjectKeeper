@@ -2,8 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `macos` is the branch the macOS work is done on; it leaves this list when that work is merged.
+    branches: [main, macos]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -15,11 +17,16 @@ concurrency:
 
 jobs:
   test:
-    # Windows is the only platform ProjectKeeper 0.1 supports (README, "Status and limits"), so it is the one CI runs
-    # on. The suite fails on Linux and has never been run on macOS; a job for either belongs here once it passes.
-    name: Typecheck and tests (windows-latest)
-    runs-on: windows-latest
-    # The suite takes about eight minutes on a runner. A job that hangs stops here instead of at GitHub's six hours.
+    # Windows and macOS are the systems ProjectKeeper runs on (README, "Status and limits"). Linux is not supported
+    # yet; a job for it belongs here once it is asked for and passes.
+    name: Typecheck and tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One system failing says nothing about the other: both run to the end.
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    # The suite takes about eight minutes on a Windows runner. A job that hangs stops here instead of at GitHub's six hours.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -27,19 +34,16 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      # What the tests run on, for reading a failed log. The temporary directory in particular: these runners give it
-      # by a short (8.3) name, C:\Users\RUNNER~1\AppData\Local\Temp, which is not the spelling git reports paths in.
+      # What the tests run on, for reading a failed log: versions, the temporary directory as the environment spells it
+      # and as the file system does (a short 8.3 name on Windows, a link into /private on macOS — neither is the
+      # spelling git reports paths in), and how the file system and git treat a name's case and its Unicode form.
       # No git identity is configured here, on purpose: ProjectKeeper and its tests must work on a machine without one.
       - name: Environment
-        shell: pwsh
-        run: |
-          git --version
-          "node $(node --version)"
-          "npm $(npm --version)"
-          "TEMP: $env:TEMP"
-          node -e "const os = require('os'), fs = require('fs'); console.log('os.tmpdir(): ' + os.tmpdir()); console.log('real spelling: ' + fs.realpathSync.native(os.tmpdir()));"
+        run: node scripts/ci-environment.mjs
       # `npm ci` also applies the patch to the installed model library (bin/postinstall.mjs).
       - run: npm ci
+      - name: Code engine
+        run: node scripts/ci-environment.mjs --engine
       - run: npm run typecheck
       # The tests need no network and no key. They run git, which the runner has.
       - run: npm test

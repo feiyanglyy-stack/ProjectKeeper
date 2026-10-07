@@ -276,11 +276,11 @@ test('the same programs doing anything else still run, and so does text that onl
   ]) ok(command);
 });
 
-test('git commands that send mail are refused like the ones that push: `send-email`, `imap-send`', () => {
+test('git commands that send mail are refused like the ones that push, as reaching out: `send-email`, `imap-send`', () => {
   for (const command of ['git send-email --to someone@example.invalid 0001-first.patch', 'git send-email --dry-run 0001-first.patch', 'git -C . send-email HEAD~1', 'git imap-send', 'git push origin main']) {
     const d = checkBashCommand(command, project, boundary, 0, [project]);
     assert.equal(d.ok, false, command);
-    assert.match(d.reason ?? '', /shell cannot write project files \(git (?:send-email|imap-send|push)\)/, command);
+    assert.match(d.reason ?? '', /^Refused: git (?:send-email|imap-send|push) reaches a remote/, command);
   }
   ok('git format-patch -1 --stdout');
   ok('git log --format=%ae -1');

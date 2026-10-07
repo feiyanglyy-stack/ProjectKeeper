@@ -301,7 +301,6 @@ const INTERPRETERS: Record<string, { flags: string[]; bash: boolean }> = {
 const PATH_VALUE_FLAGS = new Set(['--directory', '--git-dir', '--work-tree', '-f', '--file', '-I', '--include']);
 // Environment variables whose value is a path the command reads (checked even when the value is relative).
 const PATH_ENV = new Set(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_CONFIG', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM', 'GIT_OBJECT_DIRECTORY', 'GIT_INDEX_FILE', 'CDPATH', 'HOME', 'USERPROFILE', 'XDG_CONFIG_HOME']);
-const GIT_MUTATORS = new Set(['add', 'am', 'apply', 'bisect', 'checkout', 'cherry-pick', 'clean', 'clone', 'commit', 'fetch', 'gc', 'imap-send', 'init', 'maintenance', 'merge', 'mv', 'pull', 'push', 'rebase', 'repack', 'reset', 'restore', 'revert', 'rm', 'send-email', 'stash', 'switch', 'update-index']);
 /** An option whose value is a file or directory the command writes, whatever the command (`--output`, `--outfile`, `--outDir` …). */
 const OUTPUT_OPTION = /^--(?:output|out)(?:[-_]?(?:file|document|dir|directory))?$/i;
 /** The short option that names the output file of these commands (`sort -o FILE`, `curl -o FILE`, `wget -O FILE`). */
@@ -590,14 +589,193 @@ const projectWrite = (path: string): CommandDecision => ({
   reason: `Refused: shell cannot write project files (${path}). Use the job's scratch directory for temporary files; use pk_* tools for the ProjectKeeper folder.`,
 });
 
-/** The shell expands these three variables to this job's scratch directory (`$env:TMPDIR` in PowerShell). Other expansions stay unknown. */
+/** The shell expands these three variables to this job's scratch directory (`$env:TMPDIR` in PowerShell), also as the value of an option (`--output="$TMPDIR/x"`). Other expansions stay unknown. */
 function knownScratch(tokens: Token[], scratchDir?: string): Token[] {
   if (!scratchDir) return tokens;
   return tokens.map((token) => {
     if (token.kind !== 'word' || !token.dynamic || token.substitution) return token;
-    const m = /^\$(?:env:)?(?:TMPDIR|TEMP|TMP|\{TMPDIR\}|\{TEMP\}|\{TMP\})(?=$|[\\/])/i.exec(token.text);
-    return m ? { ...token, text: scratchDir + token.text.slice(m[0].length), dynamic: false } : token;
+    const m = /^(-{1,2}[\w-]+=)?\$(?:env:)?(?:TMPDIR|TEMP|TMP|\{TMPDIR\}|\{TEMP\}|\{TMP\})(?=$|[\\/])/i.exec(token.text);
+    return m ? { ...token, text: (m[1] ?? '') + scratchDir + token.text.slice(m[0].length), dynamic: false } : token;
   });
+}
+
+// ───────────────────────── git: the subcommands that only read ─────────────────────────
+//
+// The Keeper reads a project, so git runs for it when the subcommand, in the form given, is known to only read the
+// repository, and is refused otherwise: a subcommand that changes the repository, one that reaches a remote, one that
+// has git run another program, and one this check does not know — which is what an alias is, also one the repository's
+// own configuration defines (`alias.st = !rm -rf .`), and a program named `git-<x>` on the PATH. A list of the ones
+// that write, as there was before, lets through whatever it forgot.
+//
+// What the repository's own configuration attaches to reading — a text conversion for `diff`, a filter, an fsmonitor
+// hook — still runs with the reading command, as it does for the owner who set it up; only what a command line asks
+// for is judged here.
+
+type GitKind = 'writes' | 'outward' | 'runs' | 'unknown' | 'setting';
+const gitRefusal = (kind: GitKind, what: string): CommandDecision => kind === 'writes' ? projectWrite(what) : {
+  ok: false, detail: what,
+  reason: kind === 'outward' ? `Refused: ${what} reaches a remote (it sends to it, fetches from it, or asks it over the network). The Keeper's shell reads the project as it is on this machine.`
+    : kind === 'runs' ? `Refused: ${what} would have git run another program. The Keeper's shell runs git only to read the repository.`
+      : kind === 'setting' ? `Refused: ${what} is not a setting this check knows to be harmless for one git command (a setting can name a program git runs, or another place to read). Leave it out.`
+        : `Refused: ${what} is not a git command this check knows to only read; it may be an alias or a program of its own. The Keeper's shell runs git only to read the repository: log, show, diff, status, blame, grep, ls-files, cat-file, rev-parse, for-each-ref and the like.`,
+};
+
+/** Subcommands that only read, whatever their options (the options that do more are caught for all of them below). */
+const GIT_READS = new Set([
+  'status', 'log', 'show', 'diff', 'blame', 'annotate', 'shortlog', 'whatchanged', 'grep', 'ls-files', 'ls-tree', 'cat-file', 'rev-parse', 'rev-list', 'merge-base', 'name-rev',
+  'describe', 'for-each-ref', 'show-ref', 'show-branch', 'diff-tree', 'diff-index', 'diff-files', 'range-diff', 'cherry', 'check-ignore', 'check-attr', 'check-ref-format',
+  'check-mailmap', 'var', 'count-objects', 'verify-pack', 'verify-commit', 'verify-tag', 'version', 'patch-id', 'get-tar-commit-id', 'show-index', 'stripspace', 'column',
+]);
+/** Subcommands that send to a remote, fetch from one or ask one. */
+const GIT_OUTWARD = new Set(['push', 'fetch', 'pull', 'clone', 'ls-remote', 'send-email', 'imap-send', 'request-pull', 'svn', 'p4', 'send-pack', 'fetch-pack', 'http-fetch', 'http-push', 'daemon']);
+/** Subcommands that change the repository or the working tree: named, so the refusal can say so. Any other unknown one is refused as unknown. */
+const GIT_WRITES = new Set([
+  'add', 'am', 'apply', 'bisect', 'checkout', 'cherry-pick', 'clean', 'commit', 'gc', 'init', 'maintenance', 'merge', 'mv', 'rebase', 'repack', 'reset', 'restore', 'revert', 'rm', 'stash',
+  'switch', 'update-index', 'filter-branch', 'filter-repo', 'update-ref', 'replace', 'prune', 'fast-import', 'pack-refs', 'checkout-index', 'read-tree', 'commit-tree', 'write-tree', 'merge-tree',
+  'rerere', 'mktag', 'mktree', 'unpack-objects', 'prune-packed', 'multi-pack-index', 'commit-graph', 'merge-file', 'merge-index', 'stage', 'bugreport', 'diagnose', 'mailsplit', 'mailinfo',
+  'quiltimport', 'cvsimport', 'pack-objects', 'index-pack', 'unpack-file', 'update-server-info', 'replay', 'interpret-trailers', 'worktree', 'submodule', 'notes', 'reflog', 'symbolic-ref',
+  'sparse-checkout', 'lfs', 'remote', 'branch', 'tag', 'config', 'hash-object', 'bundle', 'format-patch', 'archive', 'fsck',
+]);
+/** Subcommands whose work is to run another program. */
+const GIT_RUNS = new Set(['difftool', 'mergetool', 'help', 'web--browse']);
+
+/** The operands of a subcommand: its words that are no option and no value of one of `valued` (given apart from it). */
+const gitOperands = (rest: readonly string[], valued: RegExp = /^$/): string[] => rest.filter((w, i) => !w.startsWith('-') && !(i > 0 && valued.test(rest[i - 1]!)));
+/** Whether an option is given; a word that is the value of one of `valued` (given apart from it) is no option. */
+const hasOption = (rest: readonly string[], option: RegExp, valued: RegExp = /^$/): boolean => rest.some((w, i) => w.startsWith('-') && option.test(w) && !(i > 0 && valued.test(rest[i - 1]!)));
+
+/**
+ * Subcommands that read in some forms and do more in others: what the form given does, null when it only reads. A
+ * form that is not recognised as reading counts as writing — the listing forms are the ones spelled out.
+ */
+const GIT_FORMS: Readonly<Record<string, (rest: readonly string[]) => GitKind | null>> = {
+  branch: (rest) => {
+    if (hasOption(rest, /^(?:-[A-Za-z]*[dDmMcCfut][A-Za-z]*|--delete|--move|--copy|--force|--set-upstream-to(?:=.*)?|--unset-upstream|--track(?:=.*)?|--no-track|--edit-description|--create-reflog|--recurse-submodules)$/, /^(?:--sort|--format)$/)) return 'writes';
+    if (hasOption(rest, /^(?:-[A-Za-z]*l[A-Za-z]*|--list|--contains|--no-contains|--merged|--no-merged|--points-at|--show-current)(?:=.*)?$/, /^(?:--sort|--format)$/)) return null;
+    return gitOperands(rest, /^(?:--sort|--format|--abbrev)$/).length ? 'writes' : null;     // a name with no listing option makes a branch
+  },
+  tag: (rest) => {
+    if (hasOption(rest, /^(?:-[A-Za-z]*[asufdmFe][A-Za-z]*|--annotate|--sign|--local-user(?:=.*)?|--force|--delete|--message(?:=.*)?|--file(?:=.*)?|--edit|--create-reflog|--cleanup(?:=.*)?|--trailer(?:=.*)?)$/, /^(?:--sort|--format)$/)) return 'writes';
+    if (hasOption(rest, /^(?:-[A-Za-z]*[lv][A-Za-z]*|-n\d*|--list|--verify|--contains|--no-contains|--merged|--no-merged|--points-at)(?:=.*)?$/, /^(?:--sort|--format)$/)) return null;
+    return gitOperands(rest, /^(?:--sort|--format)$/).length ? 'writes' : null;
+  },
+  remote: (rest) => {
+    const [verb] = gitOperands(rest);
+    if (verb === undefined || verb === 'get-url') return null;
+    if (verb === 'show') return hasOption(rest, /^-n$/) ? null : 'outward';                   // `show` asks the remote unless told not to
+    return verb === 'update' || verb === 'prune' ? 'outward' : 'writes';
+  },
+  stash: (rest) => (rest[0] === 'list' || rest[0] === 'show' ? null : 'writes'),
+  worktree: (rest) => (rest[0] === 'list' ? null : 'writes'),
+  notes: (rest) => { const [verb] = gitOperands(rest, /^--ref$/); return verb === undefined || ['list', 'show', 'get-ref'].includes(verb) ? null : 'writes'; },
+  reflog: (rest) => (['expire', 'delete', 'drop'].includes(gitOperands(rest)[0] ?? '') ? 'writes' : null),
+  'symbolic-ref': (rest) => (hasOption(rest, /^(?:-d|--delete|-m)$/) || gitOperands(rest).length > 1 ? 'writes' : null),
+  bisect: (rest) => (rest[0] === 'log' || rest[0] === 'terms' ? null : 'writes'),
+  submodule: (rest) => { const [verb] = gitOperands(rest); return verb === undefined || verb === 'status' || verb === 'summary' ? null : 'writes'; },
+  'sparse-checkout': (rest) => (rest[0] === 'list' || rest[0] === 'check-rules' ? null : 'writes'),
+  lfs: (rest) => {
+    const [verb, ...more] = gitOperands(rest);
+    if (['ls-files', 'status', 'env', 'version', 'logs'].includes(verb ?? '')) return null;
+    if (verb === 'track') return more.length ? 'writes' : null;                                // with no pattern it lists
+    return ['push', 'pull', 'fetch', 'clone', 'locks', 'lock', 'unlock'].includes(verb ?? '') ? 'outward' : 'writes';
+  },
+  'hash-object': (rest) => (hasOption(rest, /^(?:-[A-Za-z]*w[A-Za-z]*)$/) ? 'writes' : null),
+  bundle: (rest) => (['verify', 'list-heads', 'create'].includes(rest[0] ?? '') ? null : 'writes'),   // what `create` writes is judged as a file below
+  'format-patch': (rest) => (hasOption(rest, /^(?:--stdout|-o|--output-directory(?:=.*)?)$/) ? null : 'writes'),   // with neither it writes into the working tree
+  archive: (rest) => (hasOption(rest, /^(?:--remote|--exec)(?:=.*)?$/) ? 'outward' : null),
+  fsck: (rest) => (hasOption(rest, /^--lost-found$/) ? 'writes' : null),
+  config: (rest) => {
+    const operands = gitOperands(rest, /^(?:--file|-f|--blob|--type|--default|--value|--comment|--url)$/);
+    const verb = ['get', 'list', 'set', 'unset', 'rename-section', 'remove-section', 'edit'].includes(operands[0] ?? '') ? operands[0]! : null;
+    if (hasOption(rest, /^(?:--add|--unset|--unset-all|--replace-all|--rename-section|--remove-section|--edit|-e)$/)) return 'writes';
+    return verb ? (verb === 'get' || verb === 'list' ? null : 'writes') : operands.length > 1 ? 'writes' : null;   // `git config KEY VALUE` sets
+  },
+};
+
+/** A setting given to one git command (`-c section.name=value`): the ones that only change how what is read is shown. */
+function harmlessGitSetting(setting: string): boolean {
+  const eq = setting.indexOf('=');
+  const key = (eq < 0 ? setting : setting.slice(0, eq)).toLowerCase();
+  const value = eq < 0 ? 'true' : setting.slice(eq + 1);
+  const parts = key.split('.');
+  const section = parts[0]!;
+  const name = parts[parts.length - 1]!;
+  if (parts.length < 2) return false;
+  const off = /^(?:false|no|off|0|)$/i.test(value);
+  if (section === 'core') {
+    if (name === 'pager') return value === '' || value === 'cat';
+    if (name === 'fsmonitor') return off;
+    return parts.length === 2 && !['editor', 'sshcommand', 'askpass', 'gitproxy', 'hookspath', 'alternaterefscommand', 'worktree', 'bare', 'attributesfile', 'excludesfile'].includes(name);
+  }
+  if (section === 'pager') return parts.length === 2 && (off || /^(?:true|yes|on|1)$/i.test(value));
+  if (section === 'diff') return parts.length === 2 && !['external', 'tool', 'guitool'].includes(name);
+  return ['color', 'log', 'blame', 'grep', 'status', 'column', 'advice', 'i18n', 'format', 'pretty', 'safe', 'user', 'author', 'committer', 'feature', 'index', 'pack'].includes(section);
+}
+
+/**
+ * Variables that name a program git runs, or carry git settings, set for a command: before it, through `env`,
+ * `export` or `declare`, or as PowerShell's `$env:…`. A pager of `cat`, or none, is the one that passes: agents write
+ * `GIT_PAGER=cat git log` to be sure of plain output.
+ */
+const GIT_RUNNER_ENV = /^(?:\$env:)?(GIT_EXTERNAL_DIFF|GIT_SSH_COMMAND|GIT_SSH|GIT_PAGER|GIT_EDITOR|GIT_SEQUENCE_EDITOR|GIT_ASKPASS|SSH_ASKPASS|GIT_PROXY_COMMAND|GIT_EXEC_PATH|GIT_TEMPLATE_DIR|GIT_CONFIG_COUNT|GIT_CONFIG_KEY_\d+|GIT_CONFIG_VALUE_\d+|GIT_CONFIG_PARAMETERS|PAGER)(?:=(.*))?$/i;
+function gitRunnerSetting(words: readonly Token[], start: number): CommandDecision | null {
+  const name = commandName(words[start]?.text ?? '').toLowerCase();
+  const end = PROGRAM_COMMANDS[name] || name === 'echo' || name === 'printf' ? start : words.length;
+  for (const w of words.slice(0, end)) {
+    const m = w.kind === 'word' && (/=/.test(w.text) || /^\$env:/i.test(w.text)) ? GIT_RUNNER_ENV.exec(w.text) : null;
+    if (m && !(/^(?:GIT_)?PAGER$/i.test(m[1]!) && (m[2] === '' || m[2] === 'cat'))) return gitRefusal('runs', m[1]!.toUpperCase());
+  }
+  return null;
+}
+
+/** What `git …` is asked: the subcommand and where it stands, a refusal when it does more than read, and the files it names. */
+function gitRule(argv: readonly Token[]): { subcommand: string; index: number; refusal: CommandDecision | null; reads: Token[]; writes: Token[] } {
+  const nothing = { subcommand: '', index: -1, reads: [] as Token[], writes: [] as Token[] };
+  let i = 1;
+  for (; i < argv.length; i += 1) {
+    const w = argv[i]!;
+    const t = w.text;
+    if (t === '-c') {
+      const setting = argv[i + 1];
+      if (!setting || setting.dynamic || setting.substitution || !harmlessGitSetting(setting.text)) return { ...nothing, refusal: gitRefusal('setting', `git -c ${(setting?.text ?? '').split('=')[0]}`) };
+      i += 1;
+    } else if (/^--config-env(?:=|$)/.test(t)) return { ...nothing, refusal: gitRefusal('setting', 'git --config-env') };
+    else if (GIT_OPTIONS_WITH_VALUE.has(t)) i += 1;
+    else if (t === '-p' || t === '--paginate') return { ...nothing, refusal: gitRefusal('runs', 'git --paginate (the pager)') };
+    else if (/^--exec-path=/.test(t)) return { ...nothing, refusal: gitRefusal('runs', 'git --exec-path=… (git programs from another place)') };
+    else if (!t.startsWith('-')) break;
+  }
+  const word = argv[i];
+  if (!word) return { ...nothing, refusal: null };                    // `git --version`, `git` alone
+  if (word.dynamic || word.substitution) return { ...nothing, refusal: undeterminable('a computed git subcommand') };
+  const subcommand = word.text;
+  const after = argv.slice(i + 1).filter((w) => w.kind === 'word');
+  const rest = after.map((w) => w.text);
+  const found = { subcommand, index: i };
+  const refuse = (kind: GitKind, what = `git ${subcommand}`) => ({ ...found, refusal: gitRefusal(kind, what), reads: [], writes: [] });
+
+  if (GIT_OUTWARD.has(subcommand)) return refuse('outward');
+  if (GIT_RUNS.has(subcommand)) return refuse('runs');
+  const form = GIT_FORMS[subcommand];
+  if (!form && !GIT_READS.has(subcommand)) return refuse(GIT_WRITES.has(subcommand) ? 'writes' : 'unknown');
+  const does = form ? form(rest) : null;
+  if (does) return refuse(does);
+  // Options that make a reading command do more.
+  if (rest.includes('--help')) return refuse('runs', `git ${subcommand} --help (it opens the manual in another program; -h prints the short help here)`);
+  const runs = rest.find((w) => /^(?:--ext-diff|--textconv|--filters)$/.test(w) || (subcommand === 'grep' && /^(?:-O.*|--open-files-in-pager(?:=.*)?)$/.test(w)));
+  if (runs) return refuse('runs', `git ${subcommand} ${runs.split('=')[0]}`);
+
+  // Files a reading command is given outside the repository's own content: read, or written.
+  const reads: Token[] = [];
+  const writes: Token[] = [];
+  const operands = after.filter((w) => !w.text.startsWith('-'));
+  if (rest.includes('--no-index') && (subcommand === 'diff' || subcommand === 'grep')) reads.push(...operands.slice(subcommand === 'grep' ? 1 : 0));
+  if (subcommand === 'hash-object') reads.push(...operands);
+  if (subcommand === 'blame') { const at = rest.indexOf('--contents'); if (at >= 0 && after[at + 1]) reads.push(after[at + 1]!); }
+  if (subcommand === 'bundle' && operands[1]) (operands[0]!.text === 'create' ? writes : reads).push(operands[1]);
+  const computed = [...reads, ...writes].find((w) => w.dynamic || w.substitution);
+  if (computed) return { ...found, refusal: undeterminable('a computed path in git'), reads: [], writes: [] };
+  return { ...found, refusal: null, reads, writes };
 }
 
 // ───────────────────────── commands that run another command ─────────────────────────
@@ -1018,6 +1196,8 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
   let argv = words.slice(start);
   const trace = traceSwitch(words, start);
   if (trace) return { decision: trace, cwd };
+  const runner = gitRunnerSetting(words, start);
+  if (runner) return { decision: runner, cwd };
   if (argv.length === 0) return { decision: null, cwd };
   // A command that runs another command: that one is judged first, as a command of its own (see `checkWrapped`).
   const wrapped = checkWrapped(argv, cwd, boundary, opts);
@@ -1126,27 +1306,11 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
   // git subcommands that move the working tree elsewhere, and git config's scope.
   let gitCwd = cwd;
   if (name === 'git') {
-    let subcommand = '';
-    let subcommandIndex = -1;
-    for (let i = 1; i < argv.length; i += 1) {
-      const word = argv[i]!.text;
-      if (['-C', '-c', '--git-dir', '--work-tree', '--namespace'].includes(word)) { i += 1; continue; }
-      if (word.startsWith('-')) continue;
-      subcommand = word; subcommandIndex = i; break;
-    }
-    const rest = argv.slice(subcommandIndex + 1).filter((w) => w.kind === 'word' && !redirectTargets.has(w)).map((w) => w.text);
-    const configWrites = subcommand === 'config' && (
-      rest.some((word) => /^--(?:add|unset|replace-all|rename-section|remove-section|edit)$/.test(word))
-      || rest.filter((word) => !word.startsWith('-')).length > 1
-    );
-    const branchWrites = subcommand === 'branch' && rest.some((word) => !word.startsWith('-') || /^-(?:[dDmMcCfF]|-delete|-move|-copy|-force)/.test(word));
-    const tagWrites = subcommand === 'tag' && rest.some((word) => !word.startsWith('-') || /^-(?:[daf]|-delete|-annotate|-force)/.test(word));
-    if (GIT_MUTATORS.has(subcommand) || configWrites || branchWrites || tagWrites
-        || (subcommand === 'reflog' && ['expire', 'delete'].includes(rest[0] ?? ''))
-        || (subcommand === 'worktree' && rest[0] !== 'list')
-        || (subcommand === 'submodule' && rest[0] !== 'status')) {
-      return { decision: projectWrite(`git ${subcommand}`), cwd };
-    }
+    // Only what is known to read runs (see `gitRule`).
+    const rule = gitRule(argv.filter((w) => !redirectTargets.has(w) && !(w.kind === 'op' && REDIRECTS.has(w.text))));
+    if (rule.refusal) return { decision: rule.refusal, cwd };
+    const subcommand = rule.subcommand;
+    const subcommandIndex = rule.index < 0 ? argv.length : argv.findIndex((w) => w.kind === 'word' && w.text === subcommand && !w.text.startsWith('-'));
     if (subcommand === 'config') {
       const d = checkGitConfig(argv, cwd, boundary);
       if (d && !d.ok) return { decision: d, cwd };
@@ -1182,8 +1346,13 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
       const shortOutput = w.text === '-o' && (subcommand === 'format-patch' || subcommand === 'archive')
         && next?.kind === 'word' && !next.dynamic && !next.substitution ? next.text : null;
       const target = outputTarget('git', w, next) ?? shortOutput;
-      if (target) opts.onWrite?.(target, gitCwd);
+      const names = /^--output(?:-directory)?$/.test(w.text) || (w.text === '-o' && (subcommand === 'format-patch' || subcommand === 'archive'));
+      if ((/^--output(?:-directory)?=/.test(w.text) && (w.dynamic || w.substitution)) || (names && (next?.dynamic || next?.substitution))) return { decision: undeterminable('a computed output path'), cwd };
+      if (target) { opts.onWrite?.(target, gitCwd); if (inWriteRoot(target, gitCwd, opts.writeRoots)) return { decision: projectWrite(target), cwd }; }
     }
+    for (const file of rule.reads) { const d = checkPath(file.text, gitCwd, boundary); if (d) return { decision: d, cwd }; }
+    for (const file of rule.writes) { opts.onWrite?.(file.text, gitCwd); if (inWriteRoot(file.text, gitCwd, opts.writeRoots)) return { decision: projectWrite(file.text), cwd }; }
+    if (subcommand === 'format-patch' && !argv.some((w) => /^(?:--stdout|-o|--output-directory(?:=.*)?)$/.test(w.text))) return { decision: projectWrite('git format-patch'), cwd };
     return { decision: null, cwd };
   }
 

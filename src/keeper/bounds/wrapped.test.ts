@@ -231,7 +231,7 @@ test('a command written out in code given to an interpreter is judged as a comma
     `node -e 'require("child_process").execFileSync("git", ["checkout", "-b", "x"])'`,
     `perl -e 'system("git push")'`, `ruby -e 'system("git", "commit", "-m", "x")'`,
     `python -c "import os; os.system('env git push')"`, `python -c "import os; os.system('bash -lc \\"git push\\"')"`,
-  ]) refusedAs(command, /shell cannot write project files \(git /);
+  ]) refusedAs(command, /shell cannot write project files \(git |git push reaches a remote/);
   for (const command of [
     `python -c "import os; os.system('rm -rf src')"`, `python -c "import subprocess; subprocess.run(['rm', '-rf', 'src'])"`,
     `node -e "require('child_process').execSync('rm -rf src')"`, `node -e "require('child_process').spawnSync('cp', ['src/a.ts', 'src/b.ts'])"`,

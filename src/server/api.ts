@@ -28,6 +28,7 @@ import { registerKAgentRoutes } from './k-agent-api.ts';
 import { registerDraftRoutes } from './drafts-api.ts';
 import { notOrganizedPackage, registerKeeperPageRoutes } from './keeper-page.ts';
 import { registerKeyRoutes } from './keys-api.ts';
+import { registerFolderRoutes } from './folders-api.ts';
 import { takeoverState } from '../keeper/organize/takeover-state.ts';
 import { MODEL_STEP_KINDS, STEP_SETTING_AS, THINKING_LEVELS } from '../keeper/clerk-steps.ts';
 
@@ -40,6 +41,8 @@ export function registerRoutes(http: HttpApp, app: App, uiDir: string, vendorDir
   // The Keeper view's two pages: Takeover (Start, Clear) and Daily (the schedule) — keeper-page.ts (D105).
   registerKeeperPageRoutes(http, app);
   registerKeyRoutes(http, app);
+  // The folders of a directory, for the folder chooser where a location is typed (folders-api.ts).
+  registerFolderRoutes(http);
   const projectSummary = (id: string) => {
     const project = app.project(id);
     const store = app.store(id);

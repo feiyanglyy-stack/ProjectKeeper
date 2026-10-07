@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { isLocalGitSetting, shellEnv, stripCredentialEnv } from './boundary.ts';
@@ -103,18 +103,20 @@ test('the variables that are not git settings are filtered by name as before', (
   assert.deepEqual(env, { PATH: '/bin', GIT_DIR: '/repo/.git', GIT_AUTHOR_NAME: 'Invented Name' });
 });
 
-test('the shell’s environment: the credentials gone, and after the settings that were given two of its own — no credential helper, then core.longpaths, the last — so git typed into the shell reads deep paths as the program’s own calls do', () => {
+test('the shell’s environment: the credentials gone, and after the settings that were given three of its own — no credential helper, no refreshing of the index by git diff, then core.longpaths, the last — so git typed into the shell reads deep paths as the program’s own calls do', () => {
   assert.deepEqual(shellEnv({ PATH: '/bin', SERVICE_TOKEN: 'x' }), {
-    PATH: '/bin', GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: '2',
-    GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '', GIT_CONFIG_KEY_1: 'core.longpaths', GIT_CONFIG_VALUE_1: 'true',
+    PATH: '/bin', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_COUNT: '3',
+    GIT_CONFIG_KEY_0: 'credential.helper', GIT_CONFIG_VALUE_0: '', GIT_CONFIG_KEY_1: 'diff.autoRefreshIndex', GIT_CONFIG_VALUE_1: 'false',
+    GIT_CONFIG_KEY_2: 'core.longpaths', GIT_CONFIG_VALUE_2: 'true',
   });
   const env = shellEnv(envWith([['http.extraheader', 'AUTHORIZATION: bearer invented-bearer-1234'], ['user.name', 'Invented Name'], ['core.longpaths', 'false']]));
   assert.deepEqual(group(env), {
-    GIT_CONFIG_COUNT: '4',
+    GIT_CONFIG_COUNT: '5',
     GIT_CONFIG_KEY_0: 'user.name', GIT_CONFIG_VALUE_0: 'Invented Name',
     GIT_CONFIG_KEY_1: 'core.longpaths', GIT_CONFIG_VALUE_1: 'false',
     GIT_CONFIG_KEY_2: 'credential.helper', GIT_CONFIG_VALUE_2: '',
-    GIT_CONFIG_KEY_3: 'core.longpaths', GIT_CONFIG_VALUE_3: 'true',
+    GIT_CONFIG_KEY_3: 'diff.autoRefreshIndex', GIT_CONFIG_VALUE_3: 'false',
+    GIT_CONFIG_KEY_4: 'core.longpaths', GIT_CONFIG_VALUE_4: 'true',
   });
   assert.equal(gitWith(env, ['config', '--get', 'core.longpaths']).trim(), 'true', 'the last one holds');
 });
@@ -163,8 +165,8 @@ test('the programs that answer for a password, the editor’s channel to its own
     GIT_TRACE: '1', GIT_TRACE_CURL: '1', GIT_TRACE_REDACT: '0', GIT_TRACE_PACKET: '1', GIT_TRACE2_EVENT: '/tmp/trace', Git_Curl_Verbose: '1', GCM_TRACE: '1', GCM_TRACE_SECRETS: '1',
     GIT_TERMINAL_PROMPT: '1',
   };
-  const { GIT_CONFIG_COUNT: _count, GIT_CONFIG_KEY_0: _k0, GIT_CONFIG_VALUE_0: _v0, GIT_CONFIG_KEY_1: _k1, GIT_CONFIG_VALUE_1: _v1, ...rest } = shellEnv(given);
-  assert.deepEqual(rest, { PATH: '/bin', GIT_EDITOR: 'true', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes', TERM_PROGRAM: 'vscode', GIT_TERMINAL_PROMPT: '0' });
+  const { GIT_CONFIG_COUNT: _count, GIT_CONFIG_KEY_0: _k0, GIT_CONFIG_VALUE_0: _v0, GIT_CONFIG_KEY_1: _k1, GIT_CONFIG_VALUE_1: _v1, GIT_CONFIG_KEY_2: _k2, GIT_CONFIG_VALUE_2: _v2, ...rest } = shellEnv(given);
+  assert.deepEqual(rest, { PATH: '/bin', GIT_EDITOR: 'true', GIT_SSH_COMMAND: 'ssh -o BatchMode=yes', TERM_PROGRAM: 'vscode', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' });
 });
 
 test('what the Keeper reads of a repository in its shell comes out the same: log, show, status, diff, blame, ls-files, worktree list', () => {
@@ -179,4 +181,20 @@ test('what the Keeper reads of a repository in its shell comes out the same: log
     const timeless = (r: typeof before) => ({ ...r, out: r.out.replace(/ \d{10} [+-]\d{4}/g, '') });
     assert.deepEqual(timeless(inShell), timeless(before), `git ${args.join(' ')}`);
   }
+});
+
+test('git status and git diff in the shell do not rewrite the index: git is told to take no optional lock', () => {
+  const { repo, env } = repositoryWithHelper();
+  const index = join(repo, '.git', 'index');
+  // A tracked file whose time changed and whose content did not: git would write the new time into the index.
+  const touch = () => utimesSync(join(repo, 'README.md'), new Date(), new Date(Date.now() + 60_000));
+  touch();
+  const before = readFileSync(index);
+  for (const args of [['status', '--porcelain'], ['diff', '--stat'], ['status']]) assert.equal(run(shellEnv(env), repo, args).status, 0);
+  assert.deepEqual(readFileSync(index), before, 'the index is as it was');
+  assert.equal(shellEnv(env).GIT_OPTIONAL_LOCKS, '0');
+  assert.equal(shellEnv({ ...env, GIT_OPTIONAL_LOCKS: '1' }).GIT_OPTIONAL_LOCKS, '0');
+  // The same command as the machine is set up does write it, which is what the setting is for.
+  assert.equal(run({ ...env, GIT_OPTIONAL_LOCKS: '1' }, repo, ['status', '--porcelain']).status, 0);
+  assert.notDeepEqual(readFileSync(index), before, 'without it, git status refreshes the index');
 });

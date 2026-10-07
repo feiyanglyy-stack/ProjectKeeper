@@ -122,22 +122,26 @@ const LOGIN_ROUTE_ENV = /^(?:GIT_ASKPASS|SSH_ASKPASS|SSH_ASKPASS_REQUIRE|SUDO_AS
 
 /**
  * The environment a shell command runs in: without the credentials and without the routes to a stored login, and with
- * two git settings of its own after the ones that were given, where they hold whatever any configuration says:
+ * three git settings of its own after the ones that were given, where they hold whatever any configuration says:
  *  - `credential.helper` empty, which makes git forget every helper configured before it; with nobody to ask
  *    (`GIT_TERMINAL_PROMPT=0`, no askpass program) git in the shell has no login to use or to print, and says so at
  *    once. command.ts refuses `git credential` when it is typed; this holds for git reached any other way;
  *  - `core.longpaths`, the last. The program's own git calls are given it on the command line (util/git.ts
  *    `LONG_PATHS`); git typed into the shell needs it as much — in a repository at a deep path, or with files deep
  *    inside it, `git status` and `git log` stop with "Filename too long" otherwise.
+ * And git is kept from writing the index to refresh it, which changes the repository's state and takes its lock from
+ * whoever is working in it: `GIT_OPTIONAL_LOCKS=0` for `git status`, as the program's own git calls have it, and the
+ * setting `diff.autoRefreshIndex=false` for `git diff`, which does not ask about optional locks.
  */
 export function shellEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {};
-  for (const [k, v] of Object.entries(stripCredentialEnv(env))) if (!LOGIN_ROUTE_ENV.test(k.toUpperCase()) && k.toUpperCase() !== 'GIT_TERMINAL_PROMPT') out[k] = v;
+  for (const [k, v] of Object.entries(stripCredentialEnv(env))) if (!LOGIN_ROUTE_ENV.test(k.toUpperCase()) && !['GIT_TERMINAL_PROMPT', 'GIT_OPTIONAL_LOCKS'].includes(k.toUpperCase())) out[k] = v;
   const count = Number(out.GIT_CONFIG_COUNT ?? 0);
   return {
-    ...out, GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: String(count + 2),
+    ...out, GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_COUNT: String(count + 3),
     [`GIT_CONFIG_KEY_${count}`]: 'credential.helper', [`GIT_CONFIG_VALUE_${count}`]: '',
-    [`GIT_CONFIG_KEY_${count + 1}`]: 'core.longpaths', [`GIT_CONFIG_VALUE_${count + 1}`]: 'true',
+    [`GIT_CONFIG_KEY_${count + 1}`]: 'diff.autoRefreshIndex', [`GIT_CONFIG_VALUE_${count + 1}`]: 'false',
+    [`GIT_CONFIG_KEY_${count + 2}`]: 'core.longpaths', [`GIT_CONFIG_VALUE_${count + 2}`]: 'true',
   };
 }
 

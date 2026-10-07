@@ -623,7 +623,7 @@ const gitRefusal = (kind: GitKind, what: string): CommandDecision => kind === 'w
 /** Subcommands that only read, whatever their options (the options that do more are caught for all of them below). */
 const GIT_READS = new Set([
   'status', 'log', 'show', 'diff', 'blame', 'annotate', 'shortlog', 'whatchanged', 'grep', 'ls-files', 'ls-tree', 'cat-file', 'rev-parse', 'rev-list', 'merge-base', 'name-rev',
-  'describe', 'for-each-ref', 'show-ref', 'show-branch', 'diff-tree', 'diff-index', 'diff-files', 'range-diff', 'cherry', 'check-ignore', 'check-attr', 'check-ref-format',
+  'for-each-ref', 'show-ref', 'show-branch', 'diff-tree', 'diff-index', 'diff-files', 'range-diff', 'cherry', 'check-ignore', 'check-attr', 'check-ref-format',
   'check-mailmap', 'var', 'count-objects', 'verify-pack', 'verify-commit', 'verify-tag', 'version', 'patch-id', 'get-tar-commit-id', 'show-index', 'stripspace', 'column',
 ]);
 /** Subcommands that send to a remote, fetch from one or ask one. */
@@ -634,7 +634,7 @@ const GIT_WRITES = new Set([
   'switch', 'update-index', 'filter-branch', 'filter-repo', 'update-ref', 'replace', 'prune', 'fast-import', 'pack-refs', 'checkout-index', 'read-tree', 'commit-tree', 'write-tree', 'merge-tree',
   'rerere', 'mktag', 'mktree', 'unpack-objects', 'prune-packed', 'multi-pack-index', 'commit-graph', 'merge-file', 'merge-index', 'stage', 'bugreport', 'diagnose', 'mailsplit', 'mailinfo',
   'quiltimport', 'cvsimport', 'pack-objects', 'index-pack', 'unpack-file', 'update-server-info', 'replay', 'interpret-trailers', 'worktree', 'submodule', 'notes', 'reflog', 'symbolic-ref',
-  'sparse-checkout', 'lfs', 'remote', 'branch', 'tag', 'config', 'hash-object', 'bundle', 'format-patch', 'archive', 'fsck',
+  'sparse-checkout', 'lfs', 'remote', 'branch', 'tag', 'config', 'hash-object', 'bundle', 'format-patch', 'archive', 'fsck', 'describe',
 ]);
 /** Subcommands whose work is to run another program. */
 const GIT_RUNS = new Set(['difftool', 'mergetool', 'help', 'web--browse']);
@@ -684,6 +684,7 @@ const GIT_FORMS: Readonly<Record<string, (rest: readonly string[]) => GitKind | 
   'format-patch': (rest) => (hasOption(rest, /^(?:--stdout|-o|--output-directory(?:=.*)?)$/) ? null : 'writes'),   // with neither it writes into the working tree
   archive: (rest) => (hasOption(rest, /^(?:--remote|--exec)(?:=.*)?$/) ? 'outward' : null),
   fsck: (rest) => (hasOption(rest, /^--lost-found$/) ? 'writes' : null),
+  describe: (rest) => (hasOption(rest, /^--(?:dirty|broken)(?:=.*)?$/) ? 'writes' : null),   // these refresh the index and write it, whatever the settings
   config: (rest) => {
     const operands = gitOperands(rest, /^(?:--file|-f|--blob|--type|--default|--value|--comment|--url)$/);
     const verb = ['get', 'list', 'set', 'unset', 'rename-section', 'remove-section', 'edit'].includes(operands[0] ?? '') ? operands[0]! : null;

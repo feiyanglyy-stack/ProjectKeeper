@@ -194,15 +194,16 @@ test('controlled trial: a commit made while a command runs (the Keeper\'s own fo
   assert.match(textOf(outcome.value).split('\n')[0]!, new RegExp(`^${LEFT_NOTE}; left as it is: .*note\\.md`));
 });
 
-test('the 20:29:59Z step: a command whose own git status rewrites the index restores and reports nothing, on either home', { timeout: 60_000 }, async (t) => {
+test('the 20:29:59Z step: a command whose own git status finds a file’s time changed does not rewrite the index, and restores and reports nothing, on either home', { timeout: 60_000 }, async (t) => {
   for (const live of [true, false]) {
     const fx = home(t, live);
-    // A file whose time no longer matches the index makes git status refresh the index and write it back.
+    // A file whose time no longer matches the index made git status refresh the index and write it back; in the Keeper's
+    // shell git is told not to (boundary.ts `shellEnv`), so the repository's state is as the command found it.
     const later = new Date(Date.now() + 60_000);
     utimesSync(join(fx.repo, 'tracked.txt'), later, later);
     const before = indexOf(fx.repo);
     const result = await fx.run('git log --format=\'%h %ad %s\' --date=format:\'%m-%d %H:%M\' -12 && echo "=== status ===" && git status --short | head -5');
-    assert.notDeepEqual(indexOf(fx.repo), before, 'the command\'s git status did rewrite the index (the case under test)');
+    assert.deepEqual(indexOf(fx.repo), before, 'the command\'s git status left the index as it was');
     assert.doesNotMatch(textOf(result), new RegExp(LEFT_NOTE), `${live ? 'live' : 'controlled'}: nothing is reported`);
     assert.equal(readFileSync(join(fx.repo, 'tracked.txt'), 'utf8'), 'original');
   }

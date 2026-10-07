@@ -145,6 +145,7 @@ const BY_FORM: Readonly<Record<string, { runs: readonly string[]; refused: reado
     refused: [['git archive -o src/x.zip HEAD', 'writes'], ['git archive --output=x.tar HEAD', 'writes'], ['git archive --remote=origin HEAD', 'outward'], ['git archive --exec=/tmp/x --remote=origin HEAD', 'outward']],
   },
   fsck: { runs: ['git fsck', 'git fsck --full --no-dangling'], refused: [['git fsck --lost-found', 'writes']] },
+  describe: { runs: ['git describe', 'git describe --tags --always', 'git describe --contains HEAD', 'git describe --all --long'], refused: [['git describe --dirty', 'writes'], ['git describe --always --dirty=-modified', 'writes'], ['git describe --broken', 'writes']] },
 };
 
 for (const [subcommand, forms] of Object.entries(BY_FORM)) {

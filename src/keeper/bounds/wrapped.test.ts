@@ -333,4 +333,9 @@ test('PowerShell: its own commands that write the files they name are refused in
   const toScratch = (command: string) => checkShellCommand('powershell', command, project, withScratch, [project], scratch);
   assert.equal(toScratch(`Copy-Item src\\a.ts ${scratch}\\a.ts`).ok, true, toScratch(`Copy-Item src\\a.ts ${scratch}\\a.ts`).reason ?? '');
   assert.equal(toScratch(`"x" | Out-File ${scratch}\\note.txt`).ok, true);
+  // … which PowerShell names `$env:TMPDIR` (`$env:TEMP`, `$env:TMP`); what follows the file is what to write, no file.
+  for (const command of ['Set-Content $env:TMPDIR\\x.txt hello', '"a" | Out-File $env:TEMP\\note.txt', 'New-Item -ItemType Directory $env:TMP\\work', 'Copy-Item src\\a.ts $env:TMPDIR\\a.ts', 'Set-Content -Path $env:TMPDIR\\x.txt -Value hello -Encoding utf8']) {
+    assert.equal(toScratch(command).ok, true, `${command}: ${toScratch(command).reason}`);
+  }
+  assert.match(toScratch('Set-Content $env:USERPROFILE\\x.txt hello').reason ?? '', /a computed output path/);
 });

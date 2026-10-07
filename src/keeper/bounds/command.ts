@@ -590,12 +590,12 @@ const projectWrite = (path: string): CommandDecision => ({
   reason: `Refused: shell cannot write project files (${path}). Use the job's scratch directory for temporary files; use pk_* tools for the ProjectKeeper folder.`,
 });
 
-/** The shell expands these three variables to this job's scratch directory. Other expansions stay unknown. */
+/** The shell expands these three variables to this job's scratch directory (`$env:TMPDIR` in PowerShell). Other expansions stay unknown. */
 function knownScratch(tokens: Token[], scratchDir?: string): Token[] {
   if (!scratchDir) return tokens;
   return tokens.map((token) => {
     if (token.kind !== 'word' || !token.dynamic || token.substitution) return token;
-    const m = /^\$(?:TMPDIR|TEMP|TMP|\{TMPDIR\}|\{TEMP\}|\{TMP\})(?=$|[\\/])/.exec(token.text);
+    const m = /^\$(?:env:)?(?:TMPDIR|TEMP|TMP|\{TMPDIR\}|\{TEMP\}|\{TMP\})(?=$|[\\/])/i.exec(token.text);
     return m ? { ...token, text: scratchDir + token.text.slice(m[0].length), dynamic: false } : token;
   });
 }
@@ -659,6 +659,10 @@ const WRITE_CMDLETS = new Set([
 ]);
 /** The same, for the ones that write their last operand, or the one after `-Destination`. */
 const COPY_CMDLETS = new Set(['copy-item', 'cpi', 'copy', 'move-item', 'mi', 'move']);
+/** Of these the file is the first operand only; what follows is what to write (`Set-Content FILE VALUE`). */
+const WRITES_FIRST_OPERAND = new Set(['set-content', 'sc', 'add-content', 'ac', 'out-file', 'new-item', 'ni', 'tee-object', 'export-csv', 'epcsv', 'export-clixml', 'set-itemproperty']);
+/** Their parameters whose value is no file. */
+const CMDLET_VALUE_PARAMETER = /^-(?:itemtype|type|value|encoding|filter|include|exclude|delimiter|width|stream|credential|inputobject|erroraction|ea|name)$/i;
 
 const wordToken = (text: string, dynamic = false): Token => ({ kind: 'word', text, dynamic, substitution: false });
 /** A word that stands for what a wrapper adds to its command when it runs: nothing is known of it. */
@@ -914,9 +918,11 @@ function checkWrapped(argv: readonly Token[], cwd: string, boundary: Boundary, o
 
   // PowerShell's and cmd's commands that write the files they name: said as writes, and refused in the project.
   if (opts.powershell && (WRITE_CMDLETS.has(name) || COPY_CMDLETS.has(name))) {
-    const operands = plain.slice(1).filter((w) => !w.text.startsWith('-'));
+    const operands = plain.slice(1).filter((w, i) => !w.text.startsWith('-') && !CMDLET_VALUE_PARAMETER.test(plain[i]!.text));
+    const positional = operands.filter((w) => !plain[plain.indexOf(w) - 1]!.text.startsWith('-'));
     const named = plain.findIndex((w) => /^-dest/i.test(w.text));
-    const targets = WRITE_CMDLETS.has(name) ? operands : named >= 0 && plain[named + 1] ? [plain[named + 1]!] : operands.slice(-1);
+    const targets = COPY_CMDLETS.has(name) ? (named >= 0 && plain[named + 1] ? [plain[named + 1]!] : operands.slice(-1))
+      : WRITES_FIRST_OPERAND.has(name) ? [...operands.filter((w) => !positional.includes(w)), ...positional.slice(0, 1)] : operands;
     for (const target of targets) {
       if (target.dynamic || target.substitution) return stop(undeterminable('a computed output path'));
       opts.onWrite?.(target.text, cwd);

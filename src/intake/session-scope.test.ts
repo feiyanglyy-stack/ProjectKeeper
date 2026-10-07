@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs, { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import fs, { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from '../util/tmp.test-helpers.ts';
 import { join, resolve } from 'node:path';
@@ -49,8 +49,10 @@ function claudeSession(cwd: string, sessionId: string, words: string, recorded =
   ].map((r) => JSON.stringify(r)).join('\n'));
 }
 claudeSession(APP, SESSION_APP, 'Sync the notes queue only on Wi-Fi.');
-// On Windows the log may spell the directory with forward slashes and another case; it is still the same directory.
-claudeSession(LAB, SESSION_LAB, 'Try the map layer in the lab first.', WIN ? LAB.toUpperCase().split('\\').join('/') : LAB);
+// The log may spell the directory in another case where the file system takes that for the same directory (Windows, a
+// Mac's usual volume: asked of the file system), and on Windows with forward slashes; it is still the same directory.
+const otherCase = existsSync(LAB.toUpperCase()) ? LAB.toUpperCase() : LAB;
+claudeSession(LAB, SESSION_LAB, 'Try the map layer in the lab first.', WIN ? otherCase.split('\\').join('/') : otherCase);
 
 const discover = (ownerItems: readonly ScopeItem[] = []) => discoverScope({ id: 'p1', name: 'Kestrel', locations: [APP, LAB] }, { home: fakeHome, ownerItems });
 const strip = (items: readonly DiscoveredItem[]): ScopeItem[] => items.map(({ reasonRef: _r, sessions: _s, ...rest }) => rest);

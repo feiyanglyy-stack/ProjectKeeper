@@ -1,5 +1,5 @@
 /**
- * Path keys, and what is asked of paths through them (util/paths.ts).
+ * Path keys, what is asked of paths through them, and what is made from a path's own characters (util/paths.ts).
  *
  * A key is what two spellings of one file share, so it folds what the system's file system folds: case on Windows; case
  * and the Unicode form on macOS; nothing elsewhere. The rules are checked here for every system by name, whichever one
@@ -8,10 +8,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { endsWithPath, foldForSystem, isWithin, partUnder, pathKey, placeUnder, relativeDisplay, samePath } from './paths.ts';
+import { join, sep } from 'node:path';
+import { claudeProjectDirName, endsWithPath, foldForSystem, isWithin, partUnder, pathKey, placeUnder, relativeDisplay, samePath } from './paths.ts';
 import { tmpdir } from './tmp.test-helpers.ts';
 
+const WIN = process.platform === 'win32';
 /** `é` and a Korean syllable, composed (NFC) and decomposed (NFD): the same name to a Mac, two texts to a program. */
 const COMPOSED = 'caf\u00e9-\uac00';
 const DECOMPOSED = COMPOSED.normalize('NFD');
@@ -70,4 +71,26 @@ test('what lies under a directory, and how a path ends, is asked of paths as thi
   assert.equal(endsWithPath(repo, 'chard'), false, 'a part of a name is not the name');
   assert.equal(endsWithPath(repo, ''), false);
   assert.equal(endsWithPath('orchard', 'work/orchard'), false, 'more names than the path has');
+});
+
+test('the name Claude Code gives a project’s session folder is made from the directory’s own characters', () => {
+  // Every character outside A–Z, a–z, 0–9 and `-` becomes `-` — the separators, the drive's colon, a dot, an underscore.
+  if (WIN) {
+    assert.equal(claudeProjectDirName('D:\\orchard'), 'D--orchard');
+    assert.equal(claudeProjectDirName('D:\\my_app'), 'D--my-app');
+    assert.equal(claudeProjectDirName('D:\\orchard\\.worktrees\\w9'), 'D--orchard--worktrees-w9');
+    assert.equal(claudeProjectDirName('D:\\orchard\\'), 'D--orchard', 'a trailing separator is not part of the name');
+  } else {
+    // A directory of macOS or Linux starts at the root, so its folder's name starts with `-`.
+    assert.equal(claudeProjectDirName('/Users/sam/app'), '-Users-sam-app');
+    assert.equal(claudeProjectDirName('/Users/sam/my_app'), '-Users-sam-my-app');
+    assert.equal(claudeProjectDirName('/Users/sam/app/.worktrees/w9'), '-Users-sam-app--worktrees-w9');
+    assert.equal(claudeProjectDirName('/Users/sam/app/'), '-Users-sam-app', 'a trailing separator is not part of the name');
+  }
+  // The two Unicode forms of one name give two folder names (a decomposed `é` is `e` and an accent: `e-`), which is
+  // why a location is kept in the spelling the file system gives it and never composed: the session host named the
+  // folder from that spelling.
+  const under = (name: string) => claudeProjectDirName(join(WIN ? 'D:\\' : sep, 'work', name)).split('-').slice(-3).join('-');
+  assert.equal(under('caf\u00e9'), 'work-caf-');
+  assert.equal(under('caf\u00e9'.normalize('NFD')), 'work-cafe-');
 });

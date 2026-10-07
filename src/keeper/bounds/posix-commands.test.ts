@@ -120,6 +120,45 @@ test('read as macOS: sed -i with its empty backup suffix edits the file it names
   assert.equal(decideWrites("sed -i.bak 's/alpha/beta/' \"$TMPDIR/notes.txt\"").ok, true);
 }));
 
+test('read as macOS: its own tools that reach outside the project without naming a path are refused', () => asMac(() => {
+  const refusedAs = (command: string, what: string, why: RegExp) => {
+    const d = decide(command);
+    assert.equal(d.ok, false, `should be refused: ${command}`);
+    assert.equal(d.detail, what, d.reason ?? '');
+    assert.match(d.reason ?? '', why);
+  };
+  refusedAs("osascript -e 'tell application \"Finder\" to get the clipboard'", 'osascript', /AppleScript/);
+  refusedAs('osascript read-notes.scpt', 'osascript', /AppleScript/);
+  refusedAs('pbpaste', 'pbpaste', /clipboard/);
+  refusedAs('pbpaste | head -1', 'pbpaste', /clipboard/);
+  // The keychain's logins are refused by the rule for every program that prints a stored login, on every system.
+  refusedAs('security find-generic-password -s some-service -w', 'a stored login', /a login stored on this machine/);
+  refusedAs('/usr/bin/security dump-keychain', 'a stored login', /a login stored on this machine/);
+  refusedAs('bash -c "pbpaste"', 'pbpaste', /clipboard/);
+  // Spotlight searches the whole machine unless it is kept to a directory, and that directory is checked.
+  refusedAs('mdfind "release notes"', 'mdfind', /whole machine/);
+  refusedAs('mdfind -name notes.md', 'mdfind', /whole machine/);
+  allowed('mdfind -onlyin src "release notes"');
+  refusedFor('mdfind -onlyin /Users/someone "release notes"', '/Users/someone');
+  // A script of the project that happens to share a name is given by its path, and is a script like any other.
+  allowed('./tools/pbpaste --check');
+  allowed('pbcopy < src/inside.txt');
+}));
+
+test('read as macOS: the flags that make its grep and tar follow links out of the tree are refused', () => asMac(() => {
+  const follows = (command: string) => { const d = decide(command); assert.equal(d.ok, false, `should be refused: ${command}`); assert.match(d.reason ?? '', /follows symbolic links/); };
+  follows('grep -rS "token" src');
+  follows('grep -S -r "token" src');
+  follows('grep -nrS "token" .');
+  follows('tar -cLf "$TMPDIR/src.tar" src');
+  follows('tar -c -L -f "$TMPDIR/src.tar" src');
+  allowed('grep -rn "S" src');
+  allowed('grep -r -e Secret src');
+  allowed('grep -r -eSecret src');
+  allowed('grep -rs "token" src');
+  allowed('tar -cf "$TMPDIR/src.tar" src');
+}));
+
 test('read as Windows, nothing changed: Git Bash’s drive form is a path, a path from / is text', (t) => {
   if (process.platform !== 'win32') { t.skip('Git Bash’s drive paths are resolved on Windows only'); return; }
   const outside = toBash(join(base, 'outside', 'secret.txt'));
@@ -127,4 +166,6 @@ test('read as Windows, nothing changed: Git Bash’s drive form is a path, a pat
   allowed("cat <<'EOF'\n/etc/passwd is only text here\nEOF");
   // Git Bash's sed has no suffix word: an empty word after -i is its expression, as before.
   assert.equal(decideWrites("sed -i '' 's/alpha/beta/' \"$TMPDIR/notes.txt\"").ok, false);
+  // macOS's tools are not Windows's, and Git Bash's grep and tar have no such flags: read as before.
+  for (const command of ['pbpaste', 'mdfind "release notes"', 'grep -rS "token" src', 'tar -cLf "$TMPDIR/src.tar" src']) allowed(command);
 });

@@ -310,6 +310,23 @@ const FOLLOW_LINK: Record<string, RegExp> = {
   rg: /^(--follow|-L)$/, find: /^(-L|-follow|--follow)$/, ls: /^(-L|--dereference)$/,
   cp: /^(-L|--dereference|-H)$/, tar: /^(-h|--dereference)$/, rsync: /^(-L|--copy-links|--copy-unsafe-links|-k|--copy-dirlinks)$/,
 };
+/**
+ * The same for the tools macOS has (BSD's), beside the ones above: its grep follows every link under `-S` (its `-R`
+ * alone does not), its tar under `-L`. An `S` after an option that takes a value (`-eSecret`) is the value's.
+ */
+const BSD_GREP_S = /^-(?![A-Za-z]*[efmABCdD][A-Za-z]*S)[A-Za-z]*S[A-Za-z]*$/;
+const FOLLOW_LINK_BSD: Record<string, RegExp> = { grep: BSD_GREP_S, egrep: BSD_GREP_S, fgrep: BSD_GREP_S, tar: /^-[A-Za-z]*L[A-Za-z]*$/ };
+
+/**
+ * Commands only macOS has that reach outside the project without naming a path the check could see: AppleScript and
+ * the clipboard. Each is refused with why. Spotlight's search (`mdfind`) covers the whole machine unless it is kept to
+ * a directory, which is then checked like any other operand. (The keychain's logins are refused with the other
+ * programs that print a stored login, on every system: `LOGIN_PRINTERS`.)
+ */
+const MAC_REACHES_OUTSIDE: Readonly<Record<string, string>> = {
+  osascript: 'osascript runs AppleScript, which can read any file and drive any application; what it will do cannot be checked before it runs.',
+  pbpaste: 'pbpaste reads the clipboard, which is not part of the project.',
+};
 
 /** Base command name without a path or extension (…/usr/bin/python3 → python3). */
 export function commandName(word: string): string {
@@ -626,6 +643,16 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
 
   if (name === 'eval') return { decision: undeterminable('eval'), cwd };
 
+  // macOS's own tools, by the name the shell finds them under (a script of the project that happens to be called
+  // `pbpaste` is given by its path, and is read as a script).
+  if (system.platform === 'darwin' && (!/[\\/]/.test(argv[0]!.text) || /^\/usr\/s?bin\//.test(argv[0]!.text))) {
+    const why = MAC_REACHES_OUTSIDE[name];
+    if (why) return { decision: refuse(name, why), cwd };
+    if (name === 'mdfind' && !argv.slice(1).some((w) => w.text === '-onlyin')) {
+      return { decision: refuse('mdfind', 'mdfind searches the whole machine; keep it to a directory of the project with -onlyin, or use grep or find in the project.'), cwd };
+    }
+  }
+
   // These commands have literal destination operands. Unknown or indirect writes are caught by the snapshot.
   if (new Set(['tee', 'cp', 'mv', 'rm', 'touch', 'mkdir', 'rmdir', 'truncate']).has(name)
       || (name === 'sed' && argv.slice(1).some((w) => /^-.*i/.test(w.text)))) {
@@ -660,7 +687,8 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
 
   // Follow-symlink flags on a recursive command can leave the tree through a link inside it.
   const followRe = FOLLOW_LINK[name];
-  if (followRe && argv.slice(1).some((w) => followRe.test(w.text))) {
+  const followBsd = system.platform === 'win32' ? undefined : FOLLOW_LINK_BSD[name];
+  if ((followRe && argv.slice(1).some((w) => followRe.test(w.text))) || (followBsd && argv.slice(1).some((w) => followBsd.test(w.text)))) {
     return { decision: refuse(`${name} (follow symlinks)`, `${name} here follows symbolic links, which can leave the project; use the non-following form (for example grep -r, find without -L).`), cwd };
   }
 

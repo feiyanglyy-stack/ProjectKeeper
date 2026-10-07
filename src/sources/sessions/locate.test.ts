@@ -136,3 +136,33 @@ test('a Claude Code folder is taken for another spelling of a directory only on 
     assert.deepEqual(found(locateClaudeSessions([real], home)).sort(), [['claude-elsewhere', elsewhere, null], ['claude-silent-real', real, real]]);
   } finally { cleanup(); }
 });
+
+test('a session recorded under another case, or the other Unicode form, of the directory’s name is its session where the file system takes them for one name', (t) => {
+  // A Mac's usual volume takes `Café` in either case and in either Unicode form — composed, as a shell tool writes it,
+  // or decomposed, as Finder does — for one name; Windows takes either case. An agent's log records whichever its shell
+  // had, and Claude Code names its folder from those very characters, so the two forms give two folder names.
+  const base = canonicalPath(mkdtempSync(join(tmpdir(), 'pk-locate-forms-')));
+  try {
+    const home = join(base, 'home');
+    mkdirSync(home);
+    const composed = 'Café-가';
+    mkdirSync(join(base, 'work', composed.normalize('NFD')), { recursive: true });
+    const real = canonicalPath(join(base, 'work', composed.normalize('NFD')));   // as the file system spells it
+    const spellings = [
+      ['in another case', join(base, 'WORK', composed.normalize('NFD').toUpperCase())],
+      ['in the composed form', join(base, 'work', composed)],
+      ['in the decomposed form', join(base, 'work', composed.normalize('NFD'))],
+    ].filter(([, spelling]) => spelling !== real && existsSync(spelling!)) as [string, string][];
+    if (spellings.length === 0) { t.skip('this file system takes a name in another case or Unicode form for another name'); return; }
+    const expected: string[][] = [];
+    spellings.forEach(([how, spelling], i) => {
+      t.diagnostic(`asked: ${how}`);
+      claudeLog(home, spelling, `claude-${i}`);
+      codexLog(home, spelling, `codex-${i}`);
+      expected.push([`claude-${i}`, spelling, real], [`codex-${i}`, spelling, real]);
+    });
+    claudeLog(home, join(base, 'work', 'Cafe'), 'claude-other');   // another name altogether
+    assert.deepEqual(found(locateSessions([real], home)).sort(), expected.sort(), 'each is found, keeps the spelling its log records, and is the directory’s');
+    for (const [, spelling] of spellings) assert.equal(sameDirectory(spelling, real), true);
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});

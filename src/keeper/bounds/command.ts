@@ -376,6 +376,14 @@ export function posixAbsolutePaths(text: string, atRoot: (name: string) => boole
 }
 
 /**
+ * A home directory named in free text: a `~` where a shell would make one of it, at the start of a word — after white
+ * space, a quote, `=` or `:` — up to the separator that follows. A `~` inside a name is the name's own: the short name
+ * Windows gives a long one (`LONGNA~1`), a backup's `draft~old`. Taken for a home wherever it stood, `build~1/notes.txt`
+ * or a path with a space before its short name was refused as "another user's home directory".
+ */
+const HOME_IN_TEXT = '(?<![\\w.~/\\\\$})\\]*?@%+,#-])~[^\\s\'"`]*';
+
+/**
  * Scan free text (a here-document body, a script that is not shell) for absolute or home path references, as the
  * system the command runs on writes them: on Windows a drive path, Git Bash's `/c/…` for one, a network path; on macOS
  * and Linux a path from `/`. (Read with the Windows expression alone, `/etc/passwd` or `/Users/sam/…` in a script was
@@ -383,8 +391,8 @@ export function posixAbsolutePaths(text: string, atRoot: (name: string) => boole
  */
 function scanTextForPaths(text: string, cwd: string, boundary: Boundary): CommandDecision | null {
   const named = system.platform === 'win32'
-    ? [...text.matchAll(/(?:\/(?:mnt\/|cygdrive\/)?[A-Za-z]\/[^\s'"`]*|[A-Za-z]:[\\/][^\s'"`]*|\\\\[^\s'"`]+|~[^\s'"`]*[\\/][^\s'"`]*)/g)].map((m) => m[0])
-    : [...[...text.matchAll(/~[^\s'"`]*\/[^\s'"`]*/g)].map((m) => m[0]), ...posixAbsolutePaths(text, system.atRoot)];
+    ? [...text.matchAll(new RegExp(`(?:\\/(?:mnt\\/|cygdrive\\/)?[A-Za-z]\\/[^\\s'"\`]*|[A-Za-z]:[\\\\/][^\\s'"\`]*|\\\\\\\\[^\\s'"\`]+|${HOME_IN_TEXT}[\\\\/][^\\s'"\`]*)`, 'g'))].map((m) => m[0])
+    : [...[...text.matchAll(new RegExp(`${HOME_IN_TEXT}\\/[^\\s'"\`]*`, 'g'))].map((m) => m[0]), ...posixAbsolutePaths(text, system.atRoot)];
   for (const path of named) {
     const d = checkPath(path, cwd, boundary);
     if (d) return d;

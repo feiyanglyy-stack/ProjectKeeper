@@ -101,6 +101,26 @@ test('on this system, when its paths start at /: the same, against the real file
   allowed("cat > \"$TMPDIR/notes.md\" <<'EOF'\nGET /pk-no-such-root/users answers with the list.\nEOF");
 });
 
+test('a ~ inside a name is the name’s own, however the command is read; only a ~ that starts a word is a home directory', () => {
+  // Windows gives a long name a short one with a ~ in it — `RUNNER~1`, which is how a GitHub runner's temporary
+  // directory is spelled, and `%TEMP%` on any machine whose user name is longer than eight characters — and a backup
+  // may be called `draft~old`. Taken for a home wherever it stood, the rest of such a path was "another user's home".
+  const asWindows = (body: () => void) => { const undo = readCommandsAs('win32'); try { body(); } finally { undo(); } };
+  for (const reading of [asMac, asWindows]) {
+    reading(() => {
+      allowed("cat <<'EOF'\nsee build~1/notes.txt, .\\LONGNA~1\\notes.txt and src/draft~old/notes.txt\nEOF");
+      allowed("cat <<'EOF'\nthe notes are in \"My Notes/LONGNA~1/today.txt\", about ~40 lines\nEOF");
+      refusedFor("cat <<'EOF'\n~someone/notes.txt\nEOF", '~someone/notes.txt');
+      refusedFor("cat <<'EOF'\nprint(open('~/.ssh/id_rsa').read())\nEOF", '~/.ssh/id_rsa');
+      refusedFor("cat <<'EOF'\nKEYS=~/.ssh/id_rsa\nEOF", '~/.ssh/id_rsa');
+    });
+  }
+  // A file of the project reached through a directory's short name, as this system's bash writes the path.
+  const throughShortName = insideBash.replace('/project/', '/project/LONGNA~1/');
+  asMac(() => allowed(`cat > "$TMPDIR/gen.py" <<'EOF'\nprint(open('${throughShortName}').read())\nEOF`));
+  if (process.platform === 'win32') asWindows(() => allowed(`cat > "$TMPDIR/gen.py" <<'EOF'\nprint(open('${throughShortName}').read())\nEOF`));
+});
+
 /** With the project as what the shell must not write, as the Keeper's shell has it. */
 const decideWrites = (command: string) => checkBashCommand(command, project, boundary, 0, [project], scratch);
 

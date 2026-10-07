@@ -271,3 +271,13 @@ test('the same programs doing anything else still run, and so does text that onl
     'ls security', 'grep -rn "gh auth token" src', 'echo run gh auth token yourself', 'rg "npm token" src', 'node -e "console.log(1)"',
   ]) ok(command);
 });
+
+test('git commands that send mail are refused like the ones that push: `send-email`, `imap-send`', () => {
+  for (const command of ['git send-email --to someone@example.invalid 0001-first.patch', 'git send-email --dry-run 0001-first.patch', 'git -C . send-email HEAD~1', 'git imap-send', 'git push origin main']) {
+    const d = checkBashCommand(command, project, boundary, 0, [project]);
+    assert.equal(d.ok, false, command);
+    assert.match(d.reason ?? '', /shell cannot write project files \(git (?:send-email|imap-send|push)\)/, command);
+  }
+  ok('git format-patch -1 --stdout');
+  ok('git log --format=%ae -1');
+});

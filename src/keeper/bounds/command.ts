@@ -267,7 +267,7 @@ const INTERPRETERS: Record<string, { flags: string[]; bash: boolean }> = {
 const PATH_VALUE_FLAGS = new Set(['--directory', '--git-dir', '--work-tree', '-f', '--file', '-I', '--include']);
 // Environment variables whose value is a path the command reads (checked even when the value is relative).
 const PATH_ENV = new Set(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_CONFIG', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM', 'GIT_OBJECT_DIRECTORY', 'GIT_INDEX_FILE', 'CDPATH', 'HOME', 'USERPROFILE', 'XDG_CONFIG_HOME']);
-const GIT_MUTATORS = new Set(['add', 'am', 'apply', 'bisect', 'checkout', 'cherry-pick', 'clean', 'clone', 'commit', 'fetch', 'gc', 'init', 'maintenance', 'merge', 'mv', 'pull', 'push', 'rebase', 'repack', 'reset', 'restore', 'revert', 'rm', 'stash', 'switch', 'update-index']);
+const GIT_MUTATORS = new Set(['add', 'am', 'apply', 'bisect', 'checkout', 'cherry-pick', 'clean', 'clone', 'commit', 'fetch', 'gc', 'imap-send', 'init', 'maintenance', 'merge', 'mv', 'pull', 'push', 'rebase', 'repack', 'reset', 'restore', 'revert', 'rm', 'send-email', 'stash', 'switch', 'update-index']);
 /** An option whose value is a file or directory the command writes, whatever the command (`--output`, `--outfile`, `--outDir` …). */
 const OUTPUT_OPTION = /^--(?:output|out)(?:[-_]?(?:file|document|dir|directory))?$/i;
 /** The short option that names the output file of these commands (`sort -o FILE`, `curl -o FILE`, `wget -O FILE`). */

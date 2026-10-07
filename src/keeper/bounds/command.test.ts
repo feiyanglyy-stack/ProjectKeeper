@@ -174,3 +174,48 @@ test('the check names what a command writes and nothing it only reads, and namin
     assert.deepEqual(written(command), [], command);
   }
 });
+
+// ---- the logins kept on this machine ----
+const refusedCredential = (command: string, shell: 'bash' | 'powershell' = 'bash') => {
+  const d = checkShellCommand(shell, command, project, boundary);
+  assert.equal(d.ok, false, `expected refused: ${command}`);
+  assert.match(d.reason ?? '', /hands? out or changes? the logins stored on this machine/, command);
+};
+
+test('git’s credential commands are refused: `git credential`, a helper as a git subcommand or as its own program, after any of git’s options', () => {
+  for (const command of [
+    'git credential fill', 'git credential approve', 'git credential reject', 'git credential',
+    'git -c credential.helper=manager credential fill', 'git -C . credential fill', 'git --no-pager -c core.pager=cat --git-dir .git credential fill',
+    'git credential-manager get', 'git credential-manager-core get', 'git credential-store get', 'git credential-cache exit', 'git credential-wincred get', 'git Credential-Manager get',
+    'git-credential-manager get', 'git-credential-manager.exe get', 'git-credential-store --file=x get', 'GIT.EXE credential fill',
+    'true && git credential fill', '(cd src && git credential fill)',
+  ]) refusedCredential(command);
+  refusedCredential('git credential fill', 'powershell');
+  refusedCredential('git-credential-manager.exe get', 'powershell');
+});
+
+test('…and through a pipe, a wrapper in front, a shell or an interpreter given the command, a script, or an alias made on the spot', () => {
+  writeFileSync(join(project, 'login.sh'), 'echo url=https://example.invalid | git credential fill\n');
+  writeFileSync(join(project, 'login.py'), "import subprocess\nsubprocess.run(['git', 'credential', 'fill'])\n");
+  for (const command of [
+    'echo url=https://example.invalid | git credential fill', 'printf "protocol=https\nhost=example.invalid\n" | git credential-manager get',
+    'env git credential fill', 'env GIT_TERMINAL_PROMPT=0 git credential fill', 'command git credential fill', 'exec git credential fill',
+    'timeout 5 git credential fill', 'nohup git credential-manager get', 'GIT_TERMINAL_PROMPT=0 git credential fill',
+    'echo url=https://example.invalid | xargs git credential fill', 'xargs -n1 git-credential-manager', 'find . -maxdepth 0 -exec git credential fill ;',
+    'bash -c "git credential fill"', "sh -c 'echo url=https://example.invalid | git credential-manager get'",
+    'python -c "import subprocess; subprocess.run([\'git\', \'credential\', \'fill\'])"',
+    'node -e "require(\'child_process\').execSync(\'git credential fill\')"', 'node -e "require(\'child_process\').spawnSync(\'git-credential-manager\', [\'get\'])"',
+    'bash login.sh', './login.sh', 'python login.py',
+    'git -c alias.who=credential who fill', "git -c alias.who='!git credential fill' who", 'git --config-env alias.who=WHO who',
+  ]) refusedCredential(command);
+  // A subcommand the shell computes cannot be told from `credential`.
+  denied('git $SUB fill', /a computed git subcommand/);
+});
+
+test('what only mentions those commands, or reads the repository, still runs', () => {
+  for (const command of [
+    'git log --grep credential --oneline', 'git log --oneline -- src/a.ts', 'git show HEAD:src/a.ts', 'git config --local --get credential.helper', 'git status --porcelain',
+    'grep -rn "git credential" src', 'grep -rn git-credential-manager src', 'grep -rn git credential src', 'rg git-credential src', 'echo git credential helpers are refused',
+    'cat src/git-credential-notes.md', 'git -c core.quotePath=false log -1', 'node -e "console.log(1)"',
+  ]) ok(command);
+});

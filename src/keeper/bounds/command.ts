@@ -331,9 +331,48 @@ function scanScriptFile(scriptToken: Token, cwd: string, boundary: Boundary, dep
     return undeterminable('a script that cannot be inspected before execution');
   }
   const shellLike = /\.(sh|bash|zsh|ksh)$/i.test(scriptToken.text) || !/\.[A-Za-z0-9]+$/.test(scriptToken.text);
-  if (!shellLike) return scanTextForPaths(content, cwd, boundary);
+  if (!shellLike) return CREDENTIAL_IN_CODE.test(content) ? CREDENTIAL_REFUSAL : scanTextForPaths(content, cwd, boundary);
   const r = checkBashCommand(content, cwd, boundary, depth + 1, writeRoots, scratchDir, onWrite);
   return r.ok ? null : r;
+}
+
+/**
+ * Git's credential commands hand out or change the logins stored on this machine: `git credential fill` prints the
+ * password or token the user's credential helper keeps for a host. Nothing that reads a project needs them, so they
+ * are refused in every spelling: `git credential …` after any of git's own options, a helper as a subcommand
+ * (`git credential-manager`) or as its own program (`git-credential-manager`), and an alias made on the spot, which
+ * could name either. Every word of a command is looked at, not only the first, so a program put in front that runs
+ * the rest (`env`, `command`, `xargs`, `timeout`, `find -exec`) changes nothing; the commands that only print or
+ * search text keep their words. A subcommand the shell computes cannot be told from `credential` and is refused too.
+ */
+const CREDENTIAL_REFUSAL: CommandDecision = {
+  ok: false, detail: 'git credential',
+  reason: "Refused: this command hands out or changes the logins stored on this machine (git credential, or one of git's credential helpers). Nothing that reads a project needs it.",
+};
+/** The same commands named in code given to an interpreter, or in a script that is not a shell's: a text match, no more. */
+const CREDENTIAL_IN_CODE = /\bgit(?:\.exe)?\b[^A-Za-z0-9\n]{1,12}credential|\bgit-credential\b/i;
+const GIT_OPTIONS_WITH_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--super-prefix', '--config-env', '--attr-source']);
+
+function credentialCommand(argv: readonly Token[]): CommandDecision | null {
+  const first = commandName(argv[0]!.text).toLowerCase();
+  const end = PROGRAM_COMMANDS[first] || first === 'echo' || first === 'printf' ? 1 : argv.length;
+  for (let i = 0; i < end; i += 1) {
+    if (argv[i]!.kind !== 'word') continue;
+    const name = commandName(argv[i]!.text).toLowerCase();
+    if (/^git-credential(?:-[\w-]+)?$/.test(name)) return CREDENTIAL_REFUSAL;
+    if (name !== 'git') continue;
+    for (let j = i + 1; j < argv.length && argv[j]!.kind === 'word'; j += 1) {
+      const word = argv[j]!;
+      const alias = word.text === '-c' || word.text === '--config-env' ? argv[j + 1]?.text ?? '' : /^--config-env=(.*)$/.exec(word.text)?.[1] ?? '';
+      if (/^alias\./i.test(alias)) return CREDENTIAL_REFUSAL;
+      if (GIT_OPTIONS_WITH_VALUE.has(word.text)) { j += 1; continue; }
+      if (word.text.startsWith('-')) continue;
+      if (word.dynamic || word.substitution) return undeterminable('a computed git subcommand');
+      if (/^credential(?:-|$)/i.test(word.text)) return CREDENTIAL_REFUSAL;
+      break;
+    }
+  }
+  return null;
 }
 
 /** `git config` reads global and system scopes unless kept to the repository; that reaches the home gitconfig. */
@@ -427,6 +466,8 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
   if (argv.length === 0) return { decision: null, cwd };
   const name = commandName(argv[0]!.text);
   const interp = INTERPRETERS[name];
+  const credential = credentialCommand(argv);
+  if (credential) return { decision: credential, cwd };
 
   // Code piped into an interpreter runs without ever being an argument the check can see.
   if (opts.pipedInto && interp && !argv.slice(1).some((w) => interp.flags.includes(w.text))) {
@@ -580,6 +621,7 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
         if (code.substitution) return { decision: undeterminable('a command substitution in inline code'), cwd };
         if (interp.bash) { const r = checkBashCommand(code.text, cwd, boundary, opts.depth + 1, opts.writeRoots, opts.scratchDir, opts.onWrite); if (!r.ok) return { decision: r, cwd }; }
         else {
+          if (CREDENTIAL_IN_CODE.test(code.text)) return { decision: CREDENTIAL_REFUSAL, cwd };
           if (homeDerivedInCode(code.text)) return { decision: refuse('inline code', 'the inline code builds a path from the home directory, which is outside the project.'), cwd };
           const d = checkInlineCode(code.text, cwd, boundary); if (d) return { decision: d, cwd };
         }

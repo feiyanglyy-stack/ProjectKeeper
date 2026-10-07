@@ -30,20 +30,26 @@ import type { UsedAs } from '../model/vocab.ts';
 import type { ProjectStore } from '../store/project-store.ts';
 import { innermostItem, readingOf } from '../scope/skip.ts';
 import { gitBranch } from '../util/git.ts';
+import { sep } from 'node:path';
 import { isWithin, relativeDisplay } from '../util/paths.ts';
 
 const TREATMENT: Partial<Record<string, UsedAs>> = { 'Recovery only': 'History only', 'Reference only': 'Reference only' };
 
 interface Entry { readonly kind: 'path' | 'branch' | 'absolute'; readonly value: string; readonly glob: RegExp | null }
 
-function entriesOf(rule: ProjectRule): Entry[] {
+/**
+ * What a rule applies to, entry by entry. `locations`: the project's own, by which an absolute path of a system whose
+ * paths start at `/` is told from a path written from the project's root with a leading slash — `/Users/sam/orchard/attic`
+ * lies in the project, `/attic` does not. (A Windows path says it is absolute by its drive.)
+ */
+function entriesOf(rule: ProjectRule, locations: readonly string[]): Entry[] {
   const out: Entry[] = [];
   for (const raw of rule.appliesTo) {
     let v = raw.trim().replace(/^[`'"“”‘’]+|[`'"“”‘’]+$/g, '').trim();
     if (!v) continue;
     const branch = /^(?:(?:branch(?:es)?|分支)\s*[:：]?\s*|refs\/heads\/)(.+)$/i.exec(v);
     if (branch) { const name = branch[1]!.trim().replace(/^[`'"“”‘’]+|[`'"“”‘’]+$/g, '').toLowerCase(); out.push({ kind: 'branch', value: name, glob: globOf(name) }); continue; }
-    if (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith('\\\\')) { out.push({ kind: 'absolute', value: v, glob: null }); continue; }
+    if (/^[A-Za-z]:[\\/]/.test(v) || v.startsWith('\\\\') || (sep === '/' && v.startsWith('/') && !/[*?]/.test(v) && locations.some((l) => isWithin(l, v)))) { out.push({ kind: 'absolute', value: v, glob: null }); continue; }
     v = v.split('\\').join('/').replace(/^\.\/+/, '').replace(/\/(\*\*?)?$/, '').replace(/\/+$/, '').toLowerCase();
     if (!v || v === '.' || v === '*' || v === '**') continue;
     out.push({ kind: 'path', value: v, glob: globOf(v) });
@@ -76,12 +82,12 @@ function coverage(e: Entry, paths: readonly string[], abs: string, branch: strin
 type Covering = { readonly rule: ProjectRule; readonly usedAs: UsedAs };
 
 /** The most specific of these rules covering the source; null when none does or two kinds cover it equally. */
-function mostSpecific(rules: readonly ProjectRule[], paths: readonly string[], abs: string, branch: string | null): { found: Covering | null; covered: boolean } {
+function mostSpecific(rules: readonly ProjectRule[], locations: readonly string[], paths: readonly string[], abs: string, branch: string | null): { found: Covering | null; covered: boolean } {
   let best: (Covering & { score: number }) | null = null;
   let tied = false;
   for (const rule of rules) {
     const usedAs = TREATMENT[rule.category ?? '']!;
-    for (const e of entriesOf(rule)) {
+    for (const e of entriesOf(rule, locations)) {
       const score = coverage(e, paths, abs, branch);
       if (score === null) continue;
       if (!best || score > best.score) { best = { rule, usedAs, score }; tied = false; }
@@ -102,9 +108,9 @@ function coveringRule(rules: readonly ProjectRule[], s: Source, project: Project
   const roots = [...project.locations, ...project.scope.filter((i) => i.id === s.scopeItemId).map((i) => i.path)].filter((r) => isWithin(r, abs));
   const paths = [...new Set(roots.map((r) => relativeDisplay(r, abs).toLowerCase()))];
   const branch = branchOf(s.scopeItemId);
-  const written = mostSpecific(rules.filter((r) => r.basis === 'Explicit'), paths, abs, branch);
+  const written = mostSpecific(rules.filter((r) => r.basis === 'Explicit'), project.locations, paths, abs, branch);
   if (written.covered) return written.found;
-  return mostSpecific(rules.filter((r) => r.basis !== 'Explicit'), paths, abs, branch).found;
+  return mostSpecific(rules.filter((r) => r.basis !== 'Explicit'), project.locations, paths, abs, branch).found;
 }
 
 /** The owner classified the source's location as something other than left out: a `Recovery only` rule does not take it out. */
@@ -117,7 +123,7 @@ function ownerKeepsLocation(project: Project, path: string): boolean {
 export function applyMaterialRules(store: ProjectStore, project: Project): number {
   const rules = store.rules.filter((r) => r.group === 'Material rules' && r.validity === 'Current' && TREATMENT[r.category ?? ''] !== undefined);
   const branches = new Map<string, string | null>();
-  const byBranch = rules.some((r) => entriesOf(r).some((e) => e.kind === 'branch' || (e.kind === 'path' && !e.value.includes('/'))));
+  const byBranch = rules.some((r) => entriesOf(r, project.locations).some((e) => e.kind === 'branch' || (e.kind === 'path' && !e.value.includes('/'))));
   const branchOf = (scopeItemId: string): string | null => {
     if (!byBranch) return null;
     if (!branches.has(scopeItemId)) {

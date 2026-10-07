@@ -10,7 +10,8 @@
  * D99 replaced the reading assignments with the main agent's lanes and the coverage check (coverage-tools.ts): the program
  * no longer places, sizes, packs, queues or chases a deepening's reading, so that machinery is gone (git keeps it).
  */
-import { join, relative } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 import type { ClerkRound, ReadingAssignment, ReadingCategory, ReadingMaterial, RoundReading, RoundReadingPath } from '../../model/k-types.ts';
 import type { KeeperJob, OrganizingPlan, OrganizingPlanContent, PathReading, Project } from '../../model/types.ts';
 import type { ProjectStore } from '../../store/project-store.ts';
@@ -44,7 +45,7 @@ export const sameCommit = (read: string, planned: string): boolean => read.lengt
  * the sessions whose log is there, and a session a hex id names by the start of its native id. The organizing plan's
  * entries are read the same way (`readCloselyOf`, `planRank`).
  */
-export function namedInBrief(markdown: string): { paths: string[]; commits: string[]; absolute: string[] } {
+export function namedInBrief(markdown: string, fromRoot: ((name: string) => boolean) | null = FROM_ROOT): { paths: string[]; commits: string[]; absolute: string[] } {
   const text = markdown.replace(/https?:\/\/\S+/g, ' ');
   const paths = new Set<string>();
   for (const m of text.matchAll(/(?<![\w./@-])((?:[\w.-]+\/)+[\w.-]*|[\w.-]+\.(?:md|markdown|txt|ts|tsx|js|jsx|mjs|cjs|dart|py|go|rs|java|kt|swift|json|ya?ml|toml|sh))(?![\w/-])/g)) {
@@ -55,8 +56,18 @@ export function namedInBrief(markdown: string): { paths: string[]; commits: stri
   for (const m of text.matchAll(/(?<![\w/-])([0-9a-f]{7,40})(?![\w/-])/g)) if (/[a-f]/.test(m[1]!) && /\d/.test(m[1]!)) commits.add(m[1]!);
   const absolute = new Set<string>();
   for (const m of text.matchAll(/(?<![\w])([A-Za-z]:[\\/](?:[\w.$-]+[\\/]?)+)/g)) absolute.add(m[1]!.replace(/[\\/.]+$/, ''));
+  // Where paths start at `/` (macOS, Linux): `/Users/sam/.claude/projects/-Users-sam-orchard` is one. A `/` that starts
+  // a word, at least two names, the first of them at the file system's root — `/api/users` is a route, not a place.
+  if (fromRoot) {
+    for (const m of text.matchAll(/(?<![\w.:~$}/-])(\/(?:[\w.$@+-]+\/)+[\w.$@+-]*)/g)) {
+      const path = m[1]!.replace(/[/.]+$/, '');
+      if (fromRoot(path.split('/')[1] ?? '')) absolute.add(path);
+    }
+  }
   return { paths: [...paths], commits: [...commits], absolute: [...absolute] };
 }
+/** Whether a name is at the file system's root, on a system whose paths start there; null on Windows, where they start at a drive. */
+const FROM_ROOT: ((name: string) => boolean) | null = sep === '/' ? (name) => name !== '' && existsSync(`/${name}`) : null;
 
 // ───────────────────────── the organizing plan: what is read closely, and what first (§3.7, D62) ─────────────────────────
 //

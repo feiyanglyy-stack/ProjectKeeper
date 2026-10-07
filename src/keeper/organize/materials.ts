@@ -6,6 +6,7 @@
  * whatever appeared after the takeover started, then history (Spec §3.7 stage 2 and 4, §3.8).
  */
 import { statSync } from 'node:fs';
+import { sep } from 'node:path';
 import type { OrganizingPlanContent, Project, ProjectRule, Source } from '../../model/types.ts';
 // The material rules themselves reach the sources they cover in intake/material-rules.ts (a Recovery only place is
 // History only, a Reference only one is Reference only); what is left here is how the planner follows them.
@@ -87,7 +88,7 @@ export function listMaterials(store: ProjectStore, project: Project, options: { 
   const relOf = (path: string, scopeItemId: string): string => {
     const own = project.locations.filter((l) => under(path, l)).sort((a, b) => a.length - b.length)[0];
     const root = own ?? roots.get(scopeItemId);
-    return root && under(path, root) ? path.slice(root.length).replace(/^[\\/]+/, '') : path.replace(/^[A-Za-z]:[\\/]+/, '');
+    return root && under(path, root) ? path.slice(root.length).replace(/^[\\/]+/, '') : fromTheDrive(path);
   };
   // A directory the owner excluded is out of the project even when its files were read before it was excluded
   // (2026-09-18: copies of the Keeper's own context packs under subagent/runs were organized as project material).
@@ -154,7 +155,12 @@ function readAsMaterial(project: Project, path: string): boolean {
 export function projectRelPath(project: Project, path: string): string {
   const under = (root: string) => root.length > 0 && path.toLowerCase().startsWith(root.toLowerCase());
   const own = project.locations.filter(under).sort((a, b) => a.length - b.length)[0];
-  return own ? path.slice(own.length).replace(/^[\\/]+/, '') : path.replace(/^[A-Za-z]:[\\/]+/, '');
+  return own ? path.slice(own.length).replace(/^[\\/]+/, '') : fromTheDrive(path);
+}
+
+/** A path of no project location, without what it starts from: the drive on Windows, the root where paths start at `/`. */
+function fromTheDrive(path: string): string {
+  return sep === '/' ? path.replace(/^\/+/, '') : path.replace(/^[A-Za-z]:[\\/]+/, '');
 }
 
 // ───────────────────────── what the project's rules settle (Spec §1.15, §3.7; D62) ─────────────────────────

@@ -24,7 +24,7 @@ import { ProjectStore } from '../store/project-store.ts';
 import { Workspace } from '../store/workspace.ts';
 import { projectKeeperHome, projectDir } from '../store/paths.ts';
 import { saveVersion, type VersionReason } from '../store/versions.ts';
-import { canonicalPath, normalizePath, samePath } from '../util/paths.ts';
+import { canonicalPath, expandHome, normalizePath, samePath } from '../util/paths.ts';
 import { fullIntake, incrementalIntake, type IntakeResult } from '../intake/intake.ts';
 import { applyMaterialRules } from '../intake/material-rules.ts';
 import { ScopeWatcher, type PendingChange } from '../sources/watch.ts';
@@ -505,7 +505,7 @@ export class App extends EventEmitter {
 
   addScopeItem(projectId: string, input: { path: string; category: ScopeItem['category']; relation: ScopeItem['relation']; reason: string }): Project {
     const project = this.project(projectId);
-    const path = canonicalPath(input.path);   // a path the owner typed: kept in the file system's spelling, like a location
+    const path = canonicalPath(expandHome(input.path));   // a path the owner typed: `~` is the home, and it is kept in the file system's spelling, like a location
     const item: ScopeItem = {
       id: newId('scope'), path, category: input.category, relation: input.relation, reason: input.reason,
       reasonSourceIds: [], sessionHost: null, readOnly: input.relation === 'Session source', copyOf: null, worktreeOf: null,

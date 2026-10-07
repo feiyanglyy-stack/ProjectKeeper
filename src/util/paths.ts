@@ -147,8 +147,15 @@ export function placeUnder(roots: readonly string[], file: string): { repo: stri
   return root !== undefined ? { repo: pathKey(root), path: relativeDisplay(root, file) } : { repo: null, path: pathKey(file) };
 }
 
+/**
+ * A path as its owner typed it into the workbench: `~` and `~/…` are the home directory. A shell makes that of them
+ * before a program sees the path; a field of a web page is no shell, and the path would be taken for a directory named
+ * `~` under wherever ProjectKeeper was started. `~name` (another account's home) is left as it is.
+ */
 export function expandHome(path: string): string {
-  return path.startsWith('~') ? resolve(homedir(), path.slice(1).replace(/^[\\/]/, '')) : path;
+  if (path === '~') return homedir();
+  if (path.startsWith('~/') || (WIN && path.startsWith('~\\'))) return join(homedir(), path.slice(2));
+  return path;
 }
 
 /**

@@ -180,6 +180,16 @@ test('a git subcommand the check does not know is refused: an alias of the repos
   mkdirSync(join(project, '.git'), { recursive: true });
   writeFileSync(join(project, '.git', 'config'), '[alias]\n\tst = !rm -rf .\n\tlg = log --oneline\n');
   for (const command of ['git st', 'git lg -3', 'git frobnicate', 'git gui', 'git citool', 'git instaweb', 'git flow init', 'git subtree push --prefix=x origin main', 'git sttaus', 'git absorb', 'git extras']) refused(command, 'unknown');
+  // A program of git's reached by its own name is the subcommand.
+  refused('git-receive-pack .', 'unknown');
+  refused('git-lfs push origin main', 'outward');
+  refused('git-upload-pack .', 'unknown');
+  assert.equal(decide('git-lfs ls-files').ok, true);
+  // The name in capitals, or with .exe, is the same program.
+  refused('GIT push origin main', 'outward');
+  refused('Git.exe commit -m x', 'writes');
+  refused('GIT st', 'unknown');
+  runs('GIT status');
   // A subcommand the shell computes cannot be known.
   refused('git $VERB', 'computed');
   refused('git "$@"', 'computed');

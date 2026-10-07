@@ -881,6 +881,11 @@ function unwrap(argv: readonly Token[], powershell: boolean): Wrapped | null {
     if (!powershell) return { refusal: undeterminable('a command whose name is computed'), own: null };
     return /^[-+*/%]?=$/.test(rest[0]?.text ?? '') && rest.length > 1 ? { commands: [rest.slice(1)], own: null, sameShell: true } : null;
   }
+  // A name in capitals is the same program where the system does not tell them apart (`GIT push`, `RM -rf src`),
+  // and a program of git's reached by its own name is the subcommand (`git-lfs push`).
+  if (!/[\\/]/.test(head.text) && head.text !== head.text.toLowerCase()) return { commands: [[{ ...head, text: head.text.toLowerCase() }, ...rest]], own: null, sameShell: true };
+  const ofGit = /^git-([a-z0-9-]+)$/.exec(name);
+  if (ofGit && !/[\\/]/.test(head.text) && !/^credential(?:-|$)/.test(ofGit[1]!)) return { commands: [[wordToken('git'), wordToken(ofGit[1]!), ...rest]], own: null };
   const refused = REFUSED_RUNNERS[name];
   if (refused) return { refusal: refuse(name, refused), own: null };
 

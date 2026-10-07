@@ -197,6 +197,20 @@ test('a shell given its script on standard input reads it as it reads a script n
   for (const command of ['bash < src/list.sh', 'sh -e < src/list.sh', 'bash src/list.sh < build.sh']) assert.equal(decide(command).ok, true, `${command}: ${decide(command).reason}`);
 });
 
+test('a command’s name in capitals is the same command, as Windows finds the same program for it', () => {
+  for (const [capitals, plain] of [
+    ['RM -rf src', 'rm -rf src'], ['Rm.exe -rf src', 'rm.exe -rf src'], ['TEE src/a.ts', 'tee src/a.ts'], ['GIT commit -m x', 'git commit -m x'], ['Git.EXE push origin main', 'git.exe push origin main'],
+    [`CAT ${outsideBash}/secret.txt`, `cat ${outsideBash}/secret.txt`], ['BASH build.sh', 'bash build.sh'], ['ENV git commit -m x', 'env git commit -m x'], ['CD .. && ls', 'cd .. && ls'], ['Sudo ls', 'sudo ls'],
+  ] as const) {
+    assert.equal(decide(capitals).ok, false, capitals);
+    assert.equal(decide(capitals).reason, decide(plain).reason, capitals);
+  }
+  for (const command of ['LS -la src', 'GIT status', 'Cat src/a.ts', 'CD src && Cat a.ts']) assert.equal(decide(command).ok, true, `${command}: ${decide(command).reason}`);
+  // A script given by its path keeps the name it has on disk.
+  writeFileSync(join(project, 'src', 'List.sh'), 'ls\n');
+  assert.equal(decide('./src/List.sh').ok, true);
+});
+
 test('programs that run a command as someone else, or start one apart from the command, are refused outright', () => {
   for (const command of ['sudo git status', 'sudo -u someone ls', 'doas ls', 'su -c "ls"', 'runas /user:someone cmd', 'pkexec ls', 'chroot / ls', 'start notepad', 'schtasks /create /tn x /tr "git push"', 'wmic process call create "git push"']) {
     const d = decide(command);

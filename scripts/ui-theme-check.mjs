@@ -154,7 +154,7 @@ for (const id of MEASURED) {
   const p = await page(`await switchTheme(${JSON.stringify(id)}); await new Promise((r) => setTimeout(r, 300)); const g = await import('/graph.js'); return g.currentPalette();`);
   numbers.palette[keyOf(id)] = p;
   if (!existsSync(PALETTE_CHECK)) { check(`${nameOf(id)}: palette-check.py is at hand`, false, PALETTE_CHECK); continue; }
-  const out = spawnSync('python', [PALETTE_CHECK, `intent=${p.intent}`, `plan=${p.plan}`, `work=${p.work}`, `reality=${p.reality}`, '--bg', p.nodeBg], { encoding: 'utf8' });
+  const out = spawnSync(process.platform === 'win32' ? 'python' : 'python3', [PALETTE_CHECK, `intent=${p.intent}`, `plan=${p.plan}`, `work=${p.work}`, `reality=${p.reality}`, '--bg', p.nodeBg], { encoding: 'utf8' });
   const text = out.stdout || out.stderr || '';
   const pair = /plan \/ work\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(text);
   const spread = /L\* spread ([\d.]+)/.exec(text);

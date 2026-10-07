@@ -36,7 +36,8 @@ const tag = flag('--tag', 'after');
 // band the graph gets grows and shrinks with the rest of the interface); `full`: everything described above.
 const mode = flag('--mode', 'full');
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+// Chrome where each system usually has it; CHROME_PATH names another.
+const CHROME = process.env.CHROME_PATH ?? (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : 'google-chrome');
 const base = `http://127.0.0.1:${port}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

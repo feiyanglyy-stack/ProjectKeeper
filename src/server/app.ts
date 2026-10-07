@@ -533,9 +533,10 @@ export class App extends EventEmitter {
     const updated = this.updateProject({ ...project, scopeQuestions: questions });
     // A copy whose source the owner named: treat the answer as the copy's origin and rescan.
     const q = questions.find((x) => x.id === questionId);
-    if (q && /copy/i.test(q.question) && /^[A-Za-z]:\\|^\//.test(answer.trim())) {
+    const typed = expandHome(answer.trim());   // a source under the home directory may be written with `~`
+    if (q && /copy/i.test(q.question) && /^[A-Za-z]:\\|^\//.test(typed)) {
       const scope = updated.scope.map((i) => i.relation === 'Copy of another project' && !i.copyOf
-        ? { ...i, copyOf: canonicalPath(answer.trim()), addedBy: 'owner' as const, reason: `${i.reason}; the owner named the source: ${answer.trim()}` } : i);
+        ? { ...i, copyOf: canonicalPath(typed), addedBy: 'owner' as const, reason: `${i.reason}; the owner named the source: ${answer.trim()}` } : i);
       this.updateProject({ ...updated, scope });
       return this.scopeProject(projectId);
     }

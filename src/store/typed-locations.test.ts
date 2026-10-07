@@ -21,9 +21,12 @@ process.env.PI_CODING_AGENT_DIR = mkdtempSync(join(tmpdir(), 'pk-typed-pi-'));
 mkdirSync(join(fakeHome, 'code', 'kestrel', 'docs'), { recursive: true });
 writeFileSync(join(fakeHome, 'code', 'kestrel', 'README.md'), '# Kestrel\n');
 
-const { expandHome } = await import('../util/paths.ts');
+const { expandHome, pathKey } = await import('../util/paths.ts');
 const { Workspace } = await import('./workspace.ts');
 const { App } = await import('../server/app.ts');
+const { discoverScope } = await import('../scope/discover.ts');
+const { stableId } = await import('../model/ids.ts');
+type ScopeQuestion = import('../model/types.ts').ScopeQuestion;
 
 test('~ and ~/… are the home directory; another account’s home and a ~ elsewhere in a path are left as they are', () => {
   assert.equal(expandHome('~'), fakeHome);
@@ -46,4 +49,14 @@ test('a project added with ~/… lies under the home directory, and so does a lo
     assert.equal(added?.path, join(fakeHome, 'code', 'kestrel', 'docs'));
     assert.equal(added?.missing, null, 'and is found there');
   } finally { app.stopAll(); }
+});
+
+test('the source of a copy, answered with ~/…, is the directory under the home', () => {
+  const copy = join(fakeHome, 'code', 'kestrel');
+  mkdirSync(join(fakeHome, 'code', 'kestrel-original'), { recursive: true });
+  const answered = { id: stableId('scopeq', 'copy-source', pathKey(copy)), question: 'Which project is this a copy of?', answer: { text: '~/code/kestrel-original', at: '2026-10-01T00:00:00.000Z', sourceId: null } } as unknown as ScopeQuestion;
+  const found = discoverScope({ id: 'p-copy', name: 'Kestrel', locations: [copy] }, { home: fakeHome, existingQuestions: [answered] });
+  const item = found.items.find((i) => i.path === copy);
+  assert.equal(item?.relation, 'Copy of another project', item?.reason);
+  assert.equal(item?.copyOf, join(fakeHome, 'code', 'kestrel-original'));
 });

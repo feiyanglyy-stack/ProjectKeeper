@@ -21,7 +21,7 @@ import type { ProjectRule, ScopeClassification, ScopeItem, ScopeJudgement, Scope
 import type { ScopeRelation, SessionHost } from '../model/vocab.ts';
 import { stableId } from '../model/ids.ts';
 import { git, gitCommonDir, gitDir, gitRemotes, gitRootCommits, gitToplevel, gitWorktrees } from '../util/git.ts';
-import { canonicalPath, gitPathLimit, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
+import { canonicalPath, expandHome, gitPathLimit, isWithin, normalizePath, pathKey, samePath } from '../util/paths.ts';
 import { locateSessionsForHomes, type LocatedSession } from '../sources/sessions/locate.ts';
 import { sameSessionItem } from '../sources/sessions/scope.ts';
 import { discoverToolchain, type ToolchainRoot } from './toolchain.ts';
@@ -439,7 +439,8 @@ export function discoverBase(
     // An answered copy question is the owner's word on the copy's source and outlives rescans.
     const answered = options.existingQuestions?.find((q) => q.id === stableId('scopeq', 'copy-source', pathKey(location)) && q.answer)?.answer?.text.trim() ?? null;
     const detected = detectCopy(location, isRepo);
-    const namedSource = answered && /^[A-Za-z]:\\|^\//.test(answered) ? canonicalPath(answered) : null;
+    const typedSource = answered ? expandHome(answered) : null;   // the owner may have written it with `~`
+    const namedSource = typedSource && /^[A-Za-z]:\\|^\//.test(typedSource) ? canonicalPath(typedSource) : null;
     const copy = answered && /not a copy/i.test(answered) ? null
       : namedSource ? { source: namedSource, sessionStoreRoot: detected?.sessionStoreRoot, reason: detected?.reason ?? null, how: detected ? `${detected.how}; the owner named the source` : 'the owner named the source' }
         : detected;

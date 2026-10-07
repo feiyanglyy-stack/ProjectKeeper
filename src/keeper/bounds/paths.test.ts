@@ -69,8 +69,7 @@ test('~ expands to the home directory, which is out of bounds', () => {
   assert.equal(b.decide('~/.projectkeeper/workspace.json', project).ok, false, "another ProjectKeeper home is out of bounds");
 });
 
-test('a Git Bash /c/... spelling is recognised as the same Windows path', () => {
-  if (!WIN) return;
+test('a Git Bash /c/... spelling is recognised as the same Windows path', { skip: WIN ? false : 'Git Bash’s drive paths are resolved on Windows only' }, () => {
   const b = boundaryOn([{ path: 'C:\\pk-project', label: 'the project directory' }]);
   // Same location written the MSYS way; both resolve under the root (existence not required for the mapping).
   assert.equal(canonicalKey('/c/pk-project/src/a.ts', 'C:\\pk-project'), canonicalKey('C:\\pk-project\\src\\a.ts', 'C:\\pk-project'));

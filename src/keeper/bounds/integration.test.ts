@@ -260,7 +260,7 @@ test('what leads to a stored login is not in a shell the job runs: the program t
 });
 
 test('in a repository at a deep path a shell command runs, and git typed into it reads the history (Windows: long paths)', { timeout: 60_000 }, async (t) => {
-  if (process.platform !== 'win32') { t.diagnostic('not on this system: the path limit is Windows’'); return; }
+  if (process.platform !== 'win32') { t.skip('not on this system: the path limit is Windows’'); return; }
   // Past 200 characters git's own files under .git pass 260: the guard's `git status` failed before any command ran,
   // and git typed into the shell could not open its objects.
   const { app, project, fake } = await setup({ length: 225, repository: true });
@@ -276,7 +276,7 @@ test('in a repository at a deep path a shell command runs, and git typed into it
 });
 
 test('in a directory whose path is too long for the Keeper a job ends with the limit and what to do, not with a folder that could not be made (Windows)', { timeout: 60_000 }, async (t) => {
-  if (process.platform !== 'win32') { t.diagnostic('not on this system: the path limit is Windows’'); return; }
+  if (process.platform !== 'win32') { t.skip('not on this system: the path limit is Windows’'); return; }
   const { app, project, fake } = await setup({ length: 255 });
   try {
     const job = app.keeper.enqueue(project.id, { kind: 'Organizing', initiator: 'auto', scope: { kind: 'source', ids: [], label: 'x' }, prompt: 'Task: material organizing. DIRECTIVE bash echo hello' });

@@ -78,7 +78,7 @@ function kestrel(root: string, deepFile = false): string {
 
 const windowsOnly = (title: string, body: () => Promise<void> | void): void => {
   test(title, async (t) => {
-    if (!WIN) { t.diagnostic('not on this system: the limits are Windows’'); return; }
+    if (!WIN) { t.skip('not on this system: the path limits are Windows’'); return; }
     await body();
   });
 };

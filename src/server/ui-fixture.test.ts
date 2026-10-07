@@ -357,7 +357,8 @@ test('the ledger the fixture builds: each depth path says how it was counted, th
 /** The fixture project's commits, oldest first: hash, author time, committer time. */
 function fixtureCommits(r: UiFixtureResult): string[][] {
   const out = execFileSync('git', ['-C', r.projectDir, 'log', '--all', '--author-date-order', '--reverse', '--format=%H %aI %cI'], { encoding: 'utf8' });
-  return out.trim().split(/\r?\n/).map((line) => line.split(' '));
+  // A git before 2.45 writes the zone of these times as +00:00, a later one as Z: the same moment either way.
+  return out.trim().split(/\r?\n/).map((line) => line.split(' ').map((part) => part.replace(/\+00:00$/, 'Z')));
 }
 
 test('the fixture’s commits are dated as the seed says, by author and by committer: the ledger keeps one time for each, not the moment of seeding beside it', async () => {

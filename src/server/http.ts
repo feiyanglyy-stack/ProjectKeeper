@@ -70,7 +70,14 @@ export class HttpApp {
   }
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+    // A request line that is no path (`GET //`) is not a URL; it is answered as that, and never thrown from here, where
+    // nothing would catch it and the process would end.
+    let url: URL;
+    try { url = new URL(req.url ?? '/', 'http://127.0.0.1'); } catch {
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'close' });
+      res.end('The request names no path.\n');
+      return;
+    }
     const method = (req.method ?? 'GET').toUpperCase();
     try {
       for (const route of this.routes) {

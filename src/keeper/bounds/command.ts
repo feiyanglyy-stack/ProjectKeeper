@@ -956,6 +956,33 @@ function checkWrapped(argv: readonly Token[], cwd: string, boundary: Boundary, o
   return { decision: null, cwd: next, own: wrapped.own };
 }
 
+/**
+ * Commands the rules decide by name, for telling a command from other text in code. Kept to names that are seldom the
+ * first word of a sentence: `start`, `time` or `command` in front of a string would make a command of prose.
+ */
+const DECIDED_BY_NAME = new Set(['git', 'rm', 'mv', 'cp', 'tee', 'touch', 'mkdir', 'rmdir', 'truncate', 'sed', 'dd', 'sh', 'bash', 'zsh', 'cmd', 'powershell', 'pwsh', 'env', 'xargs', 'find', 'gh', 'sudo', 'timeout', 'nohup']);
+
+/**
+ * The commands written out in code given to an interpreter on the command line, which runs them as surely as a wrapper
+ * does: a quoted string that begins with the name of a command the rules decide (`os.system('git push')`,
+ * `execSync("rm -rf src")`), and a run of one-word strings that begins with one (`subprocess.run(['git', 'push'])`).
+ * Each is judged as a command line. This reads text and no more: a command the code puts together from pieces, takes
+ * from a variable or runs from a script file is not seen.
+ */
+function commandsInCode(code: string): string[] {
+  const strings = [...code.matchAll(/'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g)].map((m) => (m[1] ?? m[2] ?? '').replace(/\\(["'])/g, '$1').trim());
+  const named = (text: string): boolean => { const name = commandName(text.split(/\s+/)[0] ?? '').toLowerCase(); return DECIDED_BY_NAME.has(name); };
+  const lines: string[] = [];
+  for (let i = 0; i < strings.length; i += 1) {
+    if (!strings[i] || !named(strings[i]!)) continue;
+    if (/\s/.test(strings[i]!)) { lines.push(strings[i]!); continue; }
+    let end = i + 1;
+    while (end < strings.length && end < i + 16 && strings[end] && !/\s/.test(strings[end]!)) end += 1;
+    lines.push(strings.slice(i, end).map((w) => (/^[\w@%+=:,./-]+$/.test(w) ? w : `'${w.replace(/'/g, `'\\''`)}'`)).join(' '));
+  }
+  return lines;
+}
+
 /** Analyse one simple command with the working directory it runs in; returns the next directory (after `cd`). */
 function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opts: CommandOptions): { decision: CommandDecision | null; cwd: string } {
   // Leading VAR=value assignments set the command's environment; their path values are checked, then skipped as operands.
@@ -1156,6 +1183,7 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
         else {
           if (CREDENTIAL_IN_CODE.test(code.text)) return { decision: CREDENTIAL_REFUSAL, cwd };
           if (printsLogin(['', ...wordsOfCode(code.text)])) return { decision: LOGIN_PRINTER_REFUSAL, cwd };
+          for (const line of commandsInCode(code.text)) { const r = checkBashCommand(line, cwd, boundary, opts.depth + 1, opts.writeRoots, opts.scratchDir, opts.onWrite); if (!r.ok) return { decision: r, cwd }; }
           if (homeDerivedInCode(code.text)) return { decision: refuse('inline code', 'the inline code builds a path from the home directory, which is outside the project.'), cwd };
           const d = checkInlineCode(code.text, cwd, boundary); if (d) return { decision: d, cwd };
         }

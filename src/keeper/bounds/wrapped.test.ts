@@ -207,6 +207,33 @@ test('code given to an interpreter under its letters written together is read as
   for (const command of ['bash -lc "ls src"', 'python -uc "print(1)"', 'perl -ne "print" src/a.ts', 'node -pe "1+1"', 'bash -x build.sh'.replace('build.sh', 'src/none.sh')]) assert.equal(decide(command).ok, true, `${command}: ${decide(command).reason}`);
 });
 
+// ───────────────────────── code given to an interpreter ─────────────────────────
+
+test('a command written out in code given to an interpreter is judged as a command: as one string, or as a list of words', () => {
+  const refusedAs = (command: string, what: RegExp) => { const d = decide(command); assert.equal(d.ok, false, command); assert.match(d.reason ?? '', what, command); };
+  for (const command of [
+    `python -c "import os; os.system('git push origin main')"`,
+    `python -c "import subprocess; subprocess.run(['git', 'push', 'origin', 'main'])"`,
+    `python3 -c "import subprocess; subprocess.check_call(['git', 'commit', '-m', 'x'])"`,
+    `python -c "import subprocess; subprocess.run('git commit -am x', shell=True)"`,
+    `node -e "require('child_process').execSync('git push')"`,
+    `node -e "require('child_process').spawnSync('git', ['reset', '--hard'])"`,
+    `node -e 'require("child_process").execFileSync("git", ["checkout", "-b", "x"])'`,
+    `perl -e 'system("git push")'`, `ruby -e 'system("git", "commit", "-m", "x")'`,
+    `python -c "import os; os.system('env git push')"`, `python -c "import os; os.system('bash -lc \\"git push\\"')"`,
+  ]) refusedAs(command, /shell cannot write project files \(git /);
+  for (const command of [
+    `python -c "import os; os.system('rm -rf src')"`, `python -c "import subprocess; subprocess.run(['rm', '-rf', 'src'])"`,
+    `node -e "require('child_process').execSync('rm -rf src')"`, `node -e "require('child_process').spawnSync('cp', ['src/a.ts', 'src/b.ts'])"`,
+  ]) refusedAs(command, /shell cannot write project files \(src/);
+  refusedAs(`python -c "import os; os.system('sudo ls')"`, /runs a command as another user/);
+  for (const command of [
+    `python -c "import subprocess; print(subprocess.run(['git', 'status', '--porcelain'], capture_output=True).stdout)"`,
+    `python -c "import os; os.system('git log --oneline -3')"`, `node -e "console.log(require('child_process').execSync('git status').toString())"`,
+    `python -c "import json; print(json.load(open('src/a.ts')))"`, `node -e "console.log('find the files, then count them')"`, `python -c "print('a', 'b')"`, `python -c "d = {}; print(d.get('start'), d.get('time'), d.get('env'))"`, `node -e "console.log('start of the list')"`,
+  ]) assert.equal(decide(command).ok, true, `${command}: ${decide(command).reason}`);
+});
+
 // ───────────────────────── the PowerShell tool ─────────────────────────
 
 const ps = (command: string) => decide(command, 'powershell');

@@ -375,6 +375,26 @@ function credentialCommand(argv: readonly Token[]): CommandDecision | null {
   return null;
 }
 
+/**
+ * Git's trace switches, and its credential manager's, set for a command — before it (`GIT_TRACE_CURL=1 git …`), through
+ * `env`, `export` or `declare`, or as PowerShell's `$env:…`. They print what git sends to a remote, and with
+ * `GIT_TRACE_REDACT=0` the authorization header as it is. The shell's environment is given none of them (boundary.ts
+ * `shellEnv`); this keeps a command from setting one for itself. The commands that only print or search text keep
+ * their words, as above.
+ */
+const TRACE_SWITCH = /(?:^|[^A-Za-z0-9_])(?:GIT_TRACE\w*|GIT_CURL_VERBOSE|GCM_TRACE\w*)=|\$env:(?:GIT_TRACE\w*|GIT_CURL_VERBOSE|GCM_TRACE\w*)\b/i;
+const TRACE_REFUSAL: CommandDecision = {
+  ok: false, detail: 'git trace',
+  reason: "Refused: git's trace switches (GIT_TRACE…, GIT_CURL_VERBOSE, GCM_TRACE…) can print the login git sends to a remote; a command in this shell cannot set them.",
+};
+
+/** `words` is the whole simple command, `start` where its program is, after the assignments in front of it. */
+function traceSwitch(words: readonly Token[], start: number): CommandDecision | null {
+  const name = commandName(words[start]?.text ?? '').toLowerCase();
+  const end = PROGRAM_COMMANDS[name] || name === 'echo' || name === 'printf' ? start : words.length;
+  return words.slice(0, end).some((w) => w.kind === 'word' && TRACE_SWITCH.test(w.text)) ? TRACE_REFUSAL : null;
+}
+
 /** `git config` reads global and system scopes unless kept to the repository; that reaches the home gitconfig. */
 function checkGitConfig(argv: Token[], cwd: string, boundary: Boundary): CommandDecision | null {
   let local = false;
@@ -463,6 +483,8 @@ function checkSimpleCommand(words: Token[], cwd: string, boundary: Boundary, opt
     start += 1;
   }
   const argv = words.slice(start);
+  const trace = traceSwitch(words, start);
+  if (trace) return { decision: trace, cwd };
   if (argv.length === 0) return { decision: null, cwd };
   const name = commandName(argv[0]!.text);
   const interp = INTERPRETERS[name];

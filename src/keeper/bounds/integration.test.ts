@@ -240,6 +240,25 @@ test('git runs in a shell the job runs when git is configured through the enviro
   }
 });
 
+test('what leads to a stored login is not in a shell the job runs: the program that answers for a password, git’s trace switches; and git there is told to ask nobody', { timeout: 60_000 }, async () => {
+  const given = { GIT_ASKPASS: 'invented-askpass', SSH_ASKPASS: 'invented-askpass', VSCODE_GIT_IPC_HANDLE: 'invented-handle', GIT_TRACE: '1', GIT_TRACE_REDACT: '0' };
+  const saved = Object.keys(given).map((k) => [k, process.env[k]] as const);
+  Object.assign(process.env, given);
+  const { app, project, fake } = await setup();
+  try {
+    const job = app.keeper.enqueue(project.id, { kind: 'Organizing', initiator: 'auto', scope: { kind: 'source', ids: [], label: 'x' }, prompt: 'Task: material organizing. DIRECTIVE bash printenv GIT_ASKPASS SSH_ASKPASS VSCODE_GIT_IPC_HANDLE GIT_TRACE GIT_TRACE_REDACT; printenv GIT_TERMINAL_PROMPT; git --version; echo end' });
+    const done = await app.keeper.waitFor(project.id, job.id);
+    const bashStep = done.steps.find((s) => s.tool === 'bash');
+    assert.ok(bashStep, 'the shell command ran as a step');
+    if (bashStep!.isError && /No bash shell|not found/i.test(bashStep!.summary)) return;   // no shell on this machine: skip
+    assert.equal(bashStep!.isError, false, bashStep!.summary);
+    assert.match(bashStep!.summary, /^0\s+git version \S+\s+end\s*$/, 'none of them is set, git prints no trace, and terminal prompts are off');
+  } finally {
+    for (const [k, v] of saved) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    fake.close(); app.stopAll();
+  }
+});
+
 test('in a repository at a deep path a shell command runs, and git typed into it reads the history (Windows: long paths)', { timeout: 60_000 }, async (t) => {
   if (process.platform !== 'win32') { t.diagnostic('not on this system: the path limit is Windows’'); return; }
   // Past 200 characters git's own files under .git pass 260: the guard's `git status` failed before any command ran,

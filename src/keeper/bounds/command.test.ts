@@ -219,3 +219,21 @@ test('what only mentions those commands, or reads the repository, still runs', (
     'cat src/git-credential-notes.md', 'git -c core.quotePath=false log -1', 'node -e "console.log(1)"',
   ]) ok(command);
 });
+
+test('git’s trace switches are not set for a command: they can print the login git sends to a remote', () => {
+  const refusedTrace = (command: string, shell: 'bash' | 'powershell' = 'bash') => {
+    const d = checkShellCommand(shell, command, project, boundary);
+    assert.equal(d.ok, false, `expected refused: ${command}`);
+    assert.match(d.reason ?? '', /trace switches .* can print the login git sends to a remote/, command);
+  };
+  for (const command of [
+    'GIT_TRACE_CURL=1 git ls-remote origin', 'GIT_TRACE_REDACT=0 GIT_TRACE_CURL=1 git ls-remote origin', 'GIT_CURL_VERBOSE=1 git ls-remote origin',
+    'GIT_TRACE=1 git status', 'GIT_TRACE2_EVENT=trace.json git status', 'GCM_TRACE_SECRETS=1 git ls-remote origin', 'git_trace_curl=1 git ls-remote origin',
+    'env GIT_TRACE_REDACT=0 git ls-remote origin', 'env -u HOME GIT_TRACE_CURL=1 git ls-remote origin',
+    'export GIT_TRACE_CURL=1', 'export GIT_TRACE_REDACT=0 && git ls-remote origin', 'declare -x GIT_TRACE=2', 'GIT_TRACE_PACKET=1; git status',
+    'bash -c "GIT_TRACE_CURL=1 git ls-remote origin"',
+  ]) refusedTrace(command);
+  refusedTrace('$env:GIT_TRACE_CURL=1; git ls-remote origin', 'powershell');
+  refusedTrace('$env:GIT_TRACE_REDACT = 0', 'powershell');
+  for (const command of ['git status', 'git log --oneline -3', 'grep -rn GIT_TRACE_CURL=1 src', 'echo GIT_TRACE=1', 'printenv GIT_TRACE', 'GIT_PAGER=cat git log -1', 'env LANG=C git status']) ok(command);
+});

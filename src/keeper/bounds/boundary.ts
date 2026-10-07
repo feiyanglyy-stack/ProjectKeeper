@@ -111,15 +111,34 @@ export function stripCredentialEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 }
 
 /**
- * The environment a shell command runs in: without the credentials, and with `core.longpaths` as the last of git's
- * settings, where it holds whatever the repository's own configuration says. The program's own git calls are given it
- * on the command line (util/git.ts `LONG_PATHS`); git typed into the shell needs it as much — in a repository at a
- * deep path, or with files deep inside it, `git status` and `git log` stop with "Filename too long" otherwise.
+ * Variables that are no secret themselves but lead to a login stored on this machine, so they do not reach the shell:
+ *  - the programs git, ssh and sudo call to be given a password (`GIT_ASKPASS`, `SSH_ASKPASS` with `SSH_ASKPASS_REQUIRE`,
+ *    `SUDO_ASKPASS`). An editor's terminal sets the first two to a helper of its own that answers from the editor's
+ *    sign-in, over the channel the `VSCODE_GIT_*` variables name (VS Code and the editors built on it, on every system);
+ *  - git's trace switches (`GIT_TRACE*`, `GIT_CURL_VERBOSE`) and the credential manager's (`GCM_TRACE*`), which print
+ *    what is sent to a remote: with `GIT_TRACE_REDACT=0`, the authorization header as it is.
+ */
+const LOGIN_ROUTE_ENV = /^(?:GIT_ASKPASS|SSH_ASKPASS|SSH_ASKPASS_REQUIRE|SUDO_ASKPASS|VSCODE_GIT_\w*|GIT_TRACE\w*|GIT_CURL_VERBOSE|GCM_TRACE\w*)$/;
+
+/**
+ * The environment a shell command runs in: without the credentials and without the routes to a stored login, and with
+ * two git settings of its own after the ones that were given, where they hold whatever any configuration says:
+ *  - `credential.helper` empty, which makes git forget every helper configured before it; with nobody to ask
+ *    (`GIT_TERMINAL_PROMPT=0`, no askpass program) git in the shell has no login to use or to print, and says so at
+ *    once. command.ts refuses `git credential` when it is typed; this holds for git reached any other way;
+ *  - `core.longpaths`, the last. The program's own git calls are given it on the command line (util/git.ts
+ *    `LONG_PATHS`); git typed into the shell needs it as much — in a repository at a deep path, or with files deep
+ *    inside it, `git status` and `git log` stop with "Filename too long" otherwise.
  */
 export function shellEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const out = stripCredentialEnv(env);
+  const out: NodeJS.ProcessEnv = {};
+  for (const [k, v] of Object.entries(stripCredentialEnv(env))) if (!LOGIN_ROUTE_ENV.test(k.toUpperCase()) && k.toUpperCase() !== 'GIT_TERMINAL_PROMPT') out[k] = v;
   const count = Number(out.GIT_CONFIG_COUNT ?? 0);
-  return { ...out, GIT_CONFIG_COUNT: String(count + 1), [`GIT_CONFIG_KEY_${count}`]: 'core.longpaths', [`GIT_CONFIG_VALUE_${count}`]: 'true' };
+  return {
+    ...out, GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_COUNT: String(count + 2),
+    [`GIT_CONFIG_KEY_${count}`]: 'credential.helper', [`GIT_CONFIG_VALUE_${count}`]: '',
+    [`GIT_CONFIG_KEY_${count + 1}`]: 'core.longpaths', [`GIT_CONFIG_VALUE_${count + 1}`]: 'true',
+  };
 }
 
 /** A credential store must never be read even when it sits inside an allowed root (CKC-03 AC-3, §3.1). */

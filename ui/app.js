@@ -10,6 +10,11 @@ import { initTheme, themePicker } from './theme.js';
 import { updateCounts } from './k-process.js';
 import { failuresOf, reasonText, shortRef, skippedOf, skippedText } from './failures.js';
 
+// The system the page is shown on (the workbench is served to its own machine): for the examples and key names that differ.
+const PLATFORM = navigator.userAgentData?.platform ?? navigator.platform ?? '';
+const MAC = /mac|iphone|ipad/i.test(PLATFORM);
+const WINDOWS = /win/i.test(PLATFORM);
+
 const $ = (sel, root = document) => root.querySelector(sel);
 export const h = (tag, attrs = {}, ...children) => {
   const el = document.createElement(tag);
@@ -331,7 +336,7 @@ function renderChrome() {
       p ? h('button', { class: 'btn small', 'data-keeps-popover': true, title: 'Open the conversation with the Keeper on the right, about what is selected', onClick: () => toggleKeeper(true) }, 'Ask Keeper') : null,
       // The theme, beside the search (WorkflowKeeper keeps its picker in the top bar): a choice of this browser (Spec §6.16).
       themePicker(),
-      p ? h('button', { class: 'search-trigger', onClick: openSearch }, h('span', {}, 'Search'), h('kbd', {}, 'Ctrl K')) : null),
+      p ? h('button', { class: 'search-trigger', onClick: openSearch }, h('span', {}, 'Search'), h('kbd', {}, MAC ? '⌘K' : 'Ctrl K')) : null),
   );
   // The main panel: its header carries the view's own row of controls (or the view's name) and the button that makes
   // it fill the window; below, the view alone — an object's details open in the popover beside it (Spec §6.1).
@@ -942,7 +947,8 @@ export function openActivity() {
 // ── dialogs ──────────────────────────────────────────────────────────────
 function addProjectDialog() {
   const name = h('input', { class: 'input', placeholder: 'Project name' });
-  const loc = h('textarea', { class: 'input', placeholder: 'One location per line, e.g. D:\\myproject\nD:\\myproject-worktrees\\feature' });
+  // The example is a path of the system the page runs on; `~` is the home directory on every one.
+  const loc = h('textarea', { class: 'input', placeholder: WINDOWS ? 'One location per line, e.g. D:\\myproject\nD:\\myproject-worktrees\\feature' : 'One location per line, e.g. ~/code/myproject\n~/code/myproject-worktrees/feature' });
   const err = h('small', { class: 'faint' });
   const submit = async () => {
     const locations = loc.value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);

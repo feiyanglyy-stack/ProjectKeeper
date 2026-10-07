@@ -3,7 +3,7 @@
  * workbench. No key, no model and no network: the Keeper's answers come from a local stand-in.
  *
  *   npm run demo                         build it and serve it at http://127.0.0.1:4880/
- *   npm run demo -- --port 5000          on another port
+ *   npm run demo -- --port 4881          on another port
  *   npm run demo -- --dir <directory>    build it there instead of the system's temporary directory
  *
  * Everything the demo writes goes under one directory (`projectkeeper-demo` in the system's temporary directory unless
@@ -76,4 +76,5 @@ const server = await http.listen(port);
 const stop = async () => { app.stopAll(); await app.flushAll(); await server.close(); process.exit(0); };
 process.on('SIGINT', () => { void stop(); });
 process.on('SIGTERM', () => { void stop(); });
+process.on('SIGHUP', () => { void stop(); });   // the terminal window was closed
 console.log(`\nThe demo is open at http://127.0.0.1:${server.port}/#/p/${seeded.projectId}/graph   (Ctrl+C stops it)`);

@@ -57,6 +57,8 @@ async function main(): Promise<number> {
     const stop = async () => { app.stopAll(); await app.flushAll(); await server.close(); process.exit(0); };
     process.on('SIGINT', () => { void stop(); });
     process.on('SIGTERM', () => { void stop(); });
+    // Closing the terminal window sends this one: stopped the same way, so what was being written is written.
+    process.on('SIGHUP', () => { void stop(); });
     return new Promise(() => { /* keep running */ });
   }
   if (command === 'add') {

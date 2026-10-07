@@ -25,7 +25,7 @@ There is no build step: Node runs the TypeScript sources directly.
 npm run demo
 ```
 
-It builds an invented project called Papertrail, already organized, and serves it at `http://127.0.0.1:4880/`. The address it prints opens the project's map. No key, no model and no network are used, and nothing of your own ProjectKeeper folder, projects or keys is read. `npm run demo -- --port 5000` uses another port; `Ctrl+C` stops it.
+It builds an invented project called Papertrail, already organized, and serves it at `http://127.0.0.1:4880/`. The address it prints opens the project's map. No key, no model and no network are used, and nothing of your own ProjectKeeper folder, projects or keys is read. `npm run demo -- --port 4881` uses another port; `Ctrl+C` stops it.
 
 ## Start the workbench
 

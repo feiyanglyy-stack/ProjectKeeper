@@ -2,7 +2,10 @@
 
 **Your agents wrote the code. ProjectKeeper tells you what was actually planned, decided and done.**
 
-A resident agent that reads your project as it is and keeps a browsable picture of it.
+A resident agent that takes over a project as it is — even one left half-done — and draws it as a map you can browse.
+
+- **Anchored to what you said.** Your words are kept verbatim, with the session they were said in. Where a document has drifted from them, where something you wanted was dropped along the way, or where work grew that you never asked for, ProjectKeeper tells you.
+- **A half-done project, ready to hand over.** Point it at the folder: documents, git history, code and agent sessions become one picture, and one command gives the next agent the context for the work it picks up.
 
 English · [简体中文](README.zh-CN.md)
 

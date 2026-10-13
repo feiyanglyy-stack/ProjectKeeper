@@ -60,6 +60,8 @@ import { gitStatusAsync } from '../util/git.ts';
 import { keeperPathLimit } from '../util/paths.ts';
 import { linkPutOutDeliveries } from '../process/delivery-links.ts';
 import { unlightUnchecked } from '../process/breakpoint-candidates.ts';
+import { TABLE_FOLLOW_UP, tableFollowUpPreamble, tableSkillDir } from '../table/follow-up.ts';
+import { tableFollowUpTools, type TableWriter } from '../table/follow-up-tools.ts';
 
 export interface JobRequest {
   readonly kind: JobKind;
@@ -874,6 +876,8 @@ export class KeeperRuntime extends EventEmitter {
     /** D99: the main agent entered a stage (`pk_stage`): the planner recomputes the breakpoint candidates and gives the
      *  program's lists for that stage (clerk.ts `stageEntered`). */
     stageEntered?: (projectId: string, roundId: string, stage: ClerkStage) => Promise<{ readonly note: string | null }> | { readonly note: string | null };
+    /** D107: the writer a table follow-up's session hands its table to (organize/table-follow-up.ts). */
+    tableWriter?: (projectId: string, jobId: string) => TableWriter;
   } = {};
 
   hasLiveSession(key: string): boolean { return this.live.has(key); }
@@ -1266,6 +1270,9 @@ export class KeeperRuntime extends EventEmitter {
     // A job outside a round's steps gets its tools by who it is: a subagent reads and writes only the fact records of its
     // material; other work gets every pk_* tool but those only a round's step has a round for (roles.ts `toolsFor`).
     const role = jobRole(job);
+    // D107: a table follow-up reads the project and hands in one table; it is given that writer and the ledger's reads only.
+    const tableJob = extra?.kind === TABLE_FOLLOW_UP;
+    const tableFile = tableJob ? (extra as { tableFile?: string }).tableFile ?? 'the table' : null;
     try {
       const perJob: Partial<ToolContext> = {
         jobId: job.id, jobKind: job.kind, materials: task.materials ?? [], judgementId: task.judgementId ?? null, ownerSourceId: task.ownerSourceId ?? null,
@@ -1321,7 +1328,7 @@ export class KeeperRuntime extends EventEmitter {
         });
         // The clerk round's main agent, lanes, synthesis and spot-check get the method as pi skills (D99, D103; E148 D-b); pi lists them,
         // and the boundary opens each loaded skill's folder for reading.
-        const loader = new DefaultResourceLoader({ cwd, agentDir: getAgentDir(), settingsManager, extensionFactories: [boundary.extension], additionalSkillPaths: clerkSkillPathsFor(job.step?.kind) });
+        const loader = new DefaultResourceLoader({ cwd, agentDir: getAgentDir(), settingsManager, extensionFactories: [boundary.extension], additionalSkillPaths: tableJob ? [tableSkillDir()] : clerkSkillPathsFor(job.step?.kind) });
         loaderRef.current = loader;
         await loader.reload();
         // The loader's reload re-reads the settings files and drops overrides; set the tools again for the session.
@@ -1348,7 +1355,11 @@ export class KeeperRuntime extends EventEmitter {
         // The main job and a lane (D99) are offered what they write in any stage or slot, refused at call time outside
         // their effective stage (stage-gate.ts).
         const step = job.step;
-        const customTools = step ? stepToolsFor(allTools, step.kind, this.clerkRoundKind(store, job), step.lane ?? null, (tool, args) => writeRefusal(store, step, tool, args)) : toolsFor(allTools, role);
+        // A table follow-up (D107) keeps pi's tools and the ledger's reads, and writes only the table, through pk_write_table.
+        const tableWriter = tableJob ? this.hooks.tableWriter?.(projectId, job.id) ?? null : null;
+        const customTools = tableJob
+          ? [...allTools.filter((t) => !t.name.startsWith('pk_') || t.name.startsWith('pk_ledger_')), ...(tableWriter ? tableFollowUpTools(tableWriter, (text) => toolCtx.onSaved?.('table', tableFile!, text.slice(0, 160))) : [])]
+          : step ? stepToolsFor(allTools, step.kind, this.clerkRoundKind(store, job), step.lane ?? null, (tool, args) => writeRefusal(store, step, tool, args)) : toolsFor(allTools, role);
         const thinkingLevel = (chosen.thinking ?? 'medium') as 'medium';
         const createSession = (sessionManager: SessionManager) => createAgentSession({
           cwd, agentDir: getAgentDir(), modelRuntime: this.models, model, thinkingLevel, customTools, resourceLoader: loader, settingsManager, sessionManager,
@@ -1470,7 +1481,7 @@ export class KeeperRuntime extends EventEmitter {
           save({ usage: runUsage() });
         }
       });
-      const preamble = keeperPreamble({ projectName: project.name, projectRoot: cwd, language: project.language, jobKind: job.kind, jobId: job.id, conversation: task.conversation === true, subagentOf: role === 'subagent' && job.step?.kind !== 'lane' && job.step?.kind !== 'main' && job.step?.kind !== 'synthesis' && job.step?.kind !== 'spot-check' ? job.parentJobId : null, laneOf: job.step?.kind === 'lane' ? job.parentJobId : null, mayChangeProject: job.requestBasis ? { allowed: true, basis: job.requestBasis.label } : { allowed: false, basis: null }, authorizations: store.authorizations.filter((a) => !a.revokedAt).map((a) => ({ id: a.id, scope: a.scope })) });
+      const preamble = tableJob ? tableFollowUpPreamble({ projectName: project.name, projectRoot: cwd, jobId: job.id }) : keeperPreamble({ projectName: project.name, projectRoot: cwd, language: project.language, jobKind: job.kind, jobId: job.id, conversation: task.conversation === true, subagentOf: role === 'subagent' && job.step?.kind !== 'lane' && job.step?.kind !== 'main' && job.step?.kind !== 'synthesis' && job.step?.kind !== 'spot-check' ? job.parentJobId : null, laneOf: job.step?.kind === 'lane' ? job.parentJobId : null, mayChangeProject: job.requestBasis ? { allowed: true, basis: job.requestBasis.label } : { allowed: false, basis: null }, authorizations: store.authorizations.filter((a) => !a.revokedAt).map((a) => ({ id: a.id, scope: a.scope })) });
       const timeoutMs = task.timeoutMs ?? (job.initiator === 'owner' ? null : 30 * 60_000);
       const timer = timeoutMs ? setTimeout(() => { aborted = true; timedOut = true; void session?.abort(); }, timeoutMs) : null;
       try {

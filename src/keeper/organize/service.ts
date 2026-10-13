@@ -30,6 +30,7 @@ import { isRoundMain } from '../roles.ts';
 import { ACTIVE_STATUSES, ClerkPlanner, stepFailureText, type LedgerRunner, type ProcessRunner } from './clerk.ts';
 import { clerkLevels, clerkPending } from './clerk-coverage.ts';
 import { refreshUpdatePending } from './update-pending.ts';
+import { isTableJob, tableJobs, tablePending, TableFollowUp } from './table-follow-up.ts';
 
 /** What the service reads from a job's task, and writes into a re-look's: its kind, judgement record and scope. */
 interface TaskExtra { readonly kind: string; readonly judgementId?: string; readonly scopeKey?: string }
@@ -53,8 +54,10 @@ export class OrganizingService {
 
   /** The clerk method (Spec v3.0 §3.3): plans every round since increment K. */
   private clerk: ClerkPlanner;
+  /** D107: a project taken over by the ProjectKeeper table is followed up by carrying the table on, not by rounds. */
+  private table: TableFollowUp;
 
-  constructor(app: App, enabled = true) { this.app = app; this.enabled = enabled; this.clerk = new ClerkPlanner(app, null); }
+  constructor(app: App, enabled = true) { this.app = app; this.enabled = enabled; this.clerk = new ClerkPlanner(app, null); this.table = new TableFollowUp(app); }
 
   /** The program step of every round: bring the ledger up to date (src/ledger). Set once the build carries it. */
   setLedgerRunner(runner: LedgerRunner | null): void { this.clerk.setLedgerRunner(runner); }
@@ -66,7 +69,7 @@ export class OrganizingService {
   }
 
   /** The clock the schedule is read against (§3.8); a test sets it. */
-  setClock(clock: () => number): void { this.clerk.clock = clock; }
+  setClock(clock: () => number): void { this.clerk.clock = clock; this.table.clock = clock; }
 
   private ticker: NodeJS.Timeout | null = null;
   /**
@@ -285,7 +288,9 @@ export class OrganizingService {
    * material rounds it replaced (D59; CKC-06) are gone.
    */
   private async plan(projectId: string): Promise<void> {
-    await this.clerk.plan(projectId);
+    // D107: a project taken over by the table never starts the clerk method's rounds; its Follow up is a table follow-up.
+    if (this.app.project(projectId).takenOverByTable) await this.table.plan(projectId);
+    else await this.clerk.plan(projectId);
     this.openDeferredRelooks(projectId);
     this.clerkCoverage(projectId);
   }
@@ -335,7 +340,9 @@ export function writeClerkCoverage(app: App, projectId: string): void {
   // wiped what the watcher and intake had listed and left the level table blank (QC AY B1, B8).
   const materials = listMaterials(store, project);
   // Before `Start` nothing is taken in and nothing counts as waiting (D105; CKC-13 AC-20).
-  const found = clerkPending(store, project, app.pendingChanges(projectId), materials);
+  // D107: what waits for a table project is what its table is behind: the commits since its asOf and the owner's messages
+  // since it was filled in (table-follow-up.ts `tablePending`); no material level is pending, so no entry shows `Update pending`.
+  const found = project.takenOverByTable ? { pending: tablePending(app, project), keys: new Set<string>(), fresh: new Map() } : clerkPending(store, project, app.pendingChanges(projectId), materials);
   const waiting = notStarted ? { ...found, pending: [], keys: new Set<string>() } : found;
   const { pending, keys: pendingKeys } = waiting;
   const { levels, sampled, readInPart, historyNotOrganized } = clerkLevels(store, project, pendingKeys, materials);
@@ -357,11 +364,15 @@ export function writeClerkCoverage(app: App, projectId: string): void {
     historyNotOrganized,
     noteId: null, deepening,
   };
-  const running = store.jobs.filter((j) => Boolean(j.step) && ACTIVE_STATUSES.includes(j.status));
+  // A table follow-up's session (D107) is organizing too, though it is no step of a round.
+  const running = store.jobs.filter((j) => (Boolean(j.step) || isTableJob(j)) && ACTIVE_STATUSES.includes(j.status));
   // Every job of a round's step that did not finish, whether the program runs it again, it waits for the owner, or it is
   // listed and the round went on — or closed — without it (Spec §3.10: 列入覆盖情况的失败清单并写明原因，不静默跳过). It
   // leaves the list when a run again finishes it.
   const failed = store.jobs.filter((j) => Boolean(j.step) && (j.status === 'Failed' || j.status === 'Stopped') && store.clerkRounds.has(j.step!.roundId)).sort((a, b) => a.queuedAt.localeCompare(b.queuedAt));
+  // The last table follow-up, when it did not finish (D107): listed until a later one does.
+  const lastTable = tableJobs(store).pop();
+  const tableFailed = lastTable && (lastTable.status === 'Failed' || lastTable.status === 'Stopped') ? [{ ref: lastTable.id, reason: `${lastTable.scope.label}: ${lastTable.status === 'Failed' ? 'failed' : 'was stopped'} — ${lastTable.error ?? 'no reason recorded'}. Retry or Follow up runs it again`, at: lastTable.endedAt ?? lastTable.queuedAt }] : [];
   const previous = store.coverage.scopes.find((s) => s.id === 'project');
   const mainRepo = project.scope.find((i) => i.category === 'Repository' && i.relation !== 'Excluded' && !i.missing);
   // §1.11's four labels: paused holds the rest; what runs is organizing; what waits with nothing running is pending.
@@ -370,16 +381,19 @@ export function writeClerkCoverage(app: App, projectId: string): void {
   // home written before that still holds among its failures, which moves over here with no step by the owner.
   const intake = splitTooLarge((previous?.failed ?? []).filter((f) => !store.jobs.has(f.ref)), previous?.skipped ?? [], excludedLocations(project));
   const projectScope: CoverageScope = {
-    id: 'project', kind: 'project', label: project.name, coverage: label, asOf: rounds.filter((r) => r.endedAt).pop()?.endedAt ?? previous?.asOf ?? null,
+    id: 'project', kind: 'project', label: project.name, coverage: label, asOf: latest(rounds.filter((r) => r.endedAt).pop()?.endedAt, project.takenOverByTable?.at) ?? previous?.asOf ?? null,
     commit: mainRepo ? gitHead(mainRepo.path) : null, pending, organizing: running.map((j) => ({ kind: 'other', ref: j.id, label: j.scope.label, since: j.startedAt ?? j.queuedAt })),
     // A round's step that did not finish, and what intake could not take in with its reason (CKC-07 AC-10): intake
     // writes its own failures, so they are carried over, not wiped by the next pass.
-    failed: notStarted ? [] : [...failed.map((j) => ({ ref: j.id, reason: stepFailureText(store, j, organizingHeld(project)), at: j.endedAt ?? j.queuedAt })), ...intake.failed], skipped: notStarted ? [] : intake.skipped, lastRelookAt: previous?.lastRelookAt ?? null,
+    failed: notStarted ? [] : [...failed.map((j) => ({ ref: j.id, reason: stepFailureText(store, j, organizingHeld(project)), at: j.endedAt ?? j.queuedAt })), ...tableFailed, ...intake.failed], skipped: notStarted ? [] : intake.skipped, lastRelookAt: previous?.lastRelookAt ?? null,
   };
   const pendingByKind: Record<string, number> = {};
   for (const p of pending) pendingByKind[p.kind] = (pendingByKind[p.kind] ?? 0) + 1;
   store.setCoverage({ ...store.coverage, scopes: [projectScope, ...store.coverage.scopes.filter((s) => s.id !== 'project')], pendingByKind, takeover: status, lastFollowUp: lastFollowUp(store), state: notStarted ? 'Not organized yet' : complete ? 'Takeover complete' : 'Initial model', updatedAt: new Date().toISOString() }, { jobId: null, summary: 'Coverage updated' });
 }
+
+/** The later of two times, either of which may be absent: a table's filling-in counts as the picture's time (D107). */
+const latest = (a: string | null | undefined, b: string | null | undefined): string | null => (a && b ? (a > b ? a : b) : a ?? b ?? null);
 
 /**
  * The last Follow up round that closed, for the top bar (§6.2): whether it found anything new, in one line. When it did

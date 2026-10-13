@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { CodeTerritory, EvidenceRef, Generation, Occurred, ProcessLink, StepKind } from '../model/k-types.ts';
 import type {
-  Attribution, FactRecord, GraphRelation, JobInputs, Note, NoteFact, ReferenceItem, ServesClaim, Source, Statement, WorkThread,
+  Attribution, FactRecord, GraphRelation, JobInputs, Note, NoteFact, Project, ReferenceItem, ServesClaim, Source, Statement, WorkThread,
 } from '../model/types.ts';
 import type { Basis, NoteAsk, Progress, SessionHost, Validity } from '../model/vocab.ts';
 import { fingerprint, stableId } from '../model/ids.ts';
@@ -21,6 +21,7 @@ import { extractIds, makeFileSource, makeSessionSource, redactCredentials } from
 import { git } from '../util/git.ts';
 import { canonicalPath, normalizePath, pathKey, samePath } from '../util/paths.ts';
 import type { ProjectStore } from '../store/project-store.ts';
+import type { App } from '../server/app.ts';
 import { withTableProject } from './project-home.ts';
 import { checkTableFile, fileAt, owningRepo, resolveRepos, walkSources, type Repo, type SessionMessage, type TableProblem, type TableSource } from './check.ts';
 
@@ -448,20 +449,23 @@ function ledgerRefOf(ctx: MapContext, s: TableSource, ev: EvidenceRef): string {
 /** The collections that hold the Keeper's picture of a project; intake's sources, the ledger and the rest stay. */
 const PICTURE = ['reference', 'threads', 'facts', 'areas', 'relations', 'nodes', 'generations', 'links', 'territories', 'notes', 'breakpoints', 'sendbacks'] as const;
 
+/** What one taking-in wrote: what it removed, the sources it cited, the records it wrote, the graph it derived. */
+export interface ImportCounts {
+  readonly removed: Readonly<Record<string, number>>;
+  readonly sources: { readonly cited: number; readonly reused: number; readonly written: number };
+  readonly reference: Readonly<Record<string, number>>;
+  readonly threads: number; readonly facts: number; readonly relations: number; readonly generations: number;
+  readonly links: number; readonly territories: number; readonly notes: number;
+  readonly graph: { readonly nodes: number; readonly relations: number };
+}
+
 export interface ImportResult {
   readonly problems: readonly TableProblem[];
   readonly projectId?: string;
   readonly projectName?: string;
   readonly home?: string;
   readonly added?: boolean;
-  readonly counts?: {
-    readonly removed: Readonly<Record<string, number>>;
-    readonly sources: { readonly cited: number; readonly reused: number; readonly written: number };
-    readonly reference: Readonly<Record<string, number>>;
-    readonly threads: number; readonly facts: number; readonly relations: number; readonly generations: number;
-    readonly links: number; readonly territories: number; readonly notes: number;
-    readonly graph: { readonly nodes: number; readonly relations: number };
-  };
+  readonly counts?: ImportCounts;
   readonly warnings?: readonly string[];
 }
 
@@ -478,8 +482,8 @@ export interface ImportOptions {
 
 /**
  * Check the table, and when it holds take it into the home: the project found by its folder or added and read in, the
- * ledger brought up to date, the Keeper's picture replaced by the table's, the graph derived. Nothing is opened or
- * written for a table with a problem.
+ * ledger brought up to date, the Keeper's picture replaced by the table's (`applyTable`), the graph derived. Nothing is
+ * opened or written for a table with a problem.
  */
 export async function importTable(options: ImportOptions): Promise<ImportResult> {
   const projectDir = canonicalPath(options.projectDir ?? join(options.tableFile, '..', '..'));
@@ -489,54 +493,80 @@ export async function importTable(options: ImportOptions): Promise<ImportResult>
   const table = JSON.parse(readFileSync(options.tableFile, 'utf8')) as Table;
 
   // Loaded only now: a refused table opens nothing.
-  const { deriveGraph } = await import('../keeper/organize/graph.ts');
   const { writeClerkCoverage } = await import('../keeper/organize/service.ts');
-  return withTableProject({ projectDir, home: options.home, name: options.name ?? table.project.name }, async ({ app, project: opened, home, added, warnings }) => {
-    let project = opened;
-    const store = app.store(project.id);
-    const at = new Date().toISOString();
-    const repos = resolveRepos(table as unknown as Record<string, unknown>, projectDir, () => undefined);
-    const mainItem = project.scope.find((i) => samePath(i.path, projectDir)) ?? project.scope[0];
-    const resolved = resolveSources(table, { projectId: project.id, projectDir, repos, existing: store.sources.all(), sessions, scopeItemId: mainItem?.id ?? 'scope_table', at });
-    const mapped = mapTable(table, { projectId: project.id, projectDir, repos, source: (s) => resolved.byKey.get(sourceKey(s))! });
-
-    const trace = { jobId: null, summary: `Taken in from the ProjectKeeper table ${options.tableFile}` };
-    const removed: Record<string, number> = {};
-    for (const name of PICTURE) {
-      const collection = store.collection(name);
-      const before = collection.all();
-      for (const x of before) collection.remove(x.id, { jobId: null, summary: 'Replaced by the ProjectKeeper table' });
-      if (before.length) removed[name] = before.length;
-    }
-    store.sources.putMany(resolved.fresh, trace);
-    store.reference.putMany(mapped.reference, trace);
-    store.threads.putMany(mapped.threads, trace);
-    store.facts.putMany(mapped.facts, trace);
-    store.relations.putMany(mapped.relations, trace);
-    store.generations.putMany(mapped.generations, trace);
-    store.links.putMany(mapped.links, trace);
-    store.territories.putMany(mapped.territories, trace);
-    store.notes.putMany(mapped.notes, trace);
-    // Nodes and the relations the items' claims state, as after any round (scripts/seed-ui-fixture.ts).
-    const graph = deriveGraph(store, project);
-    // D107: taking the table in is the takeover; the workbench then opens on the picture, not on the Takeover page.
-    const filled = (table.project as { filledBy: { agent: string; at: string } }).filledBy;
-    project = app.updateProject({ ...app.project(project.id), takenOverByTable: { at: filled.at, by: filled.agent, file: options.tableFile } });
+  return withTableProject({ projectDir, home: options.home, name: options.name ?? table.project.name }, async ({ app, project, home, added, warnings }) => {
+    const applied = await applyTable(app, project.id, table, { tableFile: options.tableFile, projectDir, sessions });
     // The top bar and the opening view read the coverage state ("Not organized yet" sends a project to its Takeover page).
     writeClerkCoverage(app, project.id);
-    await store.flush();
-    const reference: Record<string, number> = {};
-    for (const r of mapped.reference) reference[r.category] = (reference[r.category] ?? 0) + 1;
-    return {
-      problems: [], projectId: project.id, projectName: project.name, home, added, warnings,
-      counts: {
-        removed, sources: { cited: resolved.byKey.size, reused: resolved.reused, written: resolved.fresh.length }, reference,
-        threads: mapped.threads.length, facts: mapped.facts.length, relations: mapped.relations.length, generations: mapped.generations.length,
-        links: mapped.links.length, territories: mapped.territories.length, notes: mapped.notes.length,
-        graph: { nodes: graph.nodes, relations: graph.relations },
-      },
-    };
+    await app.store(project.id).flush();
+    return { problems: [], projectId: applied.project.id, projectName: applied.project.name, home, added, warnings, counts: applied.counts };
   });
+}
+
+export interface ApplyOptions {
+  readonly tableFile: string;
+  /** The project folder the table's paths are relative to. */
+  readonly projectDir: string;
+  /** The session material the table's session sources were checked against. */
+  readonly sessions: readonly SessionMessage[] | null;
+  /** What the store's trace says the records came from; by default the table file. */
+  readonly summary?: string;
+  /** The job that takes the table in (a table follow-up, D107), for the store's trace; none for `pk import`. */
+  readonly jobId?: string | null;
+}
+
+/**
+ * The store-writing part of taking a checked table in, on an App and a project already open: the Keeper's picture
+ * replaced by the table's, the graph derived, and the takeover marked done by the table (`takenOverByTable`). `pk
+ * import` runs it in a home it opens for the purpose; the table follow-up's write runs it in the running workbench
+ * (D107). The table must have passed `checkShape` and `checkFacts` with the same session material. The coverage is the
+ * caller's to write, once it has recorded whatever else it records.
+ */
+export async function applyTable(app: App, projectId: string, table: Table, options: ApplyOptions): Promise<{ readonly project: Project; readonly counts: ImportCounts }> {
+  const { deriveGraph } = await import('../keeper/organize/graph.ts');
+  const { projectDir, sessions } = options;
+  let project = app.project(projectId);
+  const store = app.store(projectId);
+  const at = new Date().toISOString();
+  const repos = resolveRepos(table as unknown as Record<string, unknown>, projectDir, () => undefined);
+  const mainItem = project.scope.find((i) => samePath(i.path, projectDir)) ?? project.scope[0];
+  const resolved = resolveSources(table, { projectId: project.id, projectDir, repos, existing: store.sources.all(), sessions, scopeItemId: mainItem?.id ?? 'scope_table', at });
+  const mapped = mapTable(table, { projectId: project.id, projectDir, repos, source: (s) => resolved.byKey.get(sourceKey(s))! });
+
+  const jobId = options.jobId ?? null;
+  const trace = { jobId, summary: options.summary ?? `Taken in from the ProjectKeeper table ${options.tableFile}` };
+  const removed: Record<string, number> = {};
+  for (const name of PICTURE) {
+    const collection = store.collection(name);
+    const before = collection.all();
+    for (const x of before) collection.remove(x.id, { jobId, summary: 'Replaced by the ProjectKeeper table' });
+    if (before.length) removed[name] = before.length;
+  }
+  store.sources.putMany(resolved.fresh, trace);
+  store.reference.putMany(mapped.reference, trace);
+  store.threads.putMany(mapped.threads, trace);
+  store.facts.putMany(mapped.facts, trace);
+  store.relations.putMany(mapped.relations, trace);
+  store.generations.putMany(mapped.generations, trace);
+  store.links.putMany(mapped.links, trace);
+  store.territories.putMany(mapped.territories, trace);
+  store.notes.putMany(mapped.notes, trace);
+  // Nodes and the relations the items' claims state, as after any round (scripts/seed-ui-fixture.ts).
+  const graph = deriveGraph(store, project);
+  // D107: taking the table in is the takeover; the workbench then opens on the picture, not on the Takeover page.
+  const filled = table.project.filledBy;
+  project = app.updateProject({ ...app.project(project.id), takenOverByTable: { at: filled.at, by: filled.agent, file: options.tableFile } });
+  const reference: Record<string, number> = {};
+  for (const r of mapped.reference) reference[r.category] = (reference[r.category] ?? 0) + 1;
+  return {
+    project,
+    counts: {
+      removed, sources: { cited: resolved.byKey.size, reused: resolved.reused, written: resolved.fresh.length }, reference,
+      threads: mapped.threads.length, facts: mapped.facts.length, relations: mapped.relations.length, generations: mapped.generations.length,
+      links: mapped.links.length, territories: mapped.territories.length, notes: mapped.notes.length,
+      graph: { nodes: graph.nodes, relations: graph.relations },
+    },
+  };
 }
 
 /** For callers that only hold the store (tests): the picture collections' sizes. */

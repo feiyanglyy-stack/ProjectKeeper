@@ -37,7 +37,11 @@ export interface SessionMaterialCounts {
   readonly sessions: number;
 }
 
-type OwnerRow = MessageRow & { readonly host: string; readonly sessionId: string };
+/** An owner message as the ledger's ownerWords query gives it: with its session's host and id, and the answer before it. */
+export type OwnerRow = MessageRow & { readonly host: string; readonly sessionId: string };
+
+/** The name the material and the table give a session: `host:session id`. */
+export const sessionName = (r: Pick<OwnerRow, 'host' | 'sessionId'>): string => `${r.host}:${r.sessionId}`;
 
 /** `2026-09-20 01:00 UTC` for a recorded time; a message the log gave no time keeps saying so. */
 function when(row: MessageRow): string {
@@ -46,18 +50,39 @@ function when(row: MessageRow): string {
   return Number.isNaN(ms) ? row.occurred.at : `${new Date(ms).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
-/** Every owner message of the ledger outside headless runs, oldest first (by time, then session, then number). */
-function ownerMessages(ledger: Ledger): OwnerRow[] {
+/**
+ * Every owner message of the ledger outside headless runs, oldest first (by time, then session, then number); with
+ * `since`, those from then on (the table follow-up's new messages since the table was filled in, D107).
+ */
+export function ownerMessages(ledger: Ledger, since?: string | null): OwnerRow[] {
   const rows: OwnerRow[] = [];
   for (let offset: number | null = 0; offset !== null;) {
-    const page = ledger.ownerWords({ offset, limit: 500 });
+    const page = ledger.ownerWords({ offset, limit: 500, ...(since ? { since } : {}) });
     if (typeof page === 'string') throw new Error(page);   // only a named session can fail, and none is named
     rows.push(...(page.rows as OwnerRow[]));
     offset = page.next;
   }
   const key = (r: OwnerRow) => (r.occurred.undated ? Number.POSITIVE_INFINITY : Date.parse(r.occurred.at));
-  const name = (r: OwnerRow) => `${r.host}:${r.sessionId}`;
+  const name = sessionName;
   return rows.sort((a, b) => key(a) - key(b) || (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0) || a.index - b.index);
+}
+
+/** The JSONL records of owner messages: each agent answer before an owner message, then the message; each once. */
+export function materialRecords(owners: readonly OwnerRow[]): SessionRecord[] {
+  const records: SessionRecord[] = [];
+  const written = new Set<string>();
+  const record = (r: SessionRecord) => {
+    const key = `${r.session}#${r.message}`;
+    if (written.has(key)) return;
+    written.add(key);
+    records.push(r);
+  };
+  for (const m of owners) {
+    const session = sessionName(m);
+    if (m.answers) record({ session, message: m.answers.index, role: 'agent', text: m.answers.text ?? '' });
+    record({ session, message: m.index, role: 'owner', text: m.text ?? '' });
+  }
+  return records;
 }
 
 /**
@@ -72,28 +97,16 @@ export function exportSessionMaterial(ledger: Ledger, outDir: string): SessionMa
     'The owner\'s messages in the project\'s agent sessions, oldest first. Each owner message comes after the agent\'s last answer it replies to (its text only: the tool calls are left out). '
       + 'Cite a message as { "session": "<name>", "message": <number> }: the name is the first part of its heading and the number is the message\'s own.',
   ];
-  const records: SessionRecord[] = [];
-  const written = new Set<string>();
+  const records = materialRecords(owners);
   const sessions = new Set<string>();
-  const record = (r: SessionRecord) => {
-    const key = `${r.session}#${r.message}`;
-    if (written.has(key)) return;
-    written.add(key);
-    records.push(r);
-  };
   for (const m of owners) {
-    const session = `${m.host}:${m.sessionId}`;
+    const session = sessionName(m);
     sessions.add(session);
     md.push('', `## ${session} · message ${m.index} · ${when(m)}`, '');
     const a = m.answers;
-    if (a) {
-      md.push(`Agent, message ${a.index}:`, '', '<agent>', a.text ?? '', '</agent>', '');
-      record({ session, message: a.index, role: 'agent', text: a.text ?? '' });
-    } else {
-      md.push('(No agent answer before it: the session starts here.)', '');
-    }
+    if (a) md.push(`Agent, message ${a.index}:`, '', '<agent>', a.text ?? '', '</agent>', '');
+    else md.push('(No agent answer before it: the session starts here.)', '');
     md.push(`Owner, message ${m.index}:`, '', '<owner>', m.text ?? '', '</owner>');
-    record({ session, message: m.index, role: 'owner', text: m.text ?? '' });
   }
   mkdirSync(outDir, { recursive: true });
   const markdown = join(outDir, MARKDOWN_FILE);

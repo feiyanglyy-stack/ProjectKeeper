@@ -32,6 +32,8 @@ What it includes:
 
 **The table** — a takeover any agent can do (`template/`): the agent reads the project in its own way and fills one JSON table, `projectkeeper/project.json`. `pk check` checks it: the shape, the ids, and every source against the project, quotes word for word. `pk import` takes it in as the project's picture, drawn by the same Graph, List and Code views. `pk sessions` writes the session material the table quotes the owner from — every owner message of the project's agent sessions, after the agent's answer it replies to — into ProjectKeeper's own folder for the project, never into the project.
 
+A project taken over by the table is followed up by carrying the same table on. This happens when you press Follow up, on the daily schedule, or on Continuous. The Keeper gets a brief of what changed since the table's `asOf`: the commits, the documents they changed, and your new messages in the sessions. It edits a copy of the table and hands it in. The table is taken in only when it passes the same check as `pk check`; a table with any problem goes back to the Keeper with the list. A table kept in ProjectKeeper's own folder keeps a git history of its versions there. Such a project never runs the takeover's rounds.
+
 **Models** — bring your own key, through pi. Run so far on DeepSeek and Zhipu GLM.
 
 **The demo** — `npm run demo`: an invented project, already organized, with no key and no network.

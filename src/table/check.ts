@@ -188,6 +188,75 @@ export function readSessionMaterial(file: string): SessionMessage[] {
   return readFileSync(file, 'utf8').split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l) as SessionMessage);
 }
 
+// ───────────────────────── the owner part ─────────────────────────
+
+/**
+ * The owner part: what the first step of a takeover writes (template/FILLING-IN.md, "Who fills what") — the reader of
+ * the owner's words fills `ownerWants` and its own notes from the session material alone, as
+ * `{ "ownerWants": [...], "notes": [...] }`, and the main agent merges it into the table later. `pk check --owner-part`
+ * holds it to what the whole table will be held to, as far as that step can answer for it: the two parts' shape
+ * against the schema's OwnerWant and Note, and the facts — ids, `replacedBy` naming an owner want, a `Replaced` want
+ * naming one, notes on owner wants only and by "Owner's words", `reflectedIn` left to the main agent, and every source
+ * a message of the session material with its quote word for word (D107).
+ *
+ * A record of the material that says who spoke (`pk sessions` writes `role`) also holds `said` to the owner's messages
+ * and an approved proposal to the agent's: an agent's message is never the owner's words.
+ */
+export function checkOwnerPart(part: unknown, sessions: readonly (SessionMessage & { readonly role?: string })[]): TableProblem[] {
+  const table = JSON.parse(readFileSync(SCHEMA_FILE, 'utf8')) as Json & { properties: Json; $defs: Json };
+  // The table's own definitions under a root of the two parts; no $id, so it is not taken for the table's schema.
+  const schema = {
+    type: 'object', additionalProperties: false, required: ['ownerWants', 'notes'],
+    properties: { ownerWants: table.properties.ownerWants, notes: table.properties.notes }, $defs: table.$defs,
+  };
+  const [ok, errors] = Schema.Errors(schema, part);
+  if (!ok) return errors.map((e) => ({ at: e.instancePath || '/', problem: e.message ?? 'does not match the schema' }));
+
+  const problems: TableProblem[] = [];
+  const add = (at: string, problem: string) => problems.push({ at, problem });
+  const { ownerWants, notes } = part as { ownerWants: Json[]; notes: Json[] };
+  const seen = new Map<string, string>();
+  const claim = (at: string, id: string, kind: string) => {
+    if (seen.has(id)) add(at, `the id "${id}" is already used by ${an(seen.get(id)!)}`);
+    else seen.set(id, kind);
+  };
+  ownerWants.forEach((w, i) => claim(`/ownerWants/${i}/id`, String(w.id), 'owner want'));
+  notes.forEach((n, i) => claim(`/notes/${i}/id`, String(n.id), 'note'));
+  const isWant = (id: unknown) => seen.get(String(id)) === 'owner want';
+
+  ownerWants.forEach((w, i) => {
+    const at = `/ownerWants/${i}`;
+    if (w.replacedBy !== undefined && !isWant(w.replacedBy)) add(`${at}/replacedBy`, `"${String(w.replacedBy)}" is not an owner want of this part`);
+    if (w.replacedBy !== undefined && w.replacedBy === w.id) add(`${at}/replacedBy`, 'a want cannot replace itself');
+    if (w.status === 'Replaced' && w.replacedBy === undefined) add(at, 'it is Replaced, so replacedBy must name the want that holds now');
+    if (((w.reflectedIn as unknown[]) ?? []).length) add(`${at}/reflectedIn`, 'leave it empty: the main agent fills reflectedIn once it has read both parts');
+    ((w.said as TableSource[]) ?? []).forEach((s, j) => { if (s.quote === undefined) add(`${at}/said/${j}`, 'each saying carries its quote, copied word for word'); });
+  });
+  notes.forEach((n, i) => {
+    if (n.by !== "Owner's words") add(`/notes/${i}/by`, `this part's notes are by "Owner's words", not "${String(n.by)}"`);
+    ((n.on as unknown[]) ?? []).forEach((id, j) => { if (!isWant(id)) add(`/notes/${i}/on/${j}`, `"${String(id)}" is not an owner want of this part; its notes are on its own wants`); });
+  });
+
+  // Every source is a message of the material: the owner part is read from nothing else.
+  const material = new Map(sessions.map((m) => [`${m.session}#${m.message}`, m]));
+  walkSources(part, '', (at, s) => {
+    if (s.session === undefined) { add(at, 'the owner part cites only the session material: a file or a commit is the project\'s part'); return; }
+    const m = material.get(`${s.session}#${s.message}`);
+    if (!m) { add(at, `message ${s.message} of ${s.session} is not in the session material`); return; }
+    if (s.quote !== undefined && !squash(m.text).includes(squash(s.quote))) add(`${at}/quote`, `the quote does not stand word for word in message ${s.message} of ${s.session}`);
+    if (/\/said\/\d+$/.test(at) && m.role === 'agent') add(at, `message ${s.message} of ${s.session} is the agent's; said quotes the owner (a short yes approves the agent's proposal: approvedProposal)`);
+    if (at.endsWith('/approvedProposal/source') && m.role === 'owner') add(at, `message ${s.message} of ${s.session} is the owner's; approvedProposal points at the agent message that proposed it`);
+  });
+  return problems;
+}
+
+/** Check an owner-part file against the session material. */
+export function checkOwnerPartFile(file: string, sessions: readonly SessionMessage[]): TableProblem[] {
+  let part: unknown;
+  try { part = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { return [{ at: '/', problem: `not readable as JSON: ${(e as Error).message}` }]; }
+  return checkOwnerPart(part, sessions);
+}
+
 // ───────────────────────── helpers ─────────────────────────
 
 const normal = (p: string): string => p.split('\\').join('/').replace(/^\.\/?/, '').replace(/\/$/, '');

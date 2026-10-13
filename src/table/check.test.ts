@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { join, resolve } from 'node:path';
 import { git } from '../util/git.ts';
 import { tmpdir } from '../util/tmp.test-helpers.ts';
-import { checkFacts, checkShape, checkTableFile, SCHEMA_FILE } from './check.ts';
+import { checkFacts, checkOwnerPart, checkOwnerPartFile, checkShape, checkTableFile, SCHEMA_FILE } from './check.ts';
 
 /** A one-repository project with a plan, a decision log and one code file, committed once. */
 function project(): { dir: string; commit: string; done: () => void } {
@@ -157,4 +157,89 @@ test('a table file that does not parse, or fails its shape, stops before the fac
 test('the template example keeps to the schema', () => {
   const example = JSON.parse(readFileSync(resolve(SCHEMA_FILE, '..', 'examples', 'papertrail.json'), 'utf8'));
   assert.deepEqual(checkShape(example), []);
+});
+
+// ── the owner part: what a takeover's first step writes from the session material alone (D107) ──
+
+const material = [
+  { session: 'claude:s1', message: 0, role: 'owner', text: 'I want a read-later list that saves in one keystroke.' },
+  { session: 'claude:s1', message: 1, role: 'agent', text: 'Shall I build search before anything else?' },
+  { session: 'claude:s1', message: 2, role: 'owner', text: '可以，先做搜索。' },
+];
+function ownerPart(): Record<string, any> {
+  return {
+    ownerWants: [
+      { id: 'W1', want: 'Saving takes one keystroke.', kind: 'Product', status: 'Current', said: [{ session: 'claude:s1', message: 0, quote: 'saves in one keystroke' }], reflectedIn: [] },
+      {
+        id: 'W2', want: 'Search comes first.', kind: 'Product', status: 'Current', said: [{ session: 'claude:s1', message: 2, quote: '可以，先做搜索。' }],
+        approvedProposal: { part: 'search before anything else', source: { session: 'claude:s1', message: 1 } }, reflectedIn: [],
+      },
+    ],
+    notes: [{ id: 'N-1', title: 'Nothing said about tags.', kind: 'Question', ask: 'Worth discussing', by: "Owner's words", on: ['W1', 'W2'], text: 'The owner never came back to it.', sources: [{ session: 'claude:s1', message: 0 }] }],
+  };
+}
+const ownerProblems = (part: unknown) => checkOwnerPart(part, material).map((p) => `${p.at} ${p.problem}`).join('\n');
+
+test('an owner part read from the material alone has no problems', () => {
+  assert.equal(ownerProblems(ownerPart()), '');
+  // An empty part is a part: the owner may not have said anything yet.
+  assert.equal(ownerProblems({ ownerWants: [], notes: [] }), '');
+});
+
+test('the owner part keeps to the schema\'s OwnerWant and Note, and to its two fields', () => {
+  const part = ownerPart();
+  part.ownerWants[0].status = 'Done';
+  part.notes[0].by = 'Somebody';
+  part.product = { id: 'x' };
+  const got = ownerProblems(part);
+  assert.match(got, /^\/ /m);
+  assert.match(got, /\/ownerWants\/0\/status/);
+  assert.match(got, /\/notes\/0\/by/);
+  assert.match(ownerProblems({ ownerWants: [] }), /^\/ /m);
+});
+
+test('the owner part\'s facts: replacedBy names an owner want, Replaced names one, notes are on its own wants, reflectedIn is the main agent\'s', () => {
+  const part = ownerPart();
+  part.ownerWants[0].status = 'Replaced';
+  part.ownerWants[1].status = 'Replaced';
+  part.ownerWants[1].replacedBy = 'A1';
+  part.ownerWants[1].reflectedIn = ['A1'];
+  part.notes[0].on = ['W1', 'A1'];
+  part.notes[0].by = 'Project';
+  part.notes.push({ ...part.notes[0], by: "Owner's words", on: ['W1'] });
+  const got = ownerProblems(part);
+  assert.match(got, /\/ownerWants\/0 it is Replaced, so replacedBy must name the want that holds now/);
+  assert.match(got, /\/ownerWants\/1\/replacedBy "A1" is not an owner want of this part/);
+  assert.match(got, /\/ownerWants\/1\/reflectedIn leave it empty: the main agent fills reflectedIn/);
+  assert.match(got, /\/notes\/0\/on\/1 "A1" is not an owner want of this part/);
+  assert.match(got, /\/notes\/0\/by this part's notes are by "Owner's words", not "Project"/);
+  assert.match(got, /\/notes\/1\/id the id "N-1" is already used by a note/);
+});
+
+test('every source of the owner part is a message of the material, quoted word for word, the owner\'s where it is said', () => {
+  const part = ownerPart();
+  part.ownerWants[0].said[0].quote = 'saves in two keystrokes';
+  part.ownerWants[0].said.push({ session: 'claude:s1', message: 9, quote: 'x' });
+  part.ownerWants[0].said.push({ session: 'claude:s1', message: 1, quote: 'Shall I build search' });
+  part.ownerWants[0].said.push({ session: 'claude:s1', message: 2 });
+  part.ownerWants[1].approvedProposal.source = { session: 'claude:s1', message: 2 };
+  part.notes[0].sources = [{ file: 'README.md' }];
+  const got = ownerProblems(part);
+  assert.match(got, /\/ownerWants\/0\/said\/0\/quote the quote does not stand word for word in message 0 of claude:s1/);
+  assert.match(got, /\/ownerWants\/0\/said\/1 message 9 of claude:s1 is not in the session material/);
+  assert.match(got, /\/ownerWants\/0\/said\/2 message 1 of claude:s1 is the agent's; said quotes the owner/);
+  assert.match(got, /\/ownerWants\/0\/said\/3 each saying carries its quote/);
+  assert.match(got, /\/ownerWants\/1\/approvedProposal\/source message 2 of claude:s1 is the owner's; approvedProposal points at the agent message/);
+  assert.match(got, /\/notes\/0\/sources\/0 the owner part cites only the session material/);
+});
+
+test('an owner-part file that does not parse is one problem', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pk-owner-part-'));
+  try {
+    const file = join(dir, 'owner-part.json');
+    writeFileSync(file, '{ not json');
+    assert.match(checkOwnerPartFile(file, material)[0]!.problem, /not readable as JSON/);
+    writeFileSync(file, JSON.stringify(ownerPart()));
+    assert.deepEqual(checkOwnerPartFile(file, material), []);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

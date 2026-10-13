@@ -30,6 +30,8 @@ What it includes:
 
 **For agents** — the `pk` command: `context`, `get`, `options`, `ask`, `help`.
 
+**The table** — a takeover any agent can do (`template/`): the agent reads the project in its own way and fills one JSON table, `projectkeeper/project.json`. `pk check` checks it: the shape, the ids, and every source against the project, quotes word for word. `pk import` takes it in as the project's picture, drawn by the same Graph, List and Code views.
+
 **Models** — bring your own key, through pi. Run so far on DeepSeek and Zhipu GLM.
 
 **The demo** — `npm run demo`: an invented project, already organized, with no key and no network.

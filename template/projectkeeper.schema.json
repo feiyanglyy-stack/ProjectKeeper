@@ -1,0 +1,1001 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/feiyanglyy-stack/ProjectKeeper/template/projectkeeper.schema.json",
+  "title": "ProjectKeeper table",
+  "description": "One project's picture, filled in by an agent and drawn by ProjectKeeper as its Graph, List and Code views. Lives at projectkeeper/project.json inside the project. FILLING-IN.md says what each part means. This schema fixes the shape only; what to read, what deserves an entry and where it belongs are the filler's judgement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "project",
+    "ownerWants",
+    "product",
+    "goals",
+    "areas",
+    "requirements",
+    "designs",
+    "decisions",
+    "plans",
+    "work",
+    "code",
+    "notes"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "projectkeeper.table/1"
+    },
+    "project": {
+      "$ref": "#/$defs/ProjectHeader"
+    },
+    "ownerWants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/OwnerWant"
+      }
+    },
+    "product": {
+      "$ref": "#/$defs/Product"
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Goal"
+      }
+    },
+    "areas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Area"
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Intent"
+      }
+    },
+    "designs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Intent"
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Intent"
+      }
+    },
+    "plans": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Plan"
+      }
+    },
+    "work": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Work"
+      }
+    },
+    "code": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Territory"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Note"
+      }
+    }
+  },
+  "$defs": {
+    "Id": {
+      "description": "The project's own number or name for the thing when it has one (D32, CKC-12, T-18); otherwise a short name of your own. Unique across the whole table.",
+      "type": "string",
+      "pattern": "^\\S(.*\\S)?$",
+      "maxLength": 80
+    },
+    "Text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}(:\\d{2})?(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?)?$"
+    },
+    "Status": {
+      "description": "Whether it still holds. Current: in force now. Proposed: put forward, not yet in force. Deferred: kept for later. Replaced: something later took its place (name it in replacedBy). Abandoned: dropped with nothing in its place (say why).",
+      "enum": [
+        "Current",
+        "Proposed",
+        "Deferred",
+        "Replaced",
+        "Abandoned"
+      ]
+    },
+    "Progress": {
+      "description": "How far the work got, as the records show it. Not whether anyone accepted or checked it.",
+      "enum": [
+        "Planned",
+        "In progress",
+        "Done",
+        "On hold"
+      ]
+    },
+    "Source": {
+      "description": "Where it came from. The program checks every source: the file and lines exist, the commit exists, the session message exists, and a quote stands word for word in what it cites.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "file"
+          ],
+          "properties": {
+            "file": {
+              "type": "string",
+              "description": "Path relative to the project folder, with forward slashes (product/PLAN.md, app/src/cli.ts)."
+            },
+            "lines": {
+              "type": "string",
+              "pattern": "^\\d+(-\\d+)?$",
+              "description": "A line or a range, 1-based (12 or 12-30)."
+            },
+            "quote": {
+              "$ref": "#/$defs/Text",
+              "description": "Words copied exactly from those lines."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commit"
+          ],
+          "properties": {
+            "commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{7,40}$"
+            },
+            "repo": {
+              "type": "string",
+              "description": "The repository's folder relative to the project folder, when it is not the project folder itself (app)."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session",
+            "message"
+          ],
+          "properties": {
+            "session": {
+              "type": "string",
+              "description": "The session as the session material names it (claude:4f1c…, codex:0199…)."
+            },
+            "message": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The message number in that session, as the session material numbers it."
+            },
+            "quote": {
+              "$ref": "#/$defs/Text",
+              "description": "Words copied exactly from that message."
+            }
+          }
+        }
+      ]
+    },
+    "Sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Source"
+      }
+    },
+    "ProjectHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "asOf",
+        "filledBy"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "asOf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "date",
+            "repos"
+          ],
+          "description": "The moment the table describes: the commit each repository stood at when it was read.",
+          "properties": {
+            "date": {
+              "$ref": "#/$defs/Date"
+            },
+            "repos": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "commit"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Folder relative to the project folder; \".\" for the project folder itself."
+                  },
+                  "commit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{7,40}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "filledBy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agent",
+            "at"
+          ],
+          "properties": {
+            "agent": {
+              "$ref": "#/$defs/Text",
+              "description": "Which agent and model filled it (Codex, gpt-6.1-sol, high)."
+            },
+            "at": {
+              "$ref": "#/$defs/Date"
+            },
+            "read": {
+              "$ref": "#/$defs/Text",
+              "description": "In a few sentences: what was read, in what order, and what was not read."
+            }
+          }
+        }
+      }
+    },
+    "OwnerWant": {
+      "description": "One thing the owner wants, as the owner said it. Several sayings of the same thing are one entry.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "want",
+        "kind",
+        "status",
+        "said"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "want": {
+          "$ref": "#/$defs/Text",
+          "description": "One sentence: what the owner wants."
+        },
+        "kind": {
+          "enum": [
+            "Product",
+            "Way of working"
+          ],
+          "description": "About the product, or about how the work is to be done."
+        },
+        "status": {
+          "enum": [
+            "Current",
+            "Replaced",
+            "Open",
+            "Not raised again"
+          ],
+          "description": "Current: still what the owner wants. Replaced: the owner said otherwise later (replacedBy). Open: the owner left it undecided. Not raised again: said once, never taken up or confirmed since."
+        },
+        "replacedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "said": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The owner's own words, one to three of the clearest, each with its source and a quote.",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "approvedProposal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "part",
+            "source"
+          ],
+          "description": "When the owner said yes to something an agent proposed: which part was approved, and the agent message it was.",
+          "properties": {
+            "part": {
+              "$ref": "#/$defs/Text"
+            },
+            "source": {
+              "$ref": "#/$defs/Source"
+            }
+          }
+        },
+        "changed": {
+          "type": "array",
+          "description": "How it changed over time, oldest first.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "before",
+              "after",
+              "source"
+            ],
+            "properties": {
+              "before": {
+                "$ref": "#/$defs/Text"
+              },
+              "after": {
+                "$ref": "#/$defs/Text"
+              },
+              "source": {
+                "$ref": "#/$defs/Source"
+              }
+            }
+          }
+        },
+        "reflectedIn": {
+          "type": "array",
+          "description": "The goals, areas, requirements, designs, decisions or work items that carry it out. Empty when nothing in the project does yet.",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        }
+      }
+    },
+    "Product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "forWhom",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "summary": {
+          "$ref": "#/$defs/Text",
+          "description": "What the product is, in two or three sentences."
+        },
+        "forWhom": {
+          "$ref": "#/$defs/Text"
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        }
+      }
+    },
+    "Goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "status",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "summary": {
+          "$ref": "#/$defs/Text"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "replacedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "why": {
+          "$ref": "#/$defs/Text",
+          "description": "For Replaced, Abandoned or Deferred: what happened, in a sentence."
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        }
+      }
+    },
+    "Area": {
+      "description": "A part of the product: a module, a feature, or a theme when the project names no modules. Each area is a column of the Graph.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "status",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "summary": {
+          "$ref": "#/$defs/Text"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "foundation": {
+          "type": "boolean",
+          "description": "A cross-cutting base the project's own documents put beside its modules. Drawn as the last column."
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        },
+        "why": {
+          "$ref": "#/$defs/Text",
+          "description": "For Replaced, Abandoned or Deferred: what happened, in a sentence."
+        }
+      }
+    },
+    "Place": {
+      "description": "Where a requirement, design or decision belongs: one area, several areas, one plan (an execution decision), or the whole product with the reason.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "area"
+          ],
+          "properties": {
+            "area": {
+              "$ref": "#/$defs/Id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "areas"
+          ],
+          "properties": {
+            "areas": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "$ref": "#/$defs/Id"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan"
+          ],
+          "properties": {
+            "plan": {
+              "$ref": "#/$defs/Id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "wholeProduct"
+          ],
+          "properties": {
+            "wholeProduct": {
+              "$ref": "#/$defs/Text",
+              "description": "Why it concerns the whole product rather than an area."
+            }
+          }
+        }
+      ]
+    },
+    "Intent": {
+      "description": "A requirement (what the product must do), a design (how it is meant to be built or behave) or a decision (something decided, or a constraint to respect).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "status",
+        "place",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "summary": {
+          "$ref": "#/$defs/Text"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "replacedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "partlyReplaced": {
+          "type": "array",
+          "minItems": 1,
+          "description": "When a later entry overturned only part of this one: which part, and by which entry. The entry itself stays Current.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "by",
+              "part"
+            ],
+            "properties": {
+              "by": {
+                "$ref": "#/$defs/Id"
+              },
+              "part": {
+                "$ref": "#/$defs/Text",
+                "description": "The part that no longer holds, in a sentence."
+              }
+            }
+          }
+        },
+        "why": {
+          "$ref": "#/$defs/Text",
+          "description": "For Replaced, Abandoned or Deferred: what happened, in a sentence."
+        },
+        "boundary": {
+          "type": "boolean",
+          "description": "A decision that says what the product will not do."
+        },
+        "place": {
+          "$ref": "#/$defs/Place"
+        },
+        "inferred": {
+          "type": "boolean",
+          "description": "True when no document states it and you concluded it from the material."
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        }
+      }
+    },
+    "Plan": {
+      "description": "A plan, milestone or phase. A current plan is a row of the Graph. A plan that a later one replaced is an earlier generation: its rows roll up, and each of its work items says what became of it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "status",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "summary": {
+          "$ref": "#/$defs/Text"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "replacedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "why": {
+          "$ref": "#/$defs/Text",
+          "description": "For Replaced, Abandoned or Deferred: what happened, in a sentence."
+        },
+        "ended": {
+          "$ref": "#/$defs/Date",
+          "description": "For a replaced plan: when the later one took over."
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        }
+      }
+    },
+    "Became": {
+      "description": "What became of a work item of an earlier generation.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "carriedOnBy"
+          ],
+          "properties": {
+            "carriedOnBy": {
+              "$ref": "#/$defs/Id",
+              "description": "The current work item that carries it on."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "movedTo"
+          ],
+          "properties": {
+            "movedTo": {
+              "$ref": "#/$defs/Id",
+              "description": "The current plan it moved to, unchanged."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "deferred"
+          ],
+          "properties": {
+            "deferred": {
+              "$ref": "#/$defs/Text"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "dropped"
+          ],
+          "properties": {
+            "dropped": {
+              "$ref": "#/$defs/Text"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "finished"
+          ],
+          "properties": {
+            "finished": {
+              "$ref": "#/$defs/Text",
+              "description": "It was done under the earlier plan and nothing needed to carry it on."
+            }
+          }
+        }
+      ]
+    },
+    "Step": {
+      "description": "A step the program cannot find by itself from the work item's number in the commits and documents. Add one only with its evidence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "Planned",
+            "Dispatched",
+            "Delivered",
+            "QC",
+            "Review",
+            "Walkthrough",
+            "Fix",
+            "Merged",
+            "Accepted"
+          ]
+        },
+        "at": {
+          "$ref": "#/$defs/Date"
+        },
+        "verdict": {
+          "type": "string",
+          "description": "For QC, Review or Walkthrough: the verdict as the report writes it."
+        },
+        "source": {
+          "$ref": "#/$defs/Source"
+        }
+      }
+    },
+    "Work": {
+      "description": "One piece of work from the project's own plan: a task, a contract, a ticket. A commit or a session never becomes a work item by itself.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "plan",
+        "status",
+        "progress",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id",
+          "description": "The project's own number. The program finds this work's commits, dispatches, receipts, reviews and merges by it."
+        },
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "summary": {
+          "$ref": "#/$defs/Text"
+        },
+        "plan": {
+          "$ref": "#/$defs/Id"
+        },
+        "area": {
+          "$ref": "#/$defs/Id",
+          "description": "The area it mainly serves: its column."
+        },
+        "alsoAreas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "description": "Other areas it serves; it shows there too, dashed."
+        },
+        "wholePlan": {
+          "$ref": "#/$defs/Text",
+          "description": "Instead of an area: why it serves its whole plan and no single area (a milestone review)."
+        },
+        "implements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "description": "The requirements, designs or decisions it carries out."
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "replacedBy": {
+          "$ref": "#/$defs/Id"
+        },
+        "why": {
+          "$ref": "#/$defs/Text",
+          "description": "For Replaced, Abandoned or Deferred: what happened, in a sentence."
+        },
+        "progress": {
+          "$ref": "#/$defs/Progress"
+        },
+        "accepted": {
+          "$ref": "#/$defs/Source",
+          "description": "Where the owner accepted it, when the project records an acceptance."
+        },
+        "open": {
+          "$ref": "#/$defs/Text",
+          "description": "What is still open about it, in a sentence."
+        },
+        "became": {
+          "$ref": "#/$defs/Became",
+          "description": "Required when its plan is Replaced."
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "area"
+          ]
+        },
+        {
+          "required": [
+            "wholePlan"
+          ]
+        }
+      ]
+    },
+    "Territory": {
+      "description": "A piece of code and the area it belongs to. Sizes, tests, who built it and whether the current plan still uses it are computed from git by the program.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "summary",
+        "area",
+        "paths"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "name": {
+          "$ref": "#/$defs/Text"
+        },
+        "summary": {
+          "$ref": "#/$defs/Text"
+        },
+        "area": {
+          "$ref": "#/$defs/Id"
+        },
+        "alsoAreas": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Id"
+          }
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "Files or folders, relative to the project folder; each must exist at the asOf commit."
+        },
+        "anomalies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "text"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "Unreferenced",
+                  "Looks residual, is live",
+                  "Built without a claiming work item",
+                  "Docs disagree"
+                ]
+              },
+              "text": {
+                "$ref": "#/$defs/Text"
+              },
+              "sources": {
+                "$ref": "#/$defs/Sources"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Note": {
+      "description": "Something for the owner's attention: what is wrong in the project, or where what the owner wants and what the project does part ways.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "kind",
+        "ask",
+        "by",
+        "on",
+        "text",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Id"
+        },
+        "title": {
+          "$ref": "#/$defs/Text",
+          "description": "The first sentence: what is wrong, or what the owner is asked to decide."
+        },
+        "kind": {
+          "enum": [
+            "Anomaly",
+            "Owner and project differ",
+            "Question"
+          ]
+        },
+        "ask": {
+          "enum": [
+            "For your decision",
+            "Worth discussing",
+            "For information"
+          ]
+        },
+        "by": {
+          "enum": [
+            "Owner's words",
+            "Project",
+            "Main agent"
+          ],
+          "description": "Who wrote it: the reader of the owner's words, the reader of the project, or the main agent after reading both."
+        },
+        "on": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Id"
+          },
+          "description": "The entries it is about; it shows on each of them."
+        },
+        "text": {
+          "$ref": "#/$defs/Text",
+          "description": "Background, then why it matters. No internal ids beyond the project's own numbers."
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "choice",
+              "consequence"
+            ],
+            "properties": {
+              "choice": {
+                "$ref": "#/$defs/Text"
+              },
+              "consequence": {
+                "$ref": "#/$defs/Text"
+              }
+            }
+          }
+        },
+        "sources": {
+          "$ref": "#/$defs/Sources"
+        }
+      }
+    }
+  }
+}

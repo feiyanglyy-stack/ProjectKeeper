@@ -6,6 +6,15 @@
  *   pk add <name> <location> [...]      add a project (nothing runs until Start on its Takeover page)
  *   pk scope <projectId>                print the scope list
  *   pk projects                         list projects
+ *   pk check [table] [--project <dir>] [--sessions <file>]
+ *                                       check a filled ProjectKeeper table (default projectkeeper/project.json here)
+ *                                       against template/projectkeeper.schema.json and the project's own files; prints
+ *                                       every problem and exits 1 when there is any. Needs no workbench.
+ *   pk import [table] [--home <dir>] [--name <name>] [--project <dir>] [--sessions <file>]
+ *                                       check the table the same way and, when it holds, take it into the home: the
+ *                                       project (the folder holding projectkeeper/, or --project) is found or added and
+ *                                       read, and the Keeper's picture of it is replaced by the table's. A table with any
+ *                                       problem is refused and nothing is written. Prints what it wrote.
  *
  * An execution agent's own entry (Spec §7.10), all talking to the running workbench:
  *   pk context [--work <id|name>] [--purpose Start|Work] [--kind K] [--recipient R] [--since T]
@@ -26,6 +35,8 @@ import { registerRoutes } from './server/api.ts';
 import { vendorDir } from './server/vendor.ts';
 import { WorkspaceFileError } from './store/workspace.ts';
 import { gitNotice, gitVersionOutput } from './util/git-check.ts';
+import { checkTableFile, readSessionMaterial, type TableProblem } from './table/check.ts';
+import { importTable } from './table/import.ts';
 import { changeBrief, factBrief, nodeBrief, relationBrief } from './context/object-brief.ts';
 import type { BriefChange, BriefFact, BriefNode } from './context/object-brief.ts';
 
@@ -37,8 +48,59 @@ function arg(flag: string, fallback: string | null = null): string | null {
   return i >= 0 && process.argv[i + 1] ? process.argv[i + 1]! : fallback;
 }
 
+/** The table file a table command names (default projectkeeper/project.json here), past the flags that take a value. */
+function tableArg(): string {
+  const given = process.argv.slice(3).find((a, i, all) => !a.startsWith('--') && !(i > 0 && ['--project', '--sessions', '--home', '--name'].includes(all[i - 1]!)));
+  return resolve(given ?? join('projectkeeper', 'project.json'));
+}
+
+function printProblems(tableFile: string, problems: readonly TableProblem[]): void {
+  console.log(`${tableFile}: ${problems.length} problem${problems.length === 1 ? '' : 's'}; the table is not taken in until there are none.`);
+  for (const p of problems) console.log(`  ${p.at}  ${p.problem}`);
+}
+
+/** `pk check`: the table, its project folder and the session material it cites; no workbench, no store. */
+function checkCommand(): number {
+  const tableFile = tableArg();
+  const projectDir = arg('--project');
+  const sessionsFile = arg('--sessions');
+  const problems = checkTableFile(tableFile, {
+    projectDir: projectDir ? resolve(projectDir) : undefined,
+    sessions: sessionsFile ? readSessionMaterial(resolve(sessionsFile)) : null,
+  });
+  if (!problems.length) { console.log(`${tableFile}: no problems.`); return 0; }
+  printProblems(tableFile, problems);
+  return 1;
+}
+
+/** `pk import`: the same check, then the table taken into the home (src/table/import.ts). */
+async function importCommand(): Promise<number> {
+  const tableFile = tableArg();
+  const projectDir = arg('--project');
+  const sessionsFile = arg('--sessions');
+  const r = await importTable({
+    tableFile, projectDir: projectDir ? resolve(projectDir) : undefined, home: arg('--home') ?? undefined, name: arg('--name') ?? undefined,
+    sessions: sessionsFile ? readSessionMaterial(resolve(sessionsFile)) : null,
+  });
+  if (r.problems.length) { printProblems(tableFile, r.problems); return 1; }
+  const c = r.counts!;
+  const list = (counts: Readonly<Record<string, number>>) => Object.entries(counts).map(([k, n]) => `${n} ${k}`).join(', ') || 'nothing';
+  console.log(`${tableFile}: taken into ${r.added ? 'the new project' : 'project'} ${r.projectName} (${r.projectId}) in ${r.home}.`);
+  console.log(`  Replaced the earlier picture: ${list(c.removed)}`);
+  console.log(`  Sources cited: ${c.sources.cited} (${c.sources.reused} as intake read them, ${c.sources.written} written from the table)`);
+  console.log(`  Reference items: ${list(c.reference)}`);
+  console.log(`  Work items: ${c.threads} (with ${c.facts} fact records), relations written: ${c.relations}, earlier generations: ${c.generations}, process links: ${c.links}`);
+  console.log(`  Code territories: ${c.territories}, notes: ${c.notes}`);
+  console.log(`  Graph: ${c.graph.nodes} nodes, ${c.graph.relations} relations`);
+  for (const w of r.warnings ?? []) console.warn(`  ${w}`);
+  return 0;
+}
+
 async function main(): Promise<number> {
   const command = process.argv[2] ?? 'serve';
+  if (command === 'check') return checkCommand();
+  // The import opens its home itself, and only for a table that holds.
+  if (command === 'import') return importCommand();
   const app = new App(arg('--home') ?? undefined);
   const VALUE_FLAGS = ['--home', '--port', '--project', '--cwd', '--thread', '--fetch', '--work', '--purpose', '--kind', '--recipient', '--since'];
   const positionals = () => process.argv.slice(3).filter((a, i, all) => !a.startsWith('--') && !(i > 0 && VALUE_FLAGS.includes(all[i - 1]!)));

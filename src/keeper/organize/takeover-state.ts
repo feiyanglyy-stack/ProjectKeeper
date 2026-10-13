@@ -47,7 +47,7 @@ export function roundDepth(round: ClerkRound, rootJob: KeeperJob | undefined): T
   return m && isDepth(m[1]) ? m[1] : null;
 }
 
-type StateProject = Pick<Project, 'takeoverDepth' | 'takeoverStartedAt' | 'takeoverDepthChosenAt' | 'createdAt'>;
+type StateProject = Pick<Project, 'takeoverDepth' | 'takeoverStartedAt' | 'takeoverDepthChosenAt' | 'createdAt' | 'takenOverByTable'>;
 
 export function takeoverState(store: ProjectStore, project: StateProject): TakeoverState {
   const rounds = store.clerkRounds.filter((r) => r.kind === 'First usable' || r.kind === 'Deepen').sort((a, b) => a.startedAt.localeCompare(b.startedAt));
@@ -57,13 +57,16 @@ export function takeoverState(store: ProjectStore, project: StateProject): Takeo
   // `Focused`; it is taken as the shallower, so a deeper choice is never refused on a guess.
   let ran: TakeoverDepth | null = firstDone ? 'First picture only' : null;
   let reachedAt: string | null = firstDone ? first!.endedAt : null;
+  // D107: a table an agent filled and `pk import` took in is a whole takeover: the agent read as deep as it judged.
+  const table = project.takenOverByTable ?? null;
+  if (table && deeper('Full', ran)) { ran = 'Full'; reachedAt = table.at; }
   if (firstDone) {
     for (const r of rounds.filter((x) => x.kind === 'Deepen' && x.status === 'Done')) {
       const d = roundDepth(r, store.jobs.get(r.rootJobId)) ?? 'Focused';
       if (deeper(d, ran)) { ran = d; reachedAt = r.endedAt; }
     }
   }
-  const started = Boolean(project.takeoverStartedAt) || rounds.length > 0;
+  const started = Boolean(project.takeoverStartedAt) || rounds.length > 0 || table !== null;
   // What the takeover runs to. A home from before D105 whose first usable round ran with no depth chosen stood at the
   // old depth question, which behaved as `First picture only`; one whose field was overwritten after a deeper round
   // finished runs to what ran.
@@ -79,7 +82,7 @@ export function takeoverState(store: ProjectStore, project: StateProject): Takeo
   });
   return {
     phase, chosen, ran, rounds, options,
-    startedAt: started ? project.takeoverStartedAt ?? rounds[0]?.startedAt ?? null : null,
+    startedAt: started ? project.takeoverStartedAt ?? rounds[0]?.startedAt ?? table?.at ?? null : null,
     completedAt: phase === 'Done' ? reachedAt : null,
   };
 }

@@ -1308,6 +1308,11 @@ export interface Project {
   /** §3.7 (D105): when the owner pressed `Start`. Absent on a project not started; a home from before D105 has rounds instead. */
   readonly takeoverStartedAt?: string | null;
   /**
+   * D107: the project was taken over by an agent filling the ProjectKeeper table, and `pk import` took the table in —
+   * when it was filled, by whom, and the file. With it the takeover is done without a Keeper round (takeover-state.ts).
+   */
+  readonly takenOverByTable?: { readonly at: string; readonly by: string; readonly file: string } | null;
+  /**
    * The rhythm from before D105 (`Daily`: a day after the last round ended; `Continuous`). Read only to map an existing
    * home to `schedule` (schedule.ts `scheduleOf`); nothing writes it any more.
    */

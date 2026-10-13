@@ -9,7 +9,7 @@
  * `mapTable` is the mapping alone: table in, store records out, given how each cited source resolves. `resolveSources`
  * reads the cited lines, commits and session messages at the table's `asOf`; `importTable` does the rest.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { CodeTerritory, EvidenceRef, Generation, Occurred, ProcessLink, StepKind } from '../model/k-types.ts';
 import type {
@@ -19,9 +19,9 @@ import type { Basis, NoteAsk, Progress, SessionHost, Validity } from '../model/v
 import { fingerprint, stableId } from '../model/ids.ts';
 import { extractIds, makeFileSource, makeSessionSource, redactCredentials } from '../sources/anchor.ts';
 import { git } from '../util/git.ts';
-import { canonicalPath, normalizePath, pathKey, sameDirectory, samePath } from '../util/paths.ts';
+import { canonicalPath, normalizePath, pathKey, samePath } from '../util/paths.ts';
 import type { ProjectStore } from '../store/project-store.ts';
-import { workspaceFile } from '../store/paths.ts';
+import { withTableProject } from './project-home.ts';
 import { checkTableFile, fileAt, owningRepo, resolveRepos, walkSources, type Repo, type SessionMessage, type TableProblem, type TableSource } from './check.ts';
 
 // ───────────────────────── the table, as the schema shapes it ─────────────────────────
@@ -489,25 +489,10 @@ export async function importTable(options: ImportOptions): Promise<ImportResult>
   const table = JSON.parse(readFileSync(options.tableFile, 'utf8')) as Table;
 
   // Loaded only now: a refused table opens nothing.
-  const { App } = await import('../server/app.ts');
   const { deriveGraph } = await import('../keeper/organize/graph.ts');
   const { writeClerkCoverage } = await import('../keeper/organize/service.ts');
-  const { projectKeeperHome } = await import('../store/paths.ts');
-  const home = canonicalPath(options.home ?? projectKeeperHome());
-  const made = !existsSync(workspaceFile(home));
-  const app = new App(home, { organizing: false });
-  const warnings: string[] = [];
-  try {
-    // A home made for the table works through what it holds, as the fixture's does: nothing watches the project.
-    if (made) app.workspace.setSettings({ watchProjects: false });
-    let project = app.workspace.list().find((x) => x.locations.some((l) => sameDirectory(l, projectDir)));
-    const added = !project;
-    if (!project) project = app.addProject(options.name ?? table.project.name, [projectDir]);
-    // What intake reads is what the sources are matched against, and the scope the boundary draws.
-    if (added || !project.lastScopedAt) await app.intakeProject(project.id);
-    app.stopAll();
-    try { app.ledger.rebuildNow(app.project(project.id)); } catch (e) { warnings.push(`The ledger was not brought up to date: ${(e as Error).message}`); }
-    project = app.project(project.id);
+  return withTableProject({ projectDir, home: options.home, name: options.name ?? table.project.name }, async ({ app, project: opened, home, added, warnings }) => {
+    let project = opened;
     const store = app.store(project.id);
     const at = new Date().toISOString();
     const repos = resolveRepos(table as unknown as Record<string, unknown>, projectDir, () => undefined);
@@ -551,10 +536,7 @@ export async function importTable(options: ImportOptions): Promise<ImportResult>
         graph: { nodes: graph.nodes, relations: graph.relations },
       },
     };
-  } finally {
-    app.stopAll();
-    await app.flushAll();
-  }
+  });
 }
 
 /** For callers that only hold the store (tests): the picture collections' sizes. */

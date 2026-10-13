@@ -137,8 +137,9 @@ npx pk get sb_search_refresh --port 4880 --project <id>
 | `pk scope <project id>` | Prints what the Keeper treats as the project, with the reason for each item. |
 | `pk check [table] [--project <folder>] [--sessions <file>]` | Checks a filled ProjectKeeper table: its shape, ids and references, and every source against the project. Prints each problem; needs no workbench. |
 | `pk import [table] [--name <name>] [--project <folder>] [--sessions <file>]` | Checks the table, then takes it in as the project's picture. It adds the project if it is new, and replaces what an earlier import or round wrote. A table with any problem changes nothing. |
+| `pk sessions [--project <folder>] [--name <name>] [--out <folder>]` | Writes the session material a table quotes you from: every message you wrote in the project's agent sessions, each after the agent's answer it replies to, as `session-material.md` (for the agent that reads your words) and `session-material.jsonl` (for `--sessions`). It adds the project if it is new. Both go into ProjectKeeper's own folder for the project, `projects/<id>/table/`, never into the project, which may be public; an `--out` inside the project is refused. |
 
-The table is `projectkeeper/project.json` in the project unless you name another file. For a public project keep it outside the repository, in ProjectKeeper's own folder, and pass its path with `--project <the project folder>`. How an agent fills it is in [the template](../template/FILLING-IN.md). `--sessions` is the session material the table quotes the owner from, needed when it cites a session.
+The table is `projectkeeper/project.json` in the project unless you name another file. For a public project keep it outside the repository, in ProjectKeeper's own folder, and pass its path with `--project <the project folder>`. How an agent fills it is in [the template](../template/FILLING-IN.md). `--sessions` is the session material the table quotes the owner from, needed when it cites a session: the `session-material.jsonl` that `pk sessions` writes.
 
 `--home <folder>` (or `PROJECTKEEPER_HOME`) points any command at another ProjectKeeper folder.
 

@@ -15,6 +15,12 @@
  *                                       project (the folder holding projectkeeper/, or --project) is found or added and
  *                                       read, and the Keeper's picture of it is replaced by the table's. A table with any
  *                                       problem is refused and nothing is written. Prints what it wrote.
+ *   pk sessions [--project <dir>] [--home <dir>] [--name <name>] [--out <dir>]
+ *                                       write the session material a table quotes the owner from: every owner message of
+ *                                       the project's agent sessions (default: the current directory), each after the
+ *                                       agent's answer it replies to, as session-material.md and .jsonl. They go into
+ *                                       ProjectKeeper's own folder for the project (<home>/projects/<id>/table), never
+ *                                       into the project; an --out inside it is refused (D107).
  *
  * An execution agent's own entry (Spec §7.10), all talking to the running workbench:
  *   pk context [--work <id|name>] [--purpose Start|Work] [--kind K] [--recipient R] [--since T]
@@ -37,6 +43,7 @@ import { WorkspaceFileError } from './store/workspace.ts';
 import { gitNotice, gitVersionOutput } from './util/git-check.ts';
 import { checkTableFile, readSessionMaterial, type TableProblem } from './table/check.ts';
 import { importTable } from './table/import.ts';
+import { exportProjectSessions } from './table/sessions.ts';
 import { changeBrief, factBrief, nodeBrief, relationBrief } from './context/object-brief.ts';
 import type { BriefChange, BriefFact, BriefNode } from './context/object-brief.ts';
 
@@ -96,11 +103,27 @@ async function importCommand(): Promise<number> {
   return 0;
 }
 
+/** `pk sessions`: the session material of a project, written outside it (src/table/sessions.ts, D107). */
+async function sessionsCommand(): Promise<number> {
+  const out = arg('--out');
+  let r: Awaited<ReturnType<typeof exportProjectSessions>>;
+  try {
+    r = await exportProjectSessions({ projectDir: resolve(arg('--project') ?? process.cwd()), home: arg('--home') ?? undefined, name: arg('--name') ?? undefined, out: out ?? undefined });
+  } catch (e) { console.error((e as Error).message); return 2; }
+  console.log(`Session material of ${r.added ? 'the new project' : 'project'} ${r.projectName} (${r.projectId}) in ${r.home}:`);
+  console.log(`  ${r.ownerMessages} owner message${r.ownerMessages === 1 ? '' : 's'} from ${r.sessions} session${r.sessions === 1 ? '' : 's'}, ${r.records} records with the agent answers before them`);
+  console.log(`  ${r.markdown}`);
+  console.log(`  ${r.jsonl}   (pk check / pk import --sessions)`);
+  for (const w of r.warnings) console.warn(`  ${w}`);
+  return 0;
+}
+
 async function main(): Promise<number> {
   const command = process.argv[2] ?? 'serve';
   if (command === 'check') return checkCommand();
   // The import opens its home itself, and only for a table that holds.
   if (command === 'import') return importCommand();
+  if (command === 'sessions') return sessionsCommand();
   const app = new App(arg('--home') ?? undefined);
   const VALUE_FLAGS = ['--home', '--port', '--project', '--cwd', '--thread', '--fetch', '--work', '--purpose', '--kind', '--recipient', '--since'];
   const positionals = () => process.argv.slice(3).filter((a, i, all) => !a.startsWith('--') && !(i > 0 && VALUE_FLAGS.includes(all[i - 1]!)));

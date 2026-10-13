@@ -284,7 +284,7 @@ export function briefText(table: Table, place: TablePlace, draftFile: string, ch
   const parts: string[] = [
     '=== The table',
     `The table: ${place.tableFile}${place.inHome ? ' (kept in ProjectKeeper’s own folder, outside the project)' : ''}. Its paths are relative to the project folder ${place.projectDir}.`,
-    `It was filled in by ${f.agent} at ${f.at}, as of ${table.project.asOf.repos.map((r) => `${r.path} at ${r.commit.slice(0, 12)}`).join(', ')} (${table.project.asOf.date}).`,
+    `It was filled in by ${f.agent} at ${f.at}, as of ${table.project.asOf.repos.map((r) => `${r.path === '.' ? 'the project' : r.path} at ${r.commit.slice(0, 12)}`).join(', ')} (${table.project.asOf.date}).`,
     `Your working copy, to edit and hand in: ${draftFile}`,
     '',
     '=== What changed since the table’s asOf',

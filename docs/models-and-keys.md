@@ -38,7 +38,15 @@ Keys you already have elsewhere are listed and used the same way:
   ```
 
   Set this way the key lasts as long as that terminal. To have it in every terminal, put the `export` line in `~/.zshrc` on a Mac, or set a user environment variable on Windows.
-- **pi's own login**: run `pi` in a terminal and use `/login`.
+- **pi's own login**: run `pi` in a terminal and use `/login`. From the folder you cloned, `npx pi` runs the copy ProjectKeeper installed.
+
+## Subscriptions
+
+Some providers let you sign in with a subscription instead of a key. Which of them the Keeper can use:
+
+- **Claude Pro and Max: no.** Anthropic allows its subscription login only in Claude Code and on claude.ai, and not in other tools. For Claude models in the Keeper, use an API key from the Claude Console. Your Claude Code can still read the workbench with [`pk`](pk.md), on its own subscription.
+- **ChatGPT Plus and Pro (Codex), Kimi Coding, GitHub Copilot: they connect, untested.** pi has a login for each. Run `pi`, use `/login`, and choose the provider; the provider then appears among the keys as coming from pi's own login. Nobody has run a takeover on any of them yet. A takeover's main agent reached 300,000 to 700,000 tokens of context in the measured runs, so a subscription's usage window may run out partway through a round.
+- **Zhipu GLM Coding Plan** is a key, not a login, and is among the measured runs above.
 
 ## The main model
 

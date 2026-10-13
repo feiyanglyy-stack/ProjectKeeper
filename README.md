@@ -110,6 +110,8 @@ The first picture comes first; the deepening follows if you chose one. Details: 
 
 You bring your own key. The model library underneath ([pi](https://github.com/earendil-works/pi)) lists some forty providers; the ones actually run so far are **DeepSeek** (`deepseek-v4-pro`, `deepseek-flash`) and **Zhipu GLM** (`glm-5.3`, `glm-5.3-flash`). A key you save stays on your machine, in ProjectKeeper's own folder, and is never shown again. Each step of a round can run on its own model, and backup keys take over when one runs out of quota: [Models and keys](docs/models-and-keys.md).
 
+**Subscriptions:** a Claude Pro or Max subscription cannot run the Keeper, because Anthropic allows that login only in Claude Code and on claude.ai; use an API key from the Claude Console. ChatGPT (Codex), Kimi Coding and GitHub Copilot subscriptions connect through pi's login, and none of them has been tested yet: [Subscriptions](docs/models-and-keys.md#subscriptions).
+
 ## What a run costs
 
 A full takeover (the first pass and a full deepening) of the project above, measured four times:

@@ -110,6 +110,8 @@ npm start
 
 key 你自己带。底下的模型库（[pi](https://github.com/earendil-works/pi)）列了四十来家服务商，我们实际跑过的是 **DeepSeek**（`deepseek-v4-pro`、`deepseek-flash`）和**智谱 GLM**（`glm-5.3`、`glm-5.3-flash`）。你保存的 key 只留在本机 ProjectKeeper 自己的文件夹里，保存之后界面上不会再显示。一轮里的每一步可以各用各的模型；一把 key 额度用完了，备用的 key 会接上：见 [Models and keys](docs/models-and-keys.md)。
 
+**订阅登录：** Claude 的 Pro、Max 订阅跑不了 Keeper：Anthropic 只许在 Claude Code 和 claude.ai 里用这种登录，请改用 Claude Console 的 API key。ChatGPT（Codex）、Kimi Coding、GitHub Copilot 的订阅能经 pi 的登录接上，都还没实测：见 [Subscriptions](docs/models-and-keys.md#subscriptions)。
+
 ## 跑一轮要花多少
 
 上面那个项目，完整接管（第一遍加一次完整加深）一共实测了四次：

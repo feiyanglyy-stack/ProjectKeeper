@@ -1,6 +1,10 @@
 # Filling in the ProjectKeeper table
 
-You are taking over a software project. Read it in whatever way you think best, and write down what you understood as one JSON file: `projectkeeper/project.json` in the project folder. ProjectKeeper draws that file as its workbench: the Graph (a story map of the whole project), the List (area by area, planned against what happened) and the Code view. The owner reads the picture there; the next agent reads the same file.
+You are taking over a software project. Read it in whatever way you think best, and write down what you understood as one JSON file. You are told where it goes:
+- `projectkeeper/project.json` in the project folder, under the project's git;
+- for a public project, ProjectKeeper's own folder, so that the owner's words and the session material never reach the public repository.
+
+Either way the table means the same, and its paths are relative to the project folder. ProjectKeeper draws that file as its workbench: the Graph (a story map of the whole project), the List (area by area, planned against what happened) and the Code view. The owner reads the picture there; the next agent reads the same file.
 
 The shape of the file is fixed by [`projectkeeper.schema.json`](projectkeeper.schema.json). Everything else is your judgement: what to read and in what order, what deserves an entry, how big an entry is, and where it belongs. Nothing here tells you how to read the project.
 

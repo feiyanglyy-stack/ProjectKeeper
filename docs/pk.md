@@ -138,7 +138,7 @@ npx pk get sb_search_refresh --port 4880 --project <id>
 | `pk check [table] [--project <folder>] [--sessions <file>]` | Checks a filled ProjectKeeper table: its shape, ids and references, and every source against the project. Prints each problem; needs no workbench. |
 | `pk import [table] [--name <name>] [--project <folder>] [--sessions <file>]` | Checks the table, then takes it in as the project's picture. It adds the project if it is new, and replaces what an earlier import or round wrote. A table with any problem changes nothing. |
 
-The table is `projectkeeper/project.json` in the project unless you name another file. How an agent fills it is in [the template](../template/FILLING-IN.md). `--sessions` is the session material the table quotes the owner from, needed when it cites a session.
+The table is `projectkeeper/project.json` in the project unless you name another file. For a public project keep it outside the repository, in ProjectKeeper's own folder, and pass its path with `--project <the project folder>`. How an agent fills it is in [the template](../template/FILLING-IN.md). `--sessions` is the session material the table quotes the owner from, needed when it cites a session.
 
 `--home <folder>` (or `PROJECTKEEPER_HOME`) points any command at another ProjectKeeper folder.
 

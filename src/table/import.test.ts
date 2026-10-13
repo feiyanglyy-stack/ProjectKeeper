@@ -23,7 +23,7 @@ after(() => rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retry
 
 const { git } = await import('../util/git.ts');
 const { canonicalPath } = await import('../util/paths.ts');
-const { importTable, mapTable, sourceKey, storeIdsOf } = await import('./import.ts');
+const { carryOwnerSide, importTable, mapTable, sourceKey, storeIdsOf } = await import('./import.ts');
 const { ProjectStore } = await import('../store/project-store.ts');
 const { workbenchPlacement } = await import('../keeper/organize/workbench-placement.ts');
 const { graphView } = await import('../server/graph-view.ts');
@@ -243,6 +243,31 @@ test('the import: the table replaces the picture, the graph is derived, the work
   const reread = ProjectStore.open(r.projectId!, canonicalPath(home));
   assert.equal(reread.threads.size, 6);
   assert.equal(reread.notes.size, 1);
+});
+
+test('taken in again, a note keeps what the owner did with it, and a changed text is its next version', () => {
+  const ctx = { projectId: 'tiny', projectDir: '/tiny', repos: [{ path: '', commit: 'abcdef1', dir: '/tiny' }], source: fakeSource };
+  const first = mapTable(table('abcdef1'), ctx).notes;
+  const answered = { ...first[0]!, ownerResponse: 'Decided' as const, discussion: [{ at: '2026-10-14', who: 'owner', text: 'Reopen T-3.' }] as never };
+  const extra = { ...first[0]!, id: 'note_gone_touched', ownerResponse: 'Discussed' as const };
+  const untouched = { ...first[0]!, id: 'note_gone_untouched' };
+  const before = [answered, extra, untouched];
+
+  // The same text again: one version, the response and discussion kept.
+  const same = carryOwnerSide(first, before, '2026-10-15');
+  const kept = same.find((n) => n.id === answered.id)!;
+  assert.equal(kept.ownerResponse, 'Decided');
+  assert.equal(kept.discussion.length, 1);
+  assert.equal(kept.versions.length, 1);
+  // A note the table dropped stays, withdrawn, when the owner had answered it; one nobody touched goes with the table.
+  assert.equal(same.find((n) => n.id === 'note_gone_touched')!.status, 'Withdrawn');
+  assert.equal(same.some((n) => n.id === 'note_gone_untouched'), false);
+
+  // A changed text: the next version, the owner's side still there.
+  const changed = first.map((n) => n.id === answered.id ? { ...n, versions: [{ ...n.versions[0]!, title: 'Reworded' }] } : n);
+  const next = carryOwnerSide(changed, before, '2026-10-15').find((n) => n.id === answered.id)!;
+  assert.deepEqual(next.versions.map((v) => [v.version, v.title]), [[1, answered.versions[0]!.title], [2, 'Reworded']]);
+  assert.equal(next.ownerResponse, 'Decided');
 });
 
 test('a table with a problem is refused, and nothing is written', async () => {

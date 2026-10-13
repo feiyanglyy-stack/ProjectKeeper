@@ -424,6 +424,38 @@ export function mapTable(table: Table, ctx: MapContext): MappedTable {
   return { reference, threads, facts, relations, generations, links, territories, notes, ids };
 }
 
+/**
+ * The table's notes, with what the owner did on the notes already there.
+ * - Same id: the response, discussion, follow-ups, delegation and a status the owner set (Resolved, Withdrawn) are kept,
+ *   and the versions go on — the table's text is a new version only when it differs from the last one.
+ * - A note the table no longer has is kept as Withdrawn when the owner had answered or discussed it, so nothing the
+ *   owner wrote is lost; one the owner never touched simply goes with the table.
+ */
+export function carryOwnerSide(fresh: readonly Note[], before: readonly Note[], at: string): Note[] {
+  const old = new Map(before.map((n) => [n.id, n]));
+  const touched = (n: Note) => n.ownerResponse !== null || n.discussion.length > 0 || n.followUps.length > 0 || n.delegatedTo !== null || n.status !== 'Current';
+  const out: Note[] = fresh.map((n) => {
+    const prev = old.get(n.id);
+    if (!prev) return n;
+    const last = prev.versions[prev.versions.length - 1];
+    const next = n.versions[n.versions.length - 1]!;
+    const same = last && last.title === next.title && last.ask === next.ask && JSON.stringify(last.body) === JSON.stringify(next.body);
+    const versions = same ? prev.versions : [...prev.versions, { ...next, version: (last?.version ?? 0) + 1, reason: 'Changed in the ProjectKeeper table' }];
+    return {
+      ...n, versions,
+      status: prev.status, resolvedReason: prev.resolvedReason, withdrawnReason: prev.withdrawnReason,
+      ownerResponse: prev.ownerResponse, discussion: prev.discussion, followUps: prev.followUps, delegatedTo: prev.delegatedTo,
+      updatedAt: same ? prev.updatedAt : at,
+    };
+  });
+  const kept = new Set(fresh.map((n) => n.id));
+  for (const prev of before) {
+    if (kept.has(prev.id) || !touched(prev)) continue;
+    out.push(prev.status === 'Current' ? { ...prev, status: 'Withdrawn', withdrawnReason: 'No longer in the ProjectKeeper table', updatedAt: at } : prev);
+  }
+  return out;
+}
+
 const labelOf = (s: Source): string => (s.anchor.kind === 'file' ? `${basename(s.anchor.path)} L${s.anchor.lineStart}–L${s.anchor.lineEnd}` : s.title);
 
 /** A cited place as the workbench names evidence: a file by its repository-relative path, a commit, a session's source. */
@@ -536,6 +568,9 @@ export async function applyTable(app: App, projectId: string, table: Table, opti
   const jobId = options.jobId ?? null;
   const trace = { jobId, summary: options.summary ?? `Taken in from the ProjectKeeper table ${options.tableFile}` };
   const removed: Record<string, number> = {};
+  // What the owner did with a note is the owner's, not the table's: taken in again (every follow-up, D106), a note keeps
+  // its response, discussion, follow-ups and handling, and a changed text becomes its next version.
+  const notes = carryOwnerSide(mapped.notes, store.notes.all(), at);
   for (const name of PICTURE) {
     const collection = store.collection(name);
     const before = collection.all();
@@ -550,7 +585,7 @@ export async function applyTable(app: App, projectId: string, table: Table, opti
   store.generations.putMany(mapped.generations, trace);
   store.links.putMany(mapped.links, trace);
   store.territories.putMany(mapped.territories, trace);
-  store.notes.putMany(mapped.notes, trace);
+  store.notes.putMany(notes, trace);
   // Nodes and the relations the items' claims state, as after any round (scripts/seed-ui-fixture.ts).
   const graph = deriveGraph(store, project);
   // D107: taking the table in is the takeover; the workbench then opens on the picture, not on the Takeover page.

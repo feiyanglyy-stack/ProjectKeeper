@@ -126,7 +126,9 @@ test('pk takeover --prepare: three isolated folders, the instructions with the r
   assert.match(mainText, /main agent/);
   assert.ok(mainText.includes(`${pk} check ${MAIN_TABLE_FILE} --project project-reader/project --sessions owner/session-material.jsonl`));
   assert.ok(mainText.includes('只在这个文件夹（`takeover-20261013-173020/`）里活动'));
-  for (const text of [ownerText, readerText, mainText]) assert.doesNotMatch(text, /b93d4ae|eba65bb|D:\/ProjectKeeper\/bin/, 'no commit or path of the trials is hard-coded');
+  // The trials' commits never reach another project's instructions. The check command names this install's own pk,
+  // which may well be D:/ProjectKeeper on the machine the trials ran on, so it is held to pkCommand() above instead.
+  for (const text of [ownerText, readerText, mainText]) assert.doesNotMatch(text, /b93d4ae|eba65bb/, 'no commit of the trials is hard-coded');
 
   // The table goes into ProjectKeeper's own folder by default, and into the project only when asked.
   assert.equal(t.tableIn, 'home');

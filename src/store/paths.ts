@@ -26,3 +26,14 @@ export function workspaceFile(home = projectKeeperHome()): string {
 export function projectDir(projectId: string, home = projectKeeperHome()): string {
   return join(home, 'projects', projectId);
 }
+
+/**
+ * D107: the folder, inside a project's directory here, that holds what a takeover by the table leaves — the session
+ * material, the takeover's work folders and, for a public project, the table with its own git history. Clearing the
+ * project keeps it (project-store.ts `clearAll`).
+ */
+export const TABLE_FOLDER = 'table';
+
+export function tableDir(projectId: string, home = projectKeeperHome()): string {
+  return join(projectDir(projectId, home), TABLE_FOLDER);
+}

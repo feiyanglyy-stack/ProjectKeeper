@@ -13,7 +13,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import type { Ledger, MessageRow } from '../ledger/index.ts';
-import { projectDir as homeProjectDir } from '../store/paths.ts';
+import { projectDir as homeProjectDir, tableDir } from '../store/paths.ts';
 import { canonicalPath, isWithin } from '../util/paths.ts';
 import { withTableProject } from './project-home.ts';
 
@@ -161,7 +161,7 @@ export async function exportProjectSessions(options: SessionsOptions): Promise<S
     if (elsewhere) throw new Error(elsewhere);
     const ledger = app.ledger.ledger(project.id);
     if (!ledger) throw new Error(`The ledger of ${project.name} could not be built, so there are no sessions to export.${warnings.length ? ` ${warnings.join(' ')}` : ''}`);
-    const outDir = out ?? join(homeProjectDir(project.id, home), 'table');
+    const outDir = out ?? tableDir(project.id, home);
     const written = exportSessionMaterial(ledger, outDir);
     return { projectId: project.id, projectName: project.name, home, added, outDir, warnings, ...written };
   });

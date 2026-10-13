@@ -9,6 +9,7 @@
  * understanding, the notes — put together by the program; nothing in it is written for the page alone.
  */
 import { existsSync, readdirSync } from 'node:fs';
+import { tableDir } from '../store/paths.ts';
 import { join } from 'node:path';
 import { ownerScopeItems, type App } from './app.ts';
 import { HttpApp, HttpError } from './http.ts';
@@ -252,6 +253,10 @@ export function clearPreview(app: App, projectId: string): ClearPreview {
       { what: 'The project in the workspace', detail: `Its name (${project.name}), the location${project.locations.length === 1 ? '' : 's'} you gave, and the ${ownerScopeItems(project).length} scope item(s) you added yourself.` },
       { what: 'The settings of the Keeper view', detail: 'The Keeper agent, the model and keys, the schedule, execution-agent access.' },
       { what: 'What was spent so far', detail: `${total.cost == null ? 'Cost not reported' : `$${total.cost.toFixed(2)}`} (${total.input.toLocaleString('en-US')} tokens in, ${total.output.toLocaleString('en-US')} out) stays in Usage as one total, named as from before the clear.` },
+      // D107: a takeover by the table is the agent's record, not the Keeper's organizing; it can be taken in again.
+      ...(existsSync(tableDir(projectId, app.home))
+        ? [{ what: 'The table from a takeover by the table', detail: `The table, its history, the session material and the takeover's work folders stay in ${tableDir(projectId, app.home)}. pk import takes the table in again.` }]
+        : []),
     ],
   };
 }

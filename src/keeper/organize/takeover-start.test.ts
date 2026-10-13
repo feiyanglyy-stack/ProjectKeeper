@@ -511,3 +511,29 @@ test('a home organized before D105 opens on Daily, its takeover done at the dept
   assert.deepEqual([app.project(fresh.id).schedule ?? null, app.project(fresh.id).takeoverStartedAt ?? null], [null, null]);
   app.stopAll();
 });
+
+test('clearing a project taken over by the table keeps the table folder and makes the project not started again (D107)', async () => {
+  const dir = makeProject();
+  const home = mkdtempSync(join(tmpdir(), 'pk-tern-home-'));
+  const app = new App(home, { organizing: false });
+  try {
+    const project = app.addProject('Tern', [dir]);
+    const store = app.store(project.id);
+    const tableFile = join(store.dir, 'table', 'project.json');
+    mkdirSync(join(store.dir, 'table'), { recursive: true });
+    writeFileSync(tableFile, '{"format":"projectkeeper.table/1"}');
+    writeFileSync(join(store.dir, 'notes.json'), '[]');
+    app.updateProject({ ...app.project(project.id), takenOverByTable: { at: '2026-10-13', by: 'test', file: tableFile } });
+    assert.equal(takeoverState(store, app.project(project.id)).phase, 'Done');
+
+    await app.clearProject(project.id, 'DELETE');
+    // The table, its history and the takeover's work stay; the Keeper's picture goes; the takeover is to do again.
+    assert.equal(readFileSync(tableFile, 'utf8'), '{"format":"projectkeeper.table/1"}');
+    assert.ok(!existsSync(join(store.dir, 'notes.json')));
+    assert.equal(app.project(project.id).takenOverByTable ?? null, null);
+    assert.equal(takeoverState(store, app.project(project.id)).phase, 'Not started');
+  } finally {
+    app.stopAll();
+    await app.flushAll();
+  }
+});

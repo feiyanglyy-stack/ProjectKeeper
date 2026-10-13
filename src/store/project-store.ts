@@ -17,7 +17,7 @@ import type {
   Breakpoint, ClerkRound, CodeTerritory, Generation, KeeperNumber, LayerEntry, ProcessLink, RoundDoc, SemanticPatch, SendBack, SessionDraft,
 } from '../model/k-types.ts';
 import { appendJsonLine, readJson, readJsonLines, writeJsonAtomic } from './json-file.ts';
-import { ensureHome, projectKeeperHome, projectDir } from './paths.ts';
+import { ensureHome, projectKeeperHome, projectDir, TABLE_FOLDER } from './paths.ts';
 
 export interface TraceInfo {
   readonly jobId: string | null;
@@ -248,7 +248,9 @@ export class ProjectStore extends EventEmitter {
   /**
    * Remove every asset of the project (Spec §3.7 清空, §8.5): every collection, the coverage, the trace, and whatever
    * else lies in the project's asset directory — the ledger, the kept versions, the code index. The store stays open,
-   * empty; the views are told that everything changed. Returns the entries of the directory that could not be removed
+   * empty; the views are told that everything changed. The `table/` folder stays (D107): the table an agent filled, its
+   * history and the takeover's work folders are the record of a takeover, not the Keeper's organizing, and can be taken in
+   * again. Returns the entries of the directory that could not be removed
    * (a file another process still holds), so the caller can say so. Nothing outside this directory is touched.
    */
   clearAll(): string[] {
@@ -258,6 +260,7 @@ export class ProjectStore extends EventEmitter {
     this.coverageDoc = emptyCoverage(this.projectId);
     const left: string[] = [];
     for (const entry of existsSync(this.dir) ? readdirSync(this.dir) : []) {
+      if (entry === TABLE_FOLDER) continue;
       try { rmSync(join(this.dir, entry), { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
       catch { left.push(entry); }
     }

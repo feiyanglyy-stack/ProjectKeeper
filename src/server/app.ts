@@ -210,7 +210,7 @@ export class App extends EventEmitter {
       this.keeper.forgetProject(projectId);
       this.scopeBases.delete(projectId);
       // The project's record goes back to what the owner gave: its name, its locations and the items the owner added.
-      const { takeoverDepth: _d, takeoverDepthChosenAt: _c, takeoverStartedAt: _s, lastRoundAt: _l, followUpAt: _f, scheduleHandled: _h, toolchain: _t, ...kept } = before;
+      const { takeoverDepth: _d, takeoverDepthChosenAt: _c, takeoverStartedAt: _s, lastRoundAt: _l, followUpAt: _f, scheduleHandled: _h, toolchain: _t, takenOverByTable: _tbl, ...kept } = before;
       const project = this.updateProject({ ...kept, scope: ownerScopeItems(before), scopeQuestions: [], roles: [], lastScopedAt: null, organizingPaused: false, usageBeforeClear });
       this.refreshCoverageAfterIntake(projectId);
       await store.flush();

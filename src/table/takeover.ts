@@ -19,7 +19,7 @@ import { spawn } from 'node:child_process';
 import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { projectDir as homeProjectDir } from '../store/paths.ts';
+import { projectDir as homeProjectDir, tableDir } from '../store/paths.ts';
 import { git } from '../util/git.ts';
 import { canonicalPath, isWithin, pathKey } from '../util/paths.ts';
 import { checkOwnerPartFile, checkTableFile, readSessionMaterial, SCHEMA_FILE, type TableProblem } from './check.ts';
@@ -310,9 +310,9 @@ export async function prepareTakeover(options: TakeoverOptions): Promise<Prepare
   return withTableProject({ projectDir, home: options.home, name: options.name ?? basename(projectDir) }, async ({ app, project, home, added, warnings }) => {
     const ledger = app.ledger.ledger(project.id);
     if (!ledger) throw new Error(`The ledger of ${project.name} could not be built, so there is no session material for the owner's words.${warnings.length ? ` ${warnings.join(' ')}` : ''}`);
-    const tableDir = join(homeProjectDir(project.id, home), 'table');
-    let workDir = join(tableDir, `takeover-${stamp(now)}`);
-    for (let n = 2; existsSync(workDir); n++) workDir = join(tableDir, `takeover-${stamp(now)}-${n}`);
+    const tableFolder = tableDir(project.id, home);
+    let workDir = join(tableFolder, `takeover-${stamp(now)}`);
+    for (let n = 2; existsSync(workDir); n++) workDir = join(tableFolder, `takeover-${stamp(now)}-${n}`);
     // The home may lie inside the project; the work folder never does.
     const inside = project.locations.find((l) => isWithin(canonicalPath(l), workDir));
     if (inside !== undefined) throw new Error(`${workDir} is inside the project folder ${inside}. The takeover's work folder holds the session material, which carries the owner's words, and the project may be a public repository, so it is laid out only outside the project: point --home at a ProjectKeeper folder outside it (D107).`);
@@ -338,7 +338,7 @@ export async function prepareTakeover(options: TakeoverOptions): Promise<Prepare
     writeFileSync(readerFile, readerInstructions(facts));
     writeFileSync(mainFile, mainInstructions(facts));
 
-    const destination = tableIn === 'project' ? join(projectDir, 'projectkeeper', 'project.json') : join(tableDir, 'project.json');
+    const destination = tableIn === 'project' ? join(projectDir, 'projectkeeper', 'project.json') : join(tableFolder, 'project.json');
     const importCommand = [pk, 'import', quoteArg(destination), '--project', quoteArg(projectDir), '--home', quoteArg(home), '--sessions', quoteArg(material.jsonl)].join(' ');
     return {
       projectId: project.id, projectName: project.name, projectDir, home, added, workDir,

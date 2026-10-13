@@ -21,6 +21,24 @@
  *                                       agent's answer it replies to, as session-material.md and .jsonl. They go into
  *                                       ProjectKeeper's own folder for the project (<home>/projects/<id>/table), never
  *                                       into the project; an --out inside it is refused (D107).
+ *   pk check --owner-part <file> --sessions <file>
+ *                                       check the owner part a takeover's first step writes ({ ownerWants, notes })
+ *                                       against the schema and the session material it quotes.
+ *   pk takeover [--project <dir>] [--home <dir>] [--name <name>] [--table-in home|project] --prepare
+ *                                       lay out a takeover by the table in three isolated folders under
+ *                                       <home>/projects/<id>/table/takeover-<time>/: owner/ (the session material),
+ *                                       project-reader/ (a copy of the project), and the main agent's instructions at
+ *                                       the top; prints each step's folder and instructions and the pk import command.
+ *                                       Any agent can run the steps; Claude Code users run them in their own Claude Code.
+ *   pk takeover ... --run codex [--model <m>] [--effort <e>]
+ *                                       also run the three steps headless with Codex CLI (routes 1 and 2 at once, then
+ *                                       the main agent; Codex's default model unless --model, effort high unless
+ *                                       --effort), check the merged table and, when it holds, put it at its destination
+ *                                       and take it in. --table-in home (default, safe for a public project) keeps the
+ *                                       table at <home>/projects/<id>/table/project.json; a private project may use
+ *                                       --table-in project (projectkeeper/project.json in the project). There is no
+ *                                       --run claude: running a Claude subscription from another tool is against
+ *                                       Anthropic's terms.
  *
  * An execution agent's own entry (Spec §7.10), all talking to the running workbench:
  *   pk context [--work <id|name>] [--purpose Start|Work] [--kind K] [--recipient R] [--since T]
@@ -41,9 +59,10 @@ import { registerRoutes } from './server/api.ts';
 import { vendorDir } from './server/vendor.ts';
 import { WorkspaceFileError } from './store/workspace.ts';
 import { gitNotice, gitVersionOutput } from './util/git-check.ts';
-import { checkTableFile, readSessionMaterial, type TableProblem } from './table/check.ts';
+import { checkOwnerPartFile, checkTableFile, readSessionMaterial, type TableProblem } from './table/check.ts';
 import { importTable } from './table/import.ts';
 import { exportProjectSessions } from './table/sessions.ts';
+import { prepareTakeover, runTakeover, type PreparedTakeover, type TableIn } from './table/takeover.ts';
 import { changeBrief, factBrief, nodeBrief, relationBrief } from './context/object-brief.ts';
 import type { BriefChange, BriefFact, BriefNode } from './context/object-brief.ts';
 
@@ -68,9 +87,20 @@ function printProblems(tableFile: string, problems: readonly TableProblem[]): vo
 
 /** `pk check`: the table, its project folder and the session material it cites; no workbench, no store. */
 function checkCommand(): number {
-  const tableFile = tableArg();
   const projectDir = arg('--project');
   const sessionsFile = arg('--sessions');
+  // The owner part a takeover's first step writes, held to the session material it is read from (D107).
+  const ownerPart = arg('--owner-part');
+  if (ownerPart) {
+    if (!sessionsFile) { console.error('usage: pk check --owner-part <file> --sessions <session-material.jsonl>'); return 2; }
+    const file = resolve(ownerPart);
+    const problems = checkOwnerPartFile(file, readSessionMaterial(resolve(sessionsFile)));
+    if (!problems.length) { console.log(`${file}: no problems.`); return 0; }
+    console.log(`${file}: ${problems.length} problem${problems.length === 1 ? '' : 's'}.`);
+    for (const p of problems) console.log(`  ${p.at}  ${p.problem}`);
+    return 1;
+  }
+  const tableFile = tableArg();
   const problems = checkTableFile(tableFile, {
     projectDir: projectDir ? resolve(projectDir) : undefined,
     sessions: sessionsFile ? readSessionMaterial(resolve(sessionsFile)) : null,
@@ -118,9 +148,68 @@ async function sessionsCommand(): Promise<number> {
   return 0;
 }
 
+const TAKEOVER_USAGE = 'usage: pk takeover [--project <dir>] [--home <dir>] [--name <name>] [--table-in home|project] (--prepare | --run codex [--model <m>] [--effort <e>])';
+
+function printSteps(t: PreparedTakeover): void {
+  console.log(`Takeover of ${t.added ? 'the new project' : 'project'} ${t.projectName} (${t.projectId}), laid out in ${t.workDir}`);
+  console.log(`  Session material: ${t.ownerMessages} owner message${t.ownerMessages === 1 ? '' : 's'} from ${t.sessions} session${t.sessions === 1 ? '' : 's'}`);
+  console.log(`  Project copy: ${t.repos.map((r) => `${r.path} at ${r.commit}`).join(', ')}${t.skipped.length ? `; ${t.skipped.length} entr${t.skipped.length === 1 ? 'y' : 'ies'} left out (ignored by git, node_modules, links)` : ''}`);
+  for (const w of t.warnings) console.warn(`  ${w}`);
+  const { owner, reader, main } = t.steps;
+  console.log('\nStep 1 — the owner\'s words (run at the same time as step 2; each agent sees only its own folder):');
+  console.log(`  folder:       ${owner.folder}\n  instructions: ${owner.instructions}\n  writes:       ${owner.output}`);
+  console.log('Step 2 — the project:');
+  console.log(`  folder:       ${reader.folder}\n  instructions: ${reader.instructions}\n  writes:       ${reader.output}`);
+  console.log('Step 3 — the main agent, after both:');
+  console.log(`  folder:       ${main.folder}\n  instructions: ${main.instructions}\n  writes:       ${main.output}`);
+  console.log(`Then put ${main.output} at ${t.destination} and take it in:\n  ${t.importCommand}`);
+}
+
+/**
+ * `pk takeover`: the three-step takeover by the table (src/table/takeover.ts, D107). `--prepare` lays out the folders
+ * for any agent; `--run codex` also runs the steps headless with Codex CLI and takes the table in. PK_TAKEOVER_AGENT
+ * names a program to run instead of `codex` (a .mjs, .js or .ts file runs under this node), for tests and stand-ins.
+ */
+async function takeoverCommand(): Promise<number> {
+  const run = arg('--run');
+  const prepare = process.argv.includes('--prepare');
+  const tableIn = arg('--table-in', 'home');
+  if (run === 'claude') {
+    console.error('pk takeover does not run Claude Code: running a Claude subscription from another tool is against Anthropic\'s terms. Run pk takeover --prepare and give the three steps to your own Claude Code, each in its folder.');
+    return 2;
+  }
+  if ((run !== null && run !== 'codex') || (run === null && !prepare) || (tableIn !== 'home' && tableIn !== 'project')) { console.error(TAKEOVER_USAGE); return 2; }
+  const options = { projectDir: resolve(arg('--project') ?? process.cwd()), home: arg('--home') ?? undefined, name: arg('--name') ?? undefined, tableIn: tableIn as TableIn };
+  if (!run) {
+    let t: PreparedTakeover;
+    try { t = await prepareTakeover(options); } catch (e) { console.error((e as Error).message); return 2; }
+    printSteps(t);
+    return 0;
+  }
+  const standIn = process.env.PK_TAKEOVER_AGENT?.trim();
+  const agentCommand = standIn ? (/\.(m?js|ts)$/i.test(standIn) ? [process.execPath, resolve(standIn)] : [standIn]) : undefined;
+  let r: Awaited<ReturnType<typeof runTakeover>>;
+  try {
+    r = await runTakeover({ ...options, model: arg('--model') ?? undefined, effort: arg('--effort') ?? undefined, agentCommand, log: (line) => console.log(line) });
+  } catch (e) { console.error((e as Error).message); return 2; }
+  const t = r.prepared;
+  console.log(`\nWork folder: ${t.workDir} (each step's events, stderr, times and last message under runs/)`);
+  for (const s of r.runs) if (s.lastMessage) console.log(`\n${s.step}, last message:\n${s.lastMessage.trim()}`);
+  if (r.stopped) {
+    console.log(`\nStopped after ${r.stopped.after}: ${r.stopped.why}. Nothing was taken in.`);
+    if (r.problems.length) printProblems(t.steps.main.output, r.problems);
+    console.log(`Once ${t.steps.main.output} checks clean, put it at ${t.destination} and take it in:\n  ${t.importCommand}`);
+    return 1;
+  }
+  console.log(`\nTaken in from ${t.destination}${r.previousTable ? ` (the table that stood there is kept as ${r.previousTable})` : ''}: ${r.imported!.counts!.graph.nodes} nodes in the graph.`);
+  for (const w of r.imported!.warnings ?? []) console.warn(`  ${w}`);
+  return 0;
+}
+
 async function main(): Promise<number> {
   const command = process.argv[2] ?? 'serve';
   if (command === 'check') return checkCommand();
+  if (command === 'takeover') return takeoverCommand();
   // The import opens its home itself, and only for a table that holds.
   if (command === 'import') return importCommand();
   if (command === 'sessions') return sessionsCommand();

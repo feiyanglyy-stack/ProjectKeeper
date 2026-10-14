@@ -1,6 +1,6 @@
 # How the Keeper works
 
-For the curious: what happens between pressing `Start` and reading the map. You do not need any of this to use ProjectKeeper.
+For the curious: how a project gets from its folder onto the map, and how it stays current. You do not need any of this to use ProjectKeeper.
 
 ## The idea
 
@@ -11,9 +11,35 @@ Two rules shape everything:
 - **What a program can count or check, the program does.** Commits, document versions, numbers, dates, who referenced what: a program records them exactly, and no model is asked to remember or re-derive them.
 - **The model's attention goes to judgement.** What a document means, which plan a piece of work belongs to, whether a missing step is really missing.
 
+## Two ways to take a project over
+
+**Your own agent fills the table (recommended).** A frontier agent you already use (Claude Code, Codex, or another) reads the project in its own way and writes down what it understood as one JSON table. ProjectKeeper draws that table with the same Graph, List and Code. `pk takeover` sets up the takeover in three steps:
+
+1. **The owner's words.** One agent reads only the session material: your messages, each with the agent answer it replies to. It writes what you want, and how that changed over time.
+2. **The project.** Another agent reads only a copy of the project — documents, git history, code — and fills in everything else.
+3. **The main agent.** It merges the two parts, links each thing you want to where the project carries it out, and writes a note wherever you and the project part ways.
+
+`pk check` holds the table to its shape and to the project's own files: every id, every source, every quote word for word. `pk import` takes it in. The format and the guide the agents fill it by are in [`template/`](../template/FILLING-IN.md).
+
+On ProjectKeeper's own working repository, Codex took the three steps in about 27 minutes. It found 75 things the owner wanted, 33 decisions (plus 7 boundaries), 36 pieces of work and 18 places where the owner and the project part ways. On the same material, the Keeper's own rounds took over two hours, and marked 326 of 328 decisions current although later ones had overturned some of them.
+
+**The Keeper takes it over with your key.** Choose a depth on the Takeover page and press `Start`. This is the method described under [A round](#a-round) below. Use it when you have no agent of your own to run the steps.
+
+## Daily upkeep of a table
+
+A project taken over by the table is kept current by carrying the same table on.
+
+1. At the time you set, or when you press `Follow up`, the program prepares a brief: the commits since the table's date, the documents they changed, and your new messages in the sessions.
+2. With nothing new, no model runs.
+3. Otherwise one Keeper session, on your key, edits only the entries the changes touch, and keeps the grain of the table.
+4. It hands the table back through the same check, so a table with a problem is refused and nothing changes. A table that passes is taken in at once.
+5. When the table lives in ProjectKeeper's own folder, as a public project's does, every version is committed there, so `git log` shows what each follow-up changed.
+
+What you did with a note — a response, a discussion — stays when the table is taken in again.
+
 ## A round
 
-All work happens in **rounds**. A takeover is one or two rounds; daily upkeep is one round at a time.
+For a project the Keeper took over itself, all work happens in **rounds**. A takeover is one or two rounds; daily upkeep is one round at a time.
 
 | Round | When | Steps |
 |---|---|---|

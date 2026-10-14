@@ -2,7 +2,7 @@
 
 **Your agents wrote the code. ProjectKeeper tells you what was actually planned, decided and done.**
 
-A resident agent that takes over a project as it is — even one left half-done — and draws it as a map you can browse.
+Your own agent takes a project over as it is — even one left half-done — by filling in one table. ProjectKeeper draws that table as a map you can browse, and a resident agent keeps it current every day.
 
 - **Anchored to what you said.** Your words are kept verbatim, with the session they were said in. Where a document has drifted from them, where something you wanted was dropped along the way, or where work grew that you never asked for, ProjectKeeper tells you.
 - **A half-done project, ready to hand over.** Point it at the folder: documents, git history, code and agent sessions become one picture, and one command gives the next agent the context for the work it picks up.
@@ -97,7 +97,22 @@ npm ci
 npm start
 ```
 
-Open `http://127.0.0.1:4870/`. Then four clicks:
+Then take your project over, in one of two ways.
+
+**With your own agent (recommended).** Claude Code, Codex or any agent you use reads the project and fills in the table:
+
+```sh
+npx pk takeover --project <your project folder> --prepare
+```
+
+This sets up three folders, each with its instructions, in ProjectKeeper's own folder, never in your project:
+- one for the agent that reads your words in your past sessions;
+- one for the agent that reads a copy of the project;
+- one for the main agent that merges the two.
+
+Run the three steps with your agent; with Codex you can add `--run codex` and they run by themselves. Then `pk import`, as printed, takes the table in. Open `http://127.0.0.1:4870/` to see it. How the agents fill the table: [the template](template/FILLING-IN.md).
+
+**With the Keeper and your key.** Open `http://127.0.0.1:4870/`, then four clicks:
 
 1. **Add project** — a name and the folder of your project, typed or picked with `Browse…`. Nothing runs yet.
 2. **Add a key** — on the Keeper page that opens, under `Model provider`: choose the provider, paste the key, `Save`.
@@ -105,6 +120,8 @@ Open `http://127.0.0.1:4870/`. Then four clicks:
 4. **Start.**
 
 The first picture comes first; the deepening follows if you chose one. Details: [Getting started](docs/getting-started.md).
+
+Either way, add a key for the daily upkeep: the Keeper uses it to carry the picture on as the project changes.
 
 ## Models and keys
 
@@ -114,7 +131,15 @@ You bring your own key. The model library underneath ([pi](https://github.com/ea
 
 ## What a run costs
 
-A full takeover (the first pass and a full deepening) of the project above, measured four times:
+**A takeover by your own agent** runs on that agent's subscription. On ProjectKeeper's own working repository, Codex took the three steps in about 27 minutes:
+- the reader of the owner's words and the reader of the project ran side by side, in about 18 minutes;
+- then the main agent took 8 minutes.
+
+The table it filled has 75 things the owner wanted, 33 decisions plus 7 boundaries, 36 pieces of work and 18 places where the owner and the project part ways.
+
+**A daily follow-up** runs on your key, and runs no model on a day with nothing new.
+
+**A takeover by the Keeper** (the first pass and a full deepening) of the same project, measured four times:
 
 | Models | Time | Cost |
 |---|---|---|
@@ -181,19 +206,29 @@ flowchart LR
     C["Code"]
     S["Agent sessions"]
   end
-  subgraph K["The Keeper, on your machine"]
+  subgraph T["Takeover, by your own agent"]
+    O["Your words, from the sessions"]
+    R["The project, from a copy"]
+    M["Main agent: merges, notes where they part"]
+    O --> M
+    R --> M
+  end
+  subgraph K["ProjectKeeper, on your machine"]
     L["Ledger: a program records what exists and when"]
-    F["Takeover, first: a usable picture"]
-    E["Takeover, then: the deepening"]
-    U["Daily upkeep, on your schedule"]
-    L --> F --> E --> U
+    C2["pk check, pk import: the table against the project"]
+    U["Daily upkeep: the Keeper carries the table on"]
   end
   P --> L
+  P --> T
+  M --> C2
+  C2 --> U
   K --> W["The workbench in your browser"]
   K --> A["pk, for your agents"]
 ```
 
-A program first records what exists and when — every commit, document version, number and session — without a model. Then one main agent sends sub-agents to answer questions against that ledger, a separate session writes the notes for you, and an independent check re-reads what was concluded. What a program can count or check, the program does; the model's attention goes to judgement. More: [How the Keeper works](docs/how-the-keeper-works.md).
+A program records what exists and when, without a model: every commit, document version, number and session. Your own agent then reads the project in its own way and fills in one table. The program checks the table against the project — every id, every source, every quote word for word — and draws it. From then on the Keeper carries the same table on as the project changes, through the same check. What a program can count or check, the program does; the models' attention goes to judgement.
+
+The Keeper can also take a project over itself, in rounds, with your key. More: [How the Keeper works](docs/how-the-keeper-works.md).
 
 ## How it compares
 

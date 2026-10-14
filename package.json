@@ -1,6 +1,6 @@
 {
   "name": "projectkeeper",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A resident agent that reads a software project as it is — documents, git history, code and agent sessions — and keeps a browsable picture of what was planned, decided and done. Local-first; bring your own model key.",
   "keywords": [
     "ai-agents",

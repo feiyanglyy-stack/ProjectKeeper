@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for looking. ProjectKeeper is at v0.1 and has been used on few projects so far: a report of what it did on yours — where the picture was wrong, what it missed, what it cost — is as useful as code.
+Thank you for looking. ProjectKeeper is at v1.0 and has been used on few projects so far: a report of what it did on yours — where the picture was wrong, what it missed, what it cost — is as useful as code.
 
 ## Run it
 

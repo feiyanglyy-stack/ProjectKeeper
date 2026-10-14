@@ -1,8 +1,8 @@
 # Changelog
 
-What changed for someone who uses ProjectKeeper, newest first. Versions follow [Semantic Versioning](https://semver.org/); while the version is 0.x, anything may still change.
+What changed for someone who uses ProjectKeeper, newest first. Versions follow [Semantic Versioning](https://semver.org/).
 
-## 0.1.0 — first public version (unreleased)
+## 1.0.0 — first release (2026-10-14)
 
 What it includes:
 

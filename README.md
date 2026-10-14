@@ -238,7 +238,7 @@ Tools that draw a graph of code structure, such as Understand-Anything, show how
 
 ## Status and limits
 
-- **v0.1.** It makes mistakes, and it differs from run to run; every statement links to its source so you can check it. The measured runs, and what each missed, are in [Cost and quality](docs/cost-and-quality.md).
+- **v1.0.** It makes mistakes, and it differs from run to run; every statement links to its source so you can check it. The measured runs, and what each missed, are in [Cost and quality](docs/cost-and-quality.md).
 - **Windows and macOS.** ProjectKeeper was built on Windows and is used there every day. It runs on macOS too: its test suite passes there on GitHub's runners, but it has not yet had daily use on a Mac, so expect rough edges — a report of what it did on yours is welcome. Linux is not supported yet.
 - **Names on a Mac.** Two names that differ only in case, or only in the Unicode form of an accented, Korean or Japanese character, are one name to ProjectKeeper, as they are to a Mac's usual volume. On a volume formatted case-sensitive, two files named that way would be taken for one.
 - **A project at a very long path.** Files deep inside a project are read at any length. The project's own path is limited on Windows, and neither git's long-path setting nor Windows' own lifts the limit: at more than 246 characters git cannot open the repository (the files are read without their history, and `Project scope` says so), and at more than 251 the Keeper cannot work in the directory. Move such a project to a shorter path.

@@ -17,7 +17,7 @@ You will get an acknowledgement, then a fix or an explanation. Please give us a 
 
 ## Supported versions
 
-The latest release, and `main`. ProjectKeeper is at v0.1; older versions are not patched.
+The latest release, and `main`. ProjectKeeper is at v1.0; older versions are not patched.
 
 ## What counts
 

@@ -13,7 +13,8 @@ import { tableDir } from '../store/paths.ts';
 import { join } from 'node:path';
 import { ownerScopeItems, type App } from './app.ts';
 import { HttpApp, HttpError } from './http.ts';
-import type { ContextPackage, ContextRequest, KeeperJob, OrganizeSchedule, Project, Usage } from '../model/types.ts';
+import type { ContextPackage, ContextRequest, FollowUpRound, KeeperJob, OrganizeSchedule, Project, Usage } from '../model/types.ts';
+import { tableExtraOf } from '../keeper/organize/table-follow-up.ts';
 import type { ClerkRound } from '../model/k-types.ts';
 import type { TakeoverDepth } from '../model/vocab.ts';
 import type { ProjectStore } from '../store/project-store.ts';
@@ -80,6 +81,23 @@ export interface RoundRow {
   readonly cost: number | null;
   readonly models: readonly string[];
   readonly startedBy: string | null;
+}
+
+/**
+ * D107: a project taken over by the table is followed up by table follow-ups, each recorded as a Follow up round record
+ * (`store.rounds`) beside the job that ran it — no clerk round. The same row, read from those.
+ */
+export function tableRoundRow(store: ProjectStore, round: FollowUpRound, now = Date.now()): RoundRow {
+  const job = round.mainJobId ? store.jobs.get(round.mainJobId) ?? null : null;
+  const ran = job && job.agent !== 'program' ? [job] : [];
+  return {
+    id: round.id, number: round.number, kind: 'Follow up', depth: null,
+    status: job?.status ?? (round.endedAt ? 'Done' : 'Running'), startedAt: round.startedAt, endedAt: round.endedAt,
+    wallMs: (round.endedAt ? Date.parse(round.endedAt) : now) - Date.parse(round.startedAt),
+    cost: ran.reduce<number | null>((c, j) => addCost(c, j.usage.cost), null),
+    models: [...new Set(ran.map(modelText).filter((m): m is string => m !== null))],
+    startedBy: tableExtraOf(job ?? undefined)?.startedBy ?? null,
+  };
 }
 
 /** One row for a round: which kind, when, its status, its time and cost, the models that ran it. */
@@ -343,6 +361,10 @@ export async function keeperPageView(app: App, projectId: string, now = Date.now
   const closed = all.filter((r) => r.endedAt).sort((a, b) => (b.endedAt ?? '').localeCompare(a.endedAt ?? ''))[0] ?? null;
   const record = closed?.followUpRoundId ? store.rounds.get(closed.followUpRoundId) ?? null : null;
   const news = record?.result?.news ?? null;
+  // A project taken over by the table: its follow-ups are the Follow up round records the table follow-up writes (D107).
+  const tableRounds = store.rounds.all().filter((r) => tableExtraOf(r.mainJobId ? store.jobs.get(r.mainJobId) : undefined) !== null);
+  const lastTable = tableRounds.filter((r) => r.endedAt).sort((a, b) => (b.endedAt ?? '').localeCompare(a.endedAt ?? ''))[0] ?? null;
+  const runningTable = tableRounds.find((r) => !r.endedAt) ?? null;
   const runningRound = all.find((r) => r.status === 'Running') ?? null;
   const schedule = scheduleInForce(project, state.completedAt);
   const scope = store.coverage.scopes.find((s) => s.id === 'project');
@@ -366,11 +388,13 @@ export async function keeperPageView(app: App, projectId: string, now = Date.now
       why: done ? null : state.phase === 'Not started' ? 'Daily organizing begins once the takeover is done. Choose a depth and press Start on the Takeover page.' : 'Daily organizing begins once the takeover is done; it is still under way on the Takeover page.',
       schedule, scheduleText: scheduleText(schedule), nextAt: next ? next.toISOString() : null,
       frequencies: SCHEDULE_FREQUENCIES, dayNames: DAY_NAMES,
-      lastRound: closed ? { ...roundRow(store, closed, now), nothingNew: news ? news.nothingNew : null, statement: news ? news.statement : null, resultId: record?.result ? record.id : null } : null,
+      lastRound: project.takenOverByTable
+        ? (lastTable ? { ...tableRoundRow(store, lastTable, now), nothingNew: lastTable.result?.news?.nothingNew ?? null, statement: lastTable.result?.news?.statement ?? null, resultId: lastTable.result ? lastTable.id : null } : null)
+        : closed ? { ...roundRow(store, closed, now), nothingNew: news ? news.nothingNew : null, statement: news ? news.statement : null, resultId: record?.result ? record.id : null } : null,
       lastTime: project.scheduleHandled ?? null,
       pending: scope?.pending.length ?? 0,
       paused: Boolean(project.organizingPaused),
-      running: runningRound ? roundRow(store, runningRound, now) : null,
+      running: project.takenOverByTable ? (runningTable ? tableRoundRow(store, runningTable, now) : null) : runningRound ? roundRow(store, runningRound, now) : null,
     },
     usageBeforeClear: project.usageBeforeClear ?? null,
     projectFolder: projectFolderState(app, projectId),

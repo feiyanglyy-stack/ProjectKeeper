@@ -28,6 +28,7 @@ const { importTable, storeIdsOf } = await import('../../table/import.ts');
 const { briefText, readTable, sessionMaterial, tableChanges, tablePlace, followUpPrompt } = await import('../../table/follow-up.ts');
 const { TableFollowUp, isTableJob } = await import('./table-follow-up.ts');
 const { App } = await import('../../server/app.ts');
+const { keeperPageView } = await import('../../server/keeper-page.ts');
 const { startFakeProvider, FAKE_MODEL } = await import('../fake-provider.ts');
 type Table = import('../../table/import.ts').Table;
 type KeeperJob = import('../../model/types.ts').KeeperJob;
@@ -196,6 +197,11 @@ test('the write refuses a table with problems, listing them, and takes a good on
     // The session ends.
     store.jobs.put({ ...store.jobs.get(job.id)!, status: 'Done', endedAt: new Date().toISOString() });
     await store.flush();
+    // The Daily page's last round is this follow-up, not "No round has finished yet" (D107).
+    const daily = (await keeperPageView(app, projectId)).daily;
+    assert.deepEqual([daily.lastRound?.kind, daily.lastRound?.startedBy, daily.lastRound?.nothingNew, daily.lastRound?.resultId], ['Follow up', 'owner', false, round.id]);
+    assert.match(daily.lastRound!.statement!, /ownerWants W2 new/);
+    assert.equal(daily.running, null);
   } finally { app.stopAll(); await app.flushAll(); }
 });
 

@@ -183,6 +183,15 @@ export function checkTableFile(tableFile: string, options: { projectDir?: string
   return checkFacts(table as Json, projectDir, options.sessions ?? null);
 }
 
+/**
+ * What `pk check` says about a table file, line by line: that it has no problems, or how many and each one with where
+ * it is. The command line prints these lines and the MCP server's table check returns them (D108), so both say the same.
+ */
+export function tableCheckReport(tableFile: string, problems: readonly TableProblem[]): string[] {
+  if (!problems.length) return [`${tableFile}: no problems.`];
+  return [`${tableFile}: ${problems.length} problem${problems.length === 1 ? '' : 's'}; the table is not taken in until there are none.`, ...problems.map((p) => `  ${p.at}  ${p.problem}`)];
+}
+
 /** The session material as `pk` writes it: one JSON object per line with session, message and text. */
 export function readSessionMaterial(file: string): SessionMessage[] {
   return readFileSync(file, 'utf8').split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l) as SessionMessage);

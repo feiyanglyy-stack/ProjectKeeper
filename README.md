@@ -194,6 +194,8 @@ Status: Suggested · Open
 …
 ```
 
+For clients that take their tools over MCP (Claude Desktop, Cursor and others), `pk mcp` serves the same commands as a local MCP server: [As an MCP server](docs/pk.md#as-an-mcp-server).
+
 All of it, and how to run these against the demo: [The `pk` command](docs/pk.md).
 
 ## How it works

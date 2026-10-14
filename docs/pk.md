@@ -127,11 +127,59 @@ npx pk get sb_search_refresh --port 4880 --project <id>
 
 `<id>` is in the address the demo prints: `…/#/p/<id>/graph`.
 
+## As an MCP server
+
+For agents and clients that take their tools over MCP, `pk mcp` serves the same commands as a local MCP server on stdin and stdout:
+
+| Tool | Does what | Inputs |
+|---|---|---|
+| `projectkeeper_context` | `pk context` | `work`, `purpose`, `kind`, `recipient`, `since` |
+| `projectkeeper_get` | `pk get <id>` | `id` |
+| `projectkeeper_options` | `pk options` | — |
+| `projectkeeper_ask` | `pk ask`; with `jobId`, `pk ask --fetch` | `question`, `jobId`, `thread` |
+| `projectkeeper_check_table` | `pk check` | `table`, `project` (the folder), `sessions` |
+
+Each tool answers with the text the command prints. The tools are read-only: none of them changes the project. Every tool except the table check needs the workbench running (`npm start`); without it, the tool says so. The first four also take `project` (an id), `cwd` and `port`. By default, the project is the one that contains the folder the client starts the server in, and the port is the one in your settings. To fix them for every call, put `--project <id>`, `--cwd <folder>` or `--port <n>` after `mcp` in the arguments.
+
+The command line `pk` does the same, and a client loads nothing of it into the agent's context until the agent runs it; an MCP client loads the tools' descriptions into every session.
+
+In each configuration below, `<path to the clone>` is the folder you cloned ProjectKeeper into.
+
+**Claude Code:**
+
+```sh
+claude mcp add projectkeeper -- node <path to the clone>/bin/pk.mjs mcp
+```
+
+**Codex**, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.projectkeeper]
+command = "node"
+args = ["<path to the clone>/bin/pk.mjs", "mcp"]
+```
+
+**Cursor**, in `.cursor/mcp.json` in a project, or `~/.cursor/mcp.json` for every project:
+
+```json
+{
+  "mcpServers": {
+    "projectkeeper": {
+      "command": "node",
+      "args": ["<path to the clone>/bin/pk.mjs", "mcp"]
+    }
+  }
+}
+```
+
+Other MCP clients take the same command and arguments.
+
 ## For you
 
 | Command | What it does |
 |---|---|
 | `pk serve [--port N]` | Starts the workbench; `npm start` runs this. |
+| `pk mcp [--port N] [--project <id>] [--cwd <folder>]` | Serves the commands for agents as a local MCP server: see [As an MCP server](#as-an-mcp-server). |
 | `pk add <name> <folder> [more folders]` | Adds a project. Nothing runs until you press `Start` on its Takeover page. |
 | `pk projects` | Lists the projects: id, name, locations. |
 | `pk scope <project id>` | Prints what the Keeper treats as the project, with the reason for each item. |

@@ -195,6 +195,8 @@ Status: Suggested · Open
 …
 ```
 
+用 MCP 接工具的客户端（Claude Desktop、Cursor 等）可以用 `pk mcp`：它把同样这几条命令做成一个本地 MCP 服务，配置见 [As an MCP server](docs/pk.md#as-an-mcp-server)。
+
 全部用法，以及怎样对着 demo 跑这些命令：见 [The `pk` command](docs/pk.md)。
 
 ## 它是怎么工作的

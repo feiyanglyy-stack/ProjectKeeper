@@ -32,6 +32,20 @@
     "projectkeeper": "bin/pk.mjs",
     "pk": "bin/pk.mjs"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "!src/**/*.test.ts",
+    "!src/**/*.test-helpers.ts",
+    "ui/",
+    "skills/",
+    "template/",
+    "patches/",
+    "scripts/apply-pi-streaming-patch.ts",
+    "THIRD_PARTY_NOTICES.md",
+    "CHANGELOG.md"
+  ],
+  "mcpName": "io.github.feiyanglyy-stack/projectkeeper",
   "scripts": {
     "postinstall": "node bin/postinstall.mjs",
     "start": "node src/cli.ts serve",

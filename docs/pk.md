@@ -4,7 +4,7 @@
 
 ## Getting it
 
-From the folder you cloned, `npx pk …` works as it is. `npm link` puts `pk` on your path so it works from any folder, together with its long name, `projectkeeper`: the two are the same command. Use `npx pk` only inside the clone; elsewhere npm would look for an unrelated package named `pk`.
+Installed from npm (`npm install -g projectkeeper`), `pk` and `projectkeeper` are on your path. From the folder you cloned, `npx pk …` works as it is. `npm link` puts `pk` on your path so it works from any folder, together with its long name, `projectkeeper`: the two are the same command. Use `npx pk` only inside the clone; elsewhere npm would look for an unrelated package named `pk`.
 
 The reading commands talk to the **running workbench** (`npm start`). They read what has already been organized, so they answer at once and use no model. Only `pk ask` needs the Keeper and a key.
 
@@ -143,7 +143,7 @@ Each tool answers with the text the command prints. The tools are read-only: non
 
 The command line `pk` does the same, and a client loads nothing of it into the agent's context until the agent runs it; an MCP client loads the tools' descriptions into every session.
 
-In each configuration below, `<path to the clone>` is the folder you cloned ProjectKeeper into.
+In each configuration below, `<path to the clone>` is the folder you cloned ProjectKeeper into. Without a clone, use `npx` as the command and `-y`, `projectkeeper`, `mcp` as its arguments; in Claude Code, `claude mcp add projectkeeper -- npx -y projectkeeper mcp`. The server is also listed in the [MCP Registry](https://registry.modelcontextprotocol.io/) as `io.github.feiyanglyy-stack/projectkeeper`.
 
 **Claude Code:**
 

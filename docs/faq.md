@@ -72,7 +72,7 @@ Yes. `Ask Keeper` in the top bar opens a conversation with the Keeper about the 
 
 ### Can I install it from npm?
 
-Not yet. It is run from a clone; nothing named `projectkeeper` is on npm yet. An unrelated package named `pk` is: inside the clone `npx pk` finds this project's own command, but anywhere else it would fetch that other package. To use the command from other folders, run `npm link` in the clone and then call `pk` or `projectkeeper` directly.
+Yes: `npm install -g projectkeeper` puts the command on your path as `projectkeeper` and `pk`, and `projectkeeper serve` starts the workbench. Without installing, `npx projectkeeper …` runs it. Do not use `npx pk` outside a clone: an unrelated package named `pk` is on npm, and npx would fetch that one. The demo (`npm run demo`) runs from a clone only.
 
 ### Why are the themes not MIT?
 

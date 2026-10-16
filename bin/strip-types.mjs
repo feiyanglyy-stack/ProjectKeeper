@@ -13,6 +13,13 @@ const own = (url) => url.startsWith(root) && !url.slice(root.length).includes('n
 if (typeof nodeModule.registerHooks !== 'function' || typeof nodeModule.stripTypeScriptTypes !== 'function') {
   throw new Error(`ProjectKeeper needs Node.js 24 or later to run from an installed package (this is ${process.version}).`);
 }
+// Node warns once that stripTypeScriptTypes is experimental; from a clone the same stripping runs without a word, so
+// an installed command says nothing about it either. Every other warning goes through.
+const emitWarning = process.emitWarning;
+process.emitWarning = function (warning, ...rest) {
+  if (String(warning?.message ?? warning).includes('stripTypeScriptTypes')) return;
+  return emitWarning.call(this, warning, ...rest);
+};
 nodeModule.registerHooks({
   load(url, context, nextLoad) {
     if (!own(url)) return nextLoad(url, context);

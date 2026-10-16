@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.feiyanglyy-stack/projectkeeper",
+  "title": "ProjectKeeper",
+  "description": "What a project planned, decided and did, for your agents: context packs, notes and the table check.",
+  "repository": {
+    "url": "https://github.com/feiyanglyy-stack/ProjectKeeper",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/feiyanglyy-stack/ProjectKeeper#readme",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "projectkeeper",
+      "version": "1.0.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}

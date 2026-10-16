@@ -118,6 +118,8 @@ npm ci
 npm start
 ```
 
+也可以不克隆，直接从 npm 装：`npm install -g projectkeeper`，然后 `projectkeeper serve`；本页写 `npx pk` 的地方，换成 `projectkeeper`。
+
 然后接手你的项目，有两种方式。
 
 **用你自己的 agent（推荐）。** Claude Code、Codex 或你在用的其他 agent 读项目，填那张表：

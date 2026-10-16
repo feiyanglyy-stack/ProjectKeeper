@@ -118,6 +118,8 @@ npm ci
 npm start
 ```
 
+Or from npm, without a clone: `npm install -g projectkeeper`, then `projectkeeper serve`; where this page says `npx pk`, use `projectkeeper`.
+
 Then take your project over, in one of two ways.
 
 **With your own agent (recommended).** Claude Code, Codex or any agent you use reads the project and fills in the table:

@@ -87,6 +87,23 @@ npm run demo
 
 它会生成一个虚构的项目——Papertrail，一个人用的稍后读清单——已经整理好，在 `http://127.0.0.1:4880/` 打开。不需要 key，不调模型，不联网；demo 里 Keeper 的回答是预先写好的。它写的东西都在系统临时目录下的一个文件夹里。
 
+## 四套界面
+
+工作台带四套主题，在顶栏的 `Theme` 里切换。下面是 demo 项目在每套主题下的样子。
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/theme-a1-walnut-workshop.png" alt="demo 项目的 Graph，Walnut Workshop 主题"><br><b>Walnut Workshop</b>（默认）</td>
+<td width="50%"><img src="docs/images/theme-b1-peacock-and-brass.png" alt="demo 项目的 Graph，Peacock &amp; Brass 主题"><br><b>Peacock &amp; Brass</b></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/images/theme-d2-warm-clay.png" alt="demo 项目的 Graph，Warm Clay 主题"><br><b>Warm Clay</b></td>
+<td width="50%"><img src="docs/images/theme-i1-task-console.png" alt="demo 项目的 Graph，Task Console 主题"><br><b>Task Console</b></td>
+</tr>
+</table>
+
+同一个列表里的 `Factory` 是不带主题的内置外观。
+
 ## 快速开始
 
 需要 Node.js 24 及以上，以及 git；系统是 Windows 或 macOS。在 Mac 上，git 随 Xcode 命令行工具安装（`xcode-select --install`）；Homebrew 的 `node` 比这里测试过的 24 要新：见 [Mac 上需要什么](docs/getting-started.md#on-a-mac)。
@@ -110,7 +127,7 @@ npx pk takeover --project <你的项目文件夹> --prepare
 - 一个给只读项目副本的 agent；
 - 一个给把两边合起来的 main agent。
 
-用你的 agent 把这三步跑完；用 Codex 的话，加上 `--run codex` 它会自己跑。然后照命令打印出的那条 `pk import` 把表导进来，打开 `http://127.0.0.1:4870/` 就能看到。agent 怎么填这张表：见[模板](template/FILLING-IN.md)。
+用你的 agent 把这三步跑完，再照命令打印出的那条 `pk import` 把表导进来。用 Codex 的话，把 `--prepare` 换成 `--run codex`，三步会自己跑完，表核对无误就自动导进来。然后打开 `http://127.0.0.1:4870/` 就能看到。agent 怎么填这张表：见[模板](template/FILLING-IN.md)。
 
 **用 Keeper 和你的 key。** 打开 `http://127.0.0.1:4870/`，然后点四下：
 

@@ -87,6 +87,23 @@ npm run demo
 
 This builds an invented project — Papertrail, a one-person read-later list — already organized, and serves it at `http://127.0.0.1:4880/`. No key, no model, no network; the Keeper's answers in the demo are canned. Everything it writes goes into one folder in your temporary directory.
 
+## Four looks
+
+The workbench comes in four themes; switch with `Theme` in the top bar. Here is the demo project in each.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/theme-a1-walnut-workshop.png" alt="The demo project's Graph in the Walnut Workshop theme"><br><b>Walnut Workshop</b> — the default</td>
+<td width="50%"><img src="docs/images/theme-b1-peacock-and-brass.png" alt="The demo project's Graph in the Peacock &amp; Brass theme"><br><b>Peacock &amp; Brass</b></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/images/theme-d2-warm-clay.png" alt="The demo project's Graph in the Warm Clay theme"><br><b>Warm Clay</b></td>
+<td width="50%"><img src="docs/images/theme-i1-task-console.png" alt="The demo project's Graph in the Task Console theme"><br><b>Task Console</b></td>
+</tr>
+</table>
+
+`Factory` in the same list is the plain built-in look, without a theme.
+
 ## Quick start
 
 You need Node.js 24 or later, and git, on Windows or macOS. On a Mac, git comes with the Xcode command line tools (`xcode-select --install`), and Homebrew's `node` is a newer Node than the 24 this is tested on: [what a Mac needs](docs/getting-started.md#on-a-mac).
@@ -110,7 +127,7 @@ This sets up three folders, each with its instructions, in ProjectKeeper's own f
 - one for the agent that reads a copy of the project;
 - one for the main agent that merges the two.
 
-Run the three steps with your agent; with Codex you can add `--run codex` and they run by themselves. Then `pk import`, as printed, takes the table in. Open `http://127.0.0.1:4870/` to see it. How the agents fill the table: [the template](template/FILLING-IN.md).
+Run the three steps with your agent, then `pk import`, as printed, takes the table in. With Codex, `--run codex` in place of `--prepare` runs the three steps by themselves and takes the table in when it checks clean. Open `http://127.0.0.1:4870/` to see it. How the agents fill the table: [the template](template/FILLING-IN.md).
 
 **With the Keeper and your key.** Open `http://127.0.0.1:4870/`, then four clicks:
 

@@ -1,8 +1,8 @@
 # ProjectKeeper
 
-**Your agents wrote the code. ProjectKeeper tells you what was actually planned, decided and done.**
+**AI writes code faster every week. Do you still know whether what it built is what you wanted?**
 
-Your own agent takes a project over as it is — even one left half-done — by filling in one table. ProjectKeeper draws that table as a map you can browse, and a resident agent keeps it current every day.
+ProjectKeeper puts what you asked for, the decisions you changed and the work the AI actually finished on one map, shows you where they part, and lets the next agent pick up where the last one stopped — even on a project left half-done. Your own agent takes the project over by reading it as it is and filling in one table; from then on a resident agent keeps the map current every day.
 
 - **Anchored to what you said.** Your words are kept verbatim, with the session they were said in. Where a document has drifted from them, where something you wanted was dropped along the way, or where work grew that you never asked for, ProjectKeeper tells you.
 - **A half-done project, ready to hand over.** Point it at the folder: documents, git history, code and agent sessions become one picture, and one command gives the next agent the context for the work it picks up.
@@ -20,7 +20,11 @@ English · [简体中文](README.zh-CN.md)
 
 ## Why
 
-Three weeks into a project built with coding agents, you have twenty-odd sessions behind you, forty tickets, and a plan that was rewritten twice. You come back on a Monday and cannot say which decisions still hold, what was really finished and what was only reported finished, or what was quietly dropped along the way. The answers exist — in documents, commit messages and session logs nobody will read again. ProjectKeeper reads them, on your machine, and keeps the result where you can browse it.
+Let AI build a piece of software for long enough and you end up here: the conversations pile up, the plan keeps changing, and the agents have been swapped several times. Every agent says its task is done, yet nobody can say in full what was asked for at first, what changed later, and what was finally built. The answers exist — in documents, commit messages and session logs nobody will read again.
+
+ProjectKeeper works like a project's archivist. It does not write code for the agents; it lines up every request, every change and the work actually finished. Where they do not match, it tells you; when the agent changes, it hands the whole story to the next one.
+
+It is not too late to bring it in halfway: it goes through the sessions, documents and commits already there, and tells you what each version of the requirements was, what it was changed to, and which version is the one built. All of it happens on your machine.
 
 ## What you get
 
